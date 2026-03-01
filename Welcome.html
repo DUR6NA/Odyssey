@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Odyssey - Launch</title>
+    <link rel="icon" type="image/x-icon" href="assets/c6a9f48d-87b4-4579-8e46-52d6543123b9.ico">
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const primaryFont = localStorage.getItem('jsonAdventure_primaryFont') || 'Cinzel';
+            const secondaryFont = localStorage.getItem('jsonAdventure_secondaryFont') || 'Merriweather';
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = `https://fonts.googleapis.com/css2?family=${primaryFont.replace(/\s+/g, '+')}:wght@400;700&family=${secondaryFont.replace(/\s+/g, '+')}:wght@400;600&display=swap`;
+            document.head.appendChild(link);
+            document.documentElement.style.setProperty('--font-primary', `"${primaryFont}", serif`);
+            document.documentElement.style.setProperty('--font-secondary', `"${secondaryFont}", sans-serif`);
+        });
+    </script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            color: white;
+            overflow: hidden;
+            font-family: var(--font-secondary, 'Merriweather', sans-serif);
+            height: 100vh;
+            width: 100vw;
+            position: relative;
+        }
+
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 1.5s ease-in-out;
+            z-index: 1;
+        }
+
+        .screen.active {
+            opacity: 1;
+            pointer-events: auto;
+            z-index: 10;
+        }
+
+        /* Screen 1: Logo Slam */
+        #logo-container {
+            font-family: var(--font-primary, 'Cinzel', serif);
+            font-size: 5rem;
+            text-align: center;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            text-shadow: 0 0 40px rgba(255, 255, 255, 0.4);
+            transform: scale(8) translateZ(0);
+            opacity: 0;
+            line-height: 1.2;
+        }
+
+        @keyframes slamIn {
+            0% {
+                transform: scale(8) translateZ(0);
+                opacity: 0;
+            }
+
+            40% {
+                transform: scale(0.9) translateZ(0);
+                opacity: 1;
+            }
+
+            60% {
+                transform: scale(1.05) translateZ(0);
+                opacity: 1;
+            }
+
+            100% {
+                transform: scale(1) translateZ(0);
+                opacity: 1;
+            }
+        }
+
+        .animate-slam {
+            animation: slamIn 1s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+        }
+
+        /* Screen 2: Parallax Stormy Waves */
+        #screen-2 {
+            background: linear-gradient(to bottom, #02040a, #0b1021, #131d36);
+            overflow: hidden;
+        }
+
+        .stars {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 60%;
+            background-image:
+                radial-gradient(1px 1px at 20px 30px, #ffffff, transparent),
+                radial-gradient(1px 1px at 140px 70px, rgba(255, 255, 255, 0.8), transparent),
+                radial-gradient(2px 2px at 90px 40px, rgba(255, 255, 255, 0.6), transparent),
+                radial-gradient(1.5px 1.5px at 260px 120px, #ffffff, transparent),
+                radial-gradient(1px 1px at 350px 20px, #ffffff, transparent),
+                radial-gradient(2.5px 2.5px at 450px 160px, rgba(255, 255, 255, 0.9), transparent),
+                radial-gradient(1px 1px at 550px 300px, rgba(255, 255, 255, 0.7), transparent),
+                radial-gradient(1.5px 1.5px at 650px 50px, rgba(255, 255, 255, 0.8), transparent),
+                radial-gradient(2px 2px at 750px 250px, #ffffff, transparent),
+                radial-gradient(1px 1px at 80px 350px, rgba(255, 255, 255, 0.5), transparent);
+            background-repeat: repeat;
+            background-size: 800px 800px;
+            opacity: 0.5;
+            animation: twinkle 4s ease-in-out infinite alternate, star-drift 60s linear infinite;
+        }
+
+        @keyframes star-drift {
+            from {
+                background-position: 0 0;
+            }
+
+            to {
+                background-position: -800px 0;
+            }
+        }
+
+        @keyframes twinkle {
+            0% {
+                opacity: 0.3;
+            }
+
+            100% {
+                opacity: 0.7;
+            }
+        }
+
+        .moon {
+            position: absolute;
+            top: 15%;
+            right: 25%;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: #eef1f5;
+            box-shadow: 0 0 60px 20px rgba(238, 241, 245, 0.4), inset -10px -10px 20px rgba(0, 0, 0, 0.2);
+            animation: moon-drift 30s linear forwards;
+            z-index: 0;
+        }
+
+        @keyframes moon-drift {
+            from {
+                transform: translateX(0);
+            }
+
+            to {
+                transform: translateX(-150px);
+            }
+        }
+
+        .shooting-star {
+            position: absolute;
+            width: 150px;
+            height: 2px;
+            background: linear-gradient(to right, rgba(255, 255, 255, 1), rgba(255, 255, 255, 0));
+            transform: rotate(-35deg) scale(0);
+            transform-origin: right;
+            opacity: 0;
+            z-index: 5;
+        }
+
+        .shooting-star.primary {
+            top: 5%;
+            right: 15%;
+            animation: shooting 7s linear infinite;
+        }
+
+        .shooting-star.secondary {
+            top: 25%;
+            right: 45%;
+            animation: shooting 11s linear infinite;
+            animation-delay: 4s;
+        }
+
+        @keyframes shooting {
+            0% {
+                transform: rotate(-35deg) translateX(0) scale(0);
+                opacity: 0;
+            }
+
+            5% {
+                transform: rotate(-35deg) translateX(-100px) scale(1);
+                opacity: 1;
+            }
+
+            15% {
+                transform: rotate(-35deg) translateX(-400px) scale(0);
+                opacity: 0;
+            }
+
+            100% {
+                opacity: 0;
+            }
+        }
+
+        .lightning {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            opacity: 0;
+            pointer-events: none;
+            animation: flash 9s infinite;
+            z-index: 0;
+        }
+
+        @keyframes flash {
+
+            0%,
+            93%,
+            98%,
+            100% {
+                opacity: 0;
+            }
+
+            94% {
+                opacity: 0.5;
+            }
+
+            95% {
+                opacity: 0;
+            }
+
+            99% {
+                opacity: 0.8;
+            }
+        }
+
+        .parallax-layer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-repeat: repeat-x;
+        }
+
+        .layer-1 {
+            bottom: 0;
+            height: 18vh;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 100" preserveAspectRatio="none"><path fill="%23060a12" d="M0,15 Q100,0 200,15 T400,15 L400,100 L0,100 Z"/></svg>');
+            background-size: 600px 100%;
+            animation: scroll-waves-1 5s linear infinite;
+            z-index: 3;
+        }
+
+        .layer-2 {
+            bottom: 0;
+            height: 30vh;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100" preserveAspectRatio="none"><path fill="%2311182c" d="M0,20 Q75,5 150,20 T300,20 L300,100 L0,100 Z"/></svg>');
+            background-size: 400px 100%;
+            animation: scroll-waves-2 9s linear infinite;
+            z-index: 2;
+        }
+
+        .layer-3 {
+            bottom: 0;
+            height: 40vh;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100" preserveAspectRatio="none"><path fill="%231a233b" d="M0,5 Q50,0 100,5 T200,5 L200,100 L0,100 Z"/></svg>');
+            background-size: 250px 100%;
+            animation: scroll-waves-3 15s linear infinite;
+            z-index: 1;
+        }
+
+        .parallax-text {
+            position: absolute;
+            top: 35%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: var(--font-primary, 'Cinzel', serif);
+            font-size: 2.5rem;
+            color: rgba(255, 255, 255, 0.7);
+            text-align: center;
+            z-index: 10;
+            text-shadow: 0 4px 15px rgba(0, 0, 0, 0.9);
+            letter-spacing: 0.15em;
+            transition: opacity 2s ease;
+        }
+
+        @keyframes scroll-waves-1 {
+            from {
+                background-position: 0 bottom;
+            }
+
+            to {
+                background-position: -600px bottom;
+            }
+        }
+
+        @keyframes scroll-waves-2 {
+            from {
+                background-position: 0 bottom;
+            }
+
+            to {
+                background-position: -400px bottom;
+            }
+        }
+
+        @keyframes scroll-waves-3 {
+            from {
+                background-position: 0 bottom;
+            }
+
+            to {
+                background-position: -250px bottom;
+            }
+        }
+
+        /* Screen 3: Disclaimer */
+        #screen-3 {
+            background-color: #050505;
+        }
+
+        .disclaimer-box {
+            background: rgba(20, 20, 25, 0.8);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 4rem;
+            max-width: 650px;
+            text-align: center;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+            transform: translateY(30px) scale(0.95);
+            opacity: 0;
+            transition: all 1s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        #screen-3.active .disclaimer-box {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+            transition-delay: 0.6s;
+        }
+
+        .disclaimer-title {
+            font-family: var(--font-primary, 'Cinzel', serif);
+            color: #ff4747;
+            font-size: 2.2rem;
+            margin-top: 0;
+            margin-bottom: 1.5rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        .disclaimer-text {
+            color: #a1a1aa;
+            line-height: 1.7;
+            font-size: 1.05rem;
+            margin-bottom: 3rem;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+        }
+
+        .btn {
+            padding: 1rem 3rem;
+            font-family: var(--font-secondary, 'Merriweather', sans-serif);
+            font-size: 1rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            outline: none;
+        }
+
+        .btn-primary {
+            background-color: #ffffff;
+            color: #000000;
+        }
+
+        .btn-primary:hover {
+            background-color: #e2e8f0;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .btn-primary:active {
+            transform: translateY(1px);
+        }
+
+        .btn-secondary {
+            background-color: transparent;
+            color: #71717a;
+            border: 1px solid #3f3f46;
+        }
+
+        .btn-secondary:hover {
+            color: #ffffff;
+            border-color: #a1a1aa;
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .fade-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: black;
+            z-index: 100;
+            opacity: 1;
+            pointer-events: none;
+            transition: opacity 1.5s ease-in-out;
+        }
+
+        #start-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: black;
+            z-index: 999;
+            transition: opacity 1s ease;
+            cursor: pointer;
+        }
+
+        .start-text {
+            color: #ffffff;
+            font-family: var(--font-secondary, 'Merriweather', sans-serif);
+            font-size: 1.2rem;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            animation: pulse 2.5s infinite ease-in-out;
+            user-select: none;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 0.4;
+            }
+
+            50% {
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <audio id="startup-audio" src="/assets/startup.mp3" preload="auto"></audio>
+
+    <div id="start-overlay" onclick="playSequence();">
+        <div class="start-text">Click to begin</div>
+    </div>
+
+    <!-- Global Intro Fade -->
+    <div class="fade-overlay" id="global-fade"></div>
+
+    <!-- 1. Logo Sequence -->
+    <div id="screen-1" class="screen">
+        <div id="logo-container">Odyssey</div>
+    </div>
+
+    <!-- 2. Parallax Stormy Waves Sequence -->
+    <div id="screen-2" class="screen">
+        <div class="stars"></div>
+        <div class="shooting-star primary"></div>
+        <div class="shooting-star secondary"></div>
+        <div class="moon"></div>
+        <div class="lightning"></div>
+        <div class="parallax-text" id="p-text">Prepare for the Unknown</div>
+        <div class="parallax-layer layer-1"></div>
+        <div class="parallax-layer layer-2"></div>
+        <div class="parallax-layer layer-3"></div>
+    </div>
+
+    <!-- 3. Disclaimer / Agreement -->
+    <div id="screen-3" class="screen">
+        <div class="disclaimer-box" id="disclaimer-content">
+            <h2 class="disclaimer-title">Content Warning</h2>
+            <div class="disclaimer-text">
+                This experience implements unpredictable AI narratives and may contain mature or unrestrained themes.
+                By proceeding, you verify that you accept full responsibility for your journey's unfolding events.
+            </div>
+            <div class="buttons">
+                <button class="btn btn-secondary" onclick="handleDisagree()">Disagree</button>
+                <button class="btn btn-primary" onclick="handleAgree()">Agree & Continue</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const playSequence = () => {
+            const startBtn = document.getElementById('start-overlay');
+            const audio = document.getElementById('startup-audio');
+            const fade = document.getElementById('global-fade');
+            const screen1 = document.getElementById('screen-1');
+            const screen2 = document.getElementById('screen-2');
+            const screen3 = document.getElementById('screen-3');
+            const logo = document.getElementById('logo-container');
+            const pText = document.getElementById('p-text');
+
+            // Start audio in sync with animation start and fade in gently
+            audio.volume = 0;
+            audio.play().catch(e => console.log('Audio could not auto-play', e));
+
+            let fadeIn = setInterval(() => {
+                if (audio.volume < 0.35) {
+                    audio.volume = Math.min(0.35, audio.volume + 0.01);
+                } else {
+                    clearInterval(fadeIn);
+                }
+            }, 100);
+
+            // Fade out the physical start overlay
+            startBtn.style.opacity = '0';
+            setTimeout(() => { startBtn.style.display = 'none'; }, 1000);
+
+            // Timeline: Total Length 30 seconds
+
+            // 0.5s: Global reveal from true black
+            setTimeout(() => { fade.style.opacity = '0'; }, 500);
+
+            // 1.5s: Odyssey text slams in
+            screen1.classList.add('active');
+            setTimeout(() => {
+                logo.classList.add('animate-slam');
+            }, 1500);
+
+            // 6.5s: Fade out Odyssey screen
+            setTimeout(() => {
+                screen1.style.opacity = '0';
+            }, 6500);
+
+            // 8.0s: Crossfade into Stormy Waves Parallax
+            setTimeout(() => {
+                screen1.classList.remove('active');
+                screen2.classList.add('active');
+                screen2.style.opacity = '1';
+            }, 8000);
+
+            // 15.0s: Fade out the "Prepare for the Unknown" text to leave just atmosphere
+            setTimeout(() => {
+                if (pText) pText.style.opacity = '0';
+            }, 15000);
+
+            // 25.0s: Start fading out the audio slowly
+            setTimeout(() => {
+                let fadeOut = setInterval(() => {
+                    if (audio.volume > 0.01) {
+                        audio.volume = Math.max(0, audio.volume - 0.01);
+                    } else {
+                        audio.volume = 0;
+                        clearInterval(fadeOut);
+                    }
+                }, 100);
+            }, 25000);
+
+            // 26.0s: Fade out the Stormy Parallax scene
+            setTimeout(() => {
+                screen2.style.opacity = '0';
+            }, 26000);
+
+            // 27.5s: Fade in Disclaimer exactly at climax/soft finish of song
+            setTimeout(() => {
+                screen2.classList.remove('active');
+                screen3.classList.add('active');
+                screen3.style.opacity = '1';
+            }, 27500);
+        };
+
+        function handleAgree() {
+            // Fade out everything, then redirect
+            const fade = document.getElementById('global-fade');
+            fade.style.opacity = '1';
+            setTimeout(() => {
+                window.location.href = '/game.html';
+            }, 1200);
+        }
+
+        async function handleDisagree() {
+            const box = document.getElementById('disclaimer-content');
+            box.innerHTML = `
+                <h2 class="disclaimer-title" style="color:white; font-size: 1.8rem; margin:0;">Shutting Down...</h2>
+                <p style="color:#a1a1aa; margin-top:1.5rem;">Connection terminated. You may close this window.</p>
+            `;
+
+            try {
+                // Issue POST to the backend shutdown endpoint
+                await fetch('/api/shutdown', { method: 'POST' });
+
+                // Try to close window
+                setTimeout(() => {
+                    window.close();
+                }, 2000);
+            } catch (e) {
+                console.error("Failed to shutdown server", e);
+            }
+        }
+    </script>
+</body>
+
+</html>
