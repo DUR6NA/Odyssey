@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const PORT = 3000;
+const PORT = 3001;
 
 const mimeTypes = {
     '.html': 'text/html',

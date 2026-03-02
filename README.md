@@ -26,30 +26,45 @@ Before running the project, you must have the following installed on your system
    *(Alternatively, run `npm install` from the command line inside the project directory).*
 3. Double-click `start.cmd` or run `npm start` to launch the server.
 
-### For Linux/macOS Users
+### For Linux Users
 
 1. Clone the repository or download the source code.
 2. Open a terminal and navigate to the project directory.
-3. Make the installation script executable (if it isn't already):
+3. Make the installation script executable:
    ```bash
-   chmod +x install.sh
+   chmod +x install.sh run.sh
    ```
 4. Run the installation script:
    ```bash
    ./install.sh
    ```
-   *(Alternatively, just run `npm install`)*
 5. Launch the game server:
    ```bash
-   npm start
+   ./run.sh
    ```
+
+### For macOS Users
+
+1. Clone the repository or download the source code.
+2. Open a terminal and navigate to the project directory.
+3. Make the installation script executable:
+   ```bash
+   chmod +x install_macos.sh run_macos.sh run_macos.command
+   ```
+4. Run the installation script:
+   ```bash
+   ./install_macos.sh
+   ```
+5. Launch the game server:
+   - Double-click `run_macos.command` in Finder (recommended)
+   - OR run `./run_macos.sh` in the terminal.
 
 ## Usage
 
 Once the server is running, open your web browser and navigate to:
 
 ```text
-http://localhost:3000
+http://localhost:3001
 ```
 *(Check your console output if a different port is specified).*
 
