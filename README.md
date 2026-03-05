@@ -1,4 +1,4 @@
-# Odyssey (JsonAdventure)
+# Odyssey 
 
 A browser-based, AI-driven text adventure game powered by OpenRouter. Explore unique worlds, interact with AI companions, manage your inventory, and shape your own story in an immersive environment.
 
