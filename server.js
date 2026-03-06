@@ -322,6 +322,47 @@ const server = http.createServer((req, res) => {
         return;
     }
 
+
+    // Proxy for xAI to bypass CORS
+    if (req.url.startsWith('/api/xai-proxy/')) {
+        const targetUrl = 'https://api.x.ai/' + req.url.substring('/api/xai-proxy/'.length);
+        const https = require('https');
+        
+        const options = {
+            method: req.method,
+            headers: {}
+        };
+        
+        // Forward standard headers
+        for (const h of ['authorization', 'content-type', 'accept', 'content-length']) {
+            if (req.headers[h]) options.headers[h] = req.headers[h];
+        }
+
+        const proxyReq = https.request(targetUrl, options, (proxyRes) => {
+            // Forward the response headers except those that might cause issues
+            const resHeaders = { ...proxyRes.headers };
+            delete resHeaders['access-control-allow-origin'];
+            delete resHeaders['access-control-allow-headers'];
+            delete resHeaders['access-control-allow-methods'];
+            
+            res.writeHead(proxyRes.statusCode, resHeaders);
+            proxyRes.pipe(res, { end: true });
+        });
+
+        proxyReq.on('error', (err) => {
+            console.error('XAI Proxy Error:', err);
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        });
+
+        if (req.method === 'POST' || req.method === 'PUT') {
+            req.pipe(proxyReq, { end: true });
+        } else {
+            proxyReq.end();
+        }
+        return;
+    }
+
     // Static file serving — strip query strings for cache-busting support
     const urlPath = req.url.split('?')[0];
     let filePath = path.join(__dirname, urlPath === '/' ? 'Welcome.html' : urlPath);
@@ -345,6 +386,21 @@ const server = http.createServer((req, res) => {
             res.end(content, 'utf-8');
         }
     });
+});
+
+server.on('error', (e) => {
+    if (e.code === 'EADDRINUSE') {
+        console.error(`\n======================================================`);
+        console.error(` Error: The server is already running!`);
+        console.error(` Port ${PORT} is currently in use.`);
+        console.error(` Please close any other command windows running the game,`);
+        console.error(` or use the shutdown option before restarting.`);
+        console.error(`======================================================\n`);
+        process.exit(1);
+    } else {
+        console.error('Server error:', e);
+        process.exit(1);
+    }
 });
 
 server.listen(PORT, '0.0.0.0', () => {

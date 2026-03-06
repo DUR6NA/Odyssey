@@ -15,15 +15,7 @@
 
 <body>
     <div class="app-container">
-        <!-- Welcome Screen -->
-        <div id="welcome-screen" class="welcome-screen">
-            <h1 class="welcome-title">Odyssey</h1>
-            <p class="welcome-subtitle">Your story begins here.</p>
-            <div class="welcome-buttons">
-                <button class="btn welcome-btn" onclick="startNewGame()">New Game</button>
-                <button class="btn welcome-btn welcome-btn-secondary" onclick="loadGame()">Load Game</button>
-            </div>
-        </div>
+
 
         <!-- Setup Screen (multi-phase wizard) -->
         <div id="setup-screen" class="setup-screen hidden">
@@ -116,41 +108,24 @@
             window.location.href = "settings.html";
         }
 
-        function startNewGame() {
-            if (typeof initSetupMode === 'function') {
-                initSetupMode();
-            } else {
-                const welcomeScreen = document.getElementById('welcome-screen');
-                if (welcomeScreen) welcomeScreen.classList.add('hidden');
-            }
-        }
+        document.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const action = params.get('action');
 
-        async function loadGame() {
-            try {
-                const res = await fetch('/api/list-games');
-                const games = await res.json();
-
-                const welcomeScreen = document.getElementById('welcome-screen');
-                welcomeScreen.innerHTML = '<h2 class="welcome-title" style="margin-bottom:10px;">Select a Game</h2><div id="game-list" style="margin:20px 0;width:100%;max-width:300px;display:flex;flex-direction:column;gap:10px;"></div><button class="btn welcome-btn welcome-btn-secondary" onclick="location.reload()">Back</button>';
-
-                const gameList = document.getElementById('game-list');
-                if (games.length === 0) {
-                    gameList.innerHTML = '<p style="color:var(--text-muted);">No saved games found.</p>';
-                    return;
+            if (action === 'new') {
+                if (typeof initSetupMode === 'function') {
+                    initSetupMode();
                 }
-
-                games.forEach(game => {
-                    const btn = document.createElement('button');
-                    btn.className = 'btn welcome-btn';
-                    btn.textContent = `Game Folder ${game}`;
-                    btn.onclick = () => doLoadGame(game);
-                    gameList.appendChild(btn);
-                });
-            } catch (err) {
-                console.error(err);
-                alert("Failed to list games.");
+            } else if (action === 'load') {
+                const gameId = params.get('id');
+                if (gameId) {
+                    doLoadGame(gameId);
+                }
+            } else {
+                // Directly loaded game.html without params, maybe redirect to main menu
+                window.location.href = 'mainmenu.html';
             }
-        }
+        });
 
         async function doLoadGame(gameId) {
             try {
@@ -158,8 +133,7 @@
                 if (!res.ok) throw new Error("Load failed");
                 const data = await res.json();
 
-                // Hide welcome, show game
-                document.getElementById('welcome-screen').classList.add('hidden');
+                // Show game layout
                 document.querySelector('.layout').style.display = 'grid';
 
                 currentGameFolder = gameId; // Used by setup.js

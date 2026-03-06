@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Odyssey - Main Menu</title>
+    <link rel="icon" type="image/x-icon" href="assets/c6a9f48d-87b4-4579-8e46-52d6543123b9.ico">
+    <script>
+        const activeTheme = localStorage.getItem('jsonAdventure_activeThemeId') || 'dark';
+        document.documentElement.setAttribute('data-theme', activeTheme);
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const primaryFont = localStorage.getItem('jsonAdventure_primaryFont') || 'Cinzel';
+            const secondaryFont = localStorage.getItem('jsonAdventure_secondaryFont') || 'Merriweather';
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = `https://fonts.googleapis.com/css2?family=${primaryFont.replace(/\s+/g, '+')}:wght@400;700&family=${secondaryFont.replace(/\s+/g, '+')}:wght@400;600&display=swap`;
+            document.head.appendChild(link);
+            document.documentElement.style.setProperty('--font-primary', `"${primaryFont}", serif`);
+            document.documentElement.style.setProperty('--font-secondary', `"${secondaryFont}", sans-serif`);
+
+            const bgm = document.getElementById('bgm');
+            if (bgm) {
+                bgm.volume = 0.15;
+                document.body.addEventListener('click', () => {
+                    if (bgm.paused) {
+                        bgm.play().catch(() => { });
+                    }
+                }, { once: true });
+            }
+        });
+
+        function startNewGame() {
+            window.location.href = 'game.html?action=new';
+        }
+
+        async function loadGameMenu() {
+            document.getElementById('menu-buttons').classList.add('hidden');
+            const container = document.getElementById('save-list-container');
+            container.classList.remove('hidden');
+
+            const list = document.getElementById('save-list');
+            list.innerHTML = '<p style="color:#aaa;">Loading saves...</p>';
+
+            try {
+                const res = await fetch('/api/list-games');
+                const games = await res.json();
+
+                list.innerHTML = '';
+                if (games.length === 0) {
+                    list.innerHTML = '<p style="color:#aaa;">No saved games found.</p>';
+                    return;
+                }
+
+                games.forEach(game => {
+                    const btn = document.createElement('button');
+                    btn.className = 'menu-btn save-btn';
+                    btn.style.fontSize = '1.2rem';
+                    btn.textContent = game;
+                    btn.onclick = () => {
+                        window.location.href = `game.html?action=load&id=${encodeURIComponent(game)}`;
+                    };
+                    list.appendChild(btn);
+                });
+            } catch (e) {
+                console.error(e);
+                list.innerHTML = '<p style="color:red;">Error loading save data</p>';
+            }
+        }
+
+        function hideLoadMenu() {
+            document.getElementById('save-list-container').classList.add('hidden');
+            document.getElementById('menu-buttons').classList.remove('hidden');
+        }
+    </script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            color: white;
+            overflow: hidden;
+            font-family: var(--font-secondary, 'Merriweather', sans-serif);
+            height: 100vh;
+            width: 100vw;
+            position: relative;
+        }
+
+        /* Background Container */
+        .background-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, #02040a, #0b1021, #131d36);
+            overflow: hidden;
+            z-index: 1;
+        }
+
+        /* Animation Styles */
+        .stars {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 60%;
+            background-image:
+                radial-gradient(1px 1px at 20px 30px, #ffffff, transparent),
+                radial-gradient(1px 1px at 140px 70px, rgba(255, 255, 255, 0.8), transparent),
+                radial-gradient(2px 2px at 90px 40px, rgba(255, 255, 255, 0.6), transparent),
+                radial-gradient(1.5px 1.5px at 260px 120px, #ffffff, transparent),
+                radial-gradient(1px 1px at 350px 20px, #ffffff, transparent),
+                radial-gradient(2.5px 2.5px at 450px 160px, rgba(255, 255, 255, 0.9), transparent),
+                radial-gradient(1px 1px at 550px 300px, rgba(255, 255, 255, 0.7), transparent),
+                radial-gradient(1.5px 1.5px at 650px 50px, rgba(255, 255, 255, 0.8), transparent),
+                radial-gradient(2px 2px at 750px 250px, #ffffff, transparent),
+                radial-gradient(1px 1px at 80px 350px, rgba(255, 255, 255, 0.5), transparent);
+            background-repeat: repeat;
+            background-size: 800px 800px;
+            opacity: 0.5;
+            animation: twinkle 4s ease-in-out infinite alternate, star-drift 60s linear infinite;
+        }
+
+        @keyframes star-drift {
+            from {
+                background-position: 0 0;
+            }
+
+            to {
+                background-position: -800px 0;
+            }
+        }
+
+        @keyframes twinkle {
+            0% {
+                opacity: 0.3;
+            }
+
+            100% {
+                opacity: 0.7;
+            }
+        }
+
+        .moon {
+            position: absolute;
+            top: 15%;
+            right: 25%;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: #eef1f5;
+            box-shadow: 0 0 60px 20px rgba(238, 241, 245, 0.4), inset -10px -10px 20px rgba(0, 0, 0, 0.2);
+            animation: moon-drift 30s linear forwards;
+            z-index: 0;
+        }
+
+        @keyframes moon-drift {
+            from {
+                transform: translateX(0);
+            }
+
+            to {
+                transform: translateX(-150px);
+            }
+        }
+
+        .shooting-star {
+            position: absolute;
+            width: 150px;
+            height: 2px;
+            background: linear-gradient(to right, rgba(255, 255, 255, 1), rgba(255, 255, 255, 0));
+            transform: rotate(-35deg) scale(0);
+            transform-origin: right;
+            opacity: 0;
+            z-index: 5;
+        }
+
+        .shooting-star.primary {
+            top: 5%;
+            right: 15%;
+            animation: shooting 7s linear infinite;
+        }
+
+        .shooting-star.secondary {
+            top: 25%;
+            right: 45%;
+            animation: shooting 11s linear infinite;
+            animation-delay: 4s;
+        }
+
+        @keyframes shooting {
+            0% {
+                transform: rotate(-35deg) translateX(0) scale(0);
+                opacity: 0;
+            }
+
+            5% {
+                transform: rotate(-35deg) translateX(-100px) scale(1);
+                opacity: 1;
+            }
+
+            15% {
+                transform: rotate(-35deg) translateX(-400px) scale(0);
+                opacity: 0;
+            }
+
+            100% {
+                opacity: 0;
+            }
+        }
+
+        .lightning {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            opacity: 0;
+            pointer-events: none;
+            animation: flash 9s infinite;
+            z-index: 0;
+        }
+
+        @keyframes flash {
+
+            0%,
+            93%,
+            98%,
+            100% {
+                opacity: 0;
+            }
+
+            94% {
+                opacity: 0.5;
+            }
+
+            95% {
+                opacity: 0;
+            }
+
+            99% {
+                opacity: 0.8;
+            }
+        }
+
+        .parallax-layer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-repeat: repeat-x;
+        }
+
+        .layer-1 {
+            bottom: 0;
+            height: 18vh;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 100" preserveAspectRatio="none"><path fill="%23060a12" d="M0,15 Q100,0 200,15 T400,15 L400,100 L0,100 Z"/></svg>');
+            background-size: 600px 100%;
+            animation: scroll-waves-1 5s linear infinite;
+            z-index: 3;
+        }
+
+        .layer-2 {
+            bottom: 0;
+            height: 30vh;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100" preserveAspectRatio="none"><path fill="%2311182c" d="M0,20 Q75,5 150,20 T300,20 L300,100 L0,100 Z"/></svg>');
+            background-size: 400px 100%;
+            animation: scroll-waves-2 9s linear infinite;
+            z-index: 2;
+        }
+
+        .layer-3 {
+            bottom: 0;
+            height: 40vh;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100" preserveAspectRatio="none"><path fill="%231a233b" d="M0,5 Q50,0 100,5 T200,5 L200,100 L0,100 Z"/></svg>');
+            background-size: 250px 100%;
+            animation: scroll-waves-3 15s linear infinite;
+            z-index: 1;
+        }
+
+        @keyframes scroll-waves-1 {
+            from {
+                background-position: 0 bottom;
+            }
+
+            to {
+                background-position: -600px bottom;
+            }
+        }
+
+        @keyframes scroll-waves-2 {
+            from {
+                background-position: 0 bottom;
+            }
+
+            to {
+                background-position: -400px bottom;
+            }
+        }
+
+        @keyframes scroll-waves-3 {
+            from {
+                background-position: 0 bottom;
+            }
+
+            to {
+                background-position: -250px bottom;
+            }
+        }
+
+        /* Menu Content Over Background */
+        .menu-content {
+            position: absolute;
+            top: 60px;
+            left: 80px;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .main-title {
+            font-family: var(--font-primary, 'Cinzel', serif);
+            font-size: 6rem;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            text-shadow: 0 0 30px rgba(255, 255, 255, 0.4);
+            margin: 0 0 50px 0;
+            user-select: none;
+        }
+
+        .menu-buttons {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 25px;
+        }
+
+        .menu-btn {
+            background: transparent;
+            border: none;
+            color: #d1d5db;
+            font-family: var(--font-secondary, 'Merriweather', sans-serif);
+            font-size: 1.8rem;
+            cursor: pointer;
+            padding: 5px 0;
+            transition: color 0.3s ease, transform 0.3s ease, text-shadow 0.3s ease;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            outline: none;
+        }
+
+        .menu-btn:not(.save-btn):hover {
+            color: #ffffff;
+            transform: translateX(15px);
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.6), 0 2px 10px rgba(0, 0, 0, 0.9);
+        }
+
+        .save-btn:hover {
+            color: #ffffff;
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.6), 0 2px 10px rgba(0, 0, 0, 0.9);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        #save-list-container {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            background: rgba(10, 15, 25, 0.75);
+            backdrop-filter: blur(12px);
+            padding: 30px 40px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6);
+            min-width: 300px;
+        }
+
+        .save-title {
+            font-family: var(--font-primary, 'Cinzel', serif);
+            font-size: 1.6rem;
+            margin: 0 0 25px 0;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+            letter-spacing: 0.05em;
+            color: var(--accent-color, #e2e8f0);
+            text-transform: uppercase;
+        }
+
+        .save-list {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 15px;
+            max-height: 50vh;
+            overflow-y: auto;
+            margin-bottom: 30px;
+            padding-right: 15px;
+            width: 100%;
+        }
+
+        .save-list::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .save-list::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+        }
+
+        .save-list::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .back-btn {
+            font-size: 1.2rem;
+            color: #9ca3af;
+        }
+
+        .back-btn:hover {
+            color: #ffffff;
+            transform: translateX(5px);
+        }
+
+        /* Theme Overrides */
+        [data-theme="light"] .background-container {
+            background: linear-gradient(to bottom, #5ba3e0, #8abff0, #cae8fa);
+        }
+
+        [data-theme="light"] .layer-1 {
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 100" preserveAspectRatio="none"><path fill="%2384c5f0" d="M0,15 Q100,0 200,15 T400,15 L400,100 L0,100 Z"/></svg>');
+        }
+
+        [data-theme="light"] .layer-2 {
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100" preserveAspectRatio="none"><path fill="%23439ae0" d="M0,20 Q75,5 150,20 T300,20 L300,100 L0,100 Z"/></svg>');
+        }
+
+        [data-theme="light"] .layer-3 {
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100" preserveAspectRatio="none"><path fill="%231a74bf" d="M0,5 Q50,0 100,5 T200,5 L200,100 L0,100 Z"/></svg>');
+        }
+
+        [data-theme="light"] .moon {
+            background: #FFD700;
+            box-shadow: 0 0 60px 20px rgba(255, 215, 0, 0.5), inset -10px -10px 20px rgba(255, 140, 0, 0.4);
+        }
+
+        [data-theme="light"] .stars,
+        [data-theme="light"] .shooting-star,
+        [data-theme="light"] .lightning {
+            display: none !important;
+        }
+
+        [data-theme="light"] .main-title {
+            color: #1a1a1a;
+            text-shadow: 0 0 30px rgba(255, 255, 255, 0.8), 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="light"] .menu-btn {
+            color: #333333;
+            text-shadow: 0 2px 10px rgba(255, 255, 255, 0.9);
+        }
+
+        [data-theme="light"] .menu-btn:not(.save-btn):hover {
+            color: #000000;
+            text-shadow: 0 0 15px rgba(255, 255, 255, 1), 0 2px 10px rgba(255, 255, 255, 0.9);
+        }
+
+        [data-theme="bliss"] .background-container {
+            background: linear-gradient(to bottom, #0068c8, #2a8df5, #6db6ff);
+        }
+
+        [data-theme="bliss"] .layer-1 {
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 100" preserveAspectRatio="none"><path fill="%2384d12c" d="M0,15 Q100,0 200,15 T400,15 L400,100 L0,100 Z"/></svg>');
+        }
+
+        [data-theme="bliss"] .layer-2 {
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100" preserveAspectRatio="none"><path fill="%236bb51b" d="M0,20 Q75,5 150,20 T300,20 L300,100 L0,100 Z"/></svg>');
+        }
+
+        [data-theme="bliss"] .layer-3 {
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100" preserveAspectRatio="none"><path fill="%2348820c" d="M0,5 Q50,0 100,5 T200,5 L200,100 L0,100 Z"/></svg>');
+        }
+
+        [data-theme="bliss"] .moon {
+            background: #ffecba;
+            box-shadow: 0 0 60px 20px rgba(255, 236, 186, 0.6), inset -10px -10px 20px rgba(255, 200, 0, 0.4);
+        }
+
+        [data-theme="bliss"] .stars,
+        [data-theme="bliss"] .shooting-star,
+        [data-theme="bliss"] .lightning {
+            display: none !important;
+        }
+
+        [data-theme="bliss"] .main-title {
+            color: #FFD700;
+            text-shadow: 2px 2px 0 #003366, -1px -1px 0 #003366, 1px -1px 0 #003366, -1px 1px 0 #003366, 0 4px 15px rgba(0, 0, 0, 0.6);
+        }
+
+        [data-theme="bliss"] .menu-btn {
+            color: #FFFFFF;
+            text-shadow: 1px 1px 0 #003366, -1px -1px 0 #003366, 1px -1px 0 #003366, -1px 1px 0 #003366, 0 2px 10px rgba(0, 0, 0, 0.5);
+            font-weight: bold;
+        }
+
+        [data-theme="bliss"] .menu-btn:not(.save-btn):hover {
+            color: #FFD700;
+            text-shadow: 1px 1px 0 #003366, -1px -1px 0 #003366, 1px -1px 0 #003366, -1px 1px 0 #003366, 0 0 15px rgba(255, 215, 0, 0.6);
+        }
+
+        [data-theme="starry"] .background-container {
+            background: linear-gradient(to bottom, #080112, #16072b, #2f1359);
+        }
+
+        [data-theme="starry"] .layer-1 {
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 100" preserveAspectRatio="none"><path fill="%231a0836" d="M0,15 Q100,0 200,15 T400,15 L400,100 L0,100 Z"/></svg>');
+        }
+
+        [data-theme="starry"] .layer-2 {
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100" preserveAspectRatio="none"><path fill="%23260c4f" d="M0,20 Q75,5 150,20 T300,20 L300,100 L0,100 Z"/></svg>');
+        }
+
+        [data-theme="starry"] .layer-3 {
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100" preserveAspectRatio="none"><path fill="%23381473" d="M0,5 Q50,0 100,5 T200,5 L200,100 L0,100 Z"/></svg>');
+        }
+
+        [data-theme="starry"] .moon {
+            background: #e1ccff;
+            box-shadow: 0 0 60px 25px rgba(186, 133, 255, 0.5), inset -10px -10px 20px rgba(70, 0, 150, 0.3);
+        }
+
+        [data-theme="starry"] .stars {
+            opacity: 0.8 !important;
+        }
+
+        [data-theme="starry"] .main-title {
+            color: #f0e6ff;
+            text-shadow: 0 0 30px rgba(186, 133, 255, 0.6), 0 2px 10px rgba(0, 0, 0, 1);
+        }
+
+        [data-theme="starry"] .menu-btn {
+            color: #d8c4ff;
+        }
+
+        [data-theme="starry"] .menu-btn:not(.save-btn):hover {
+            color: #ffffff;
+            text-shadow: 0 0 15px rgba(186, 133, 255, 0.8), 0 2px 10px rgba(0, 0, 0, 1);
+        }
+
+        [data-theme="matrix"] .background-container {
+            background: linear-gradient(to bottom, #000000, #001100, #002200);
+        }
+
+        [data-theme="matrix"] .layer-1 {
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 100" preserveAspectRatio="none"><path fill="%23000800" d="M0,15 Q100,0 200,15 T400,15 L400,100 L0,100 Z"/></svg>');
+        }
+
+        [data-theme="matrix"] .layer-2 {
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100" preserveAspectRatio="none"><path fill="%23001600" d="M0,20 Q75,5 150,20 T300,20 L300,100 L0,100 Z"/></svg>');
+        }
+
+        [data-theme="matrix"] .layer-3 {
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100" preserveAspectRatio="none"><path fill="%23002b00" d="M0,5 Q50,0 100,5 T200,5 L200,100 L0,100 Z"/></svg>');
+        }
+
+        [data-theme="matrix"] .moon {
+            background: #88ff88;
+            box-shadow: 0 0 60px 20px rgba(0, 255, 0, 0.4), inset -10px -10px 20px rgba(0, 100, 0, 0.5);
+        }
+
+        [data-theme="matrix"] .stars {
+            background-image:
+                radial-gradient(1px 1px at 20px 30px, #00ff00, transparent),
+                radial-gradient(1px 1px at 140px 70px, rgba(0, 255, 0, 0.8), transparent),
+                radial-gradient(2px 2px at 90px 40px, rgba(0, 255, 0, 0.6), transparent),
+                radial-gradient(1.5px 1.5px at 260px 120px, #00ff00, transparent),
+                radial-gradient(1px 1px at 350px 20px, #00ff00, transparent),
+                radial-gradient(2.5px 2.5px at 450px 160px, rgba(0, 255, 0, 0.9), transparent),
+                radial-gradient(1px 1px at 550px 300px, rgba(0, 255, 0, 0.7), transparent),
+                radial-gradient(1.5px 1.5px at 650px 50px, rgba(0, 255, 0, 0.8), transparent),
+                radial-gradient(2px 2px at 750px 250px, #00ff00, transparent),
+                radial-gradient(1px 1px at 80px 350px, rgba(0, 255, 0, 0.5), transparent);
+            opacity: 0.6;
+        }
+
+        [data-theme="matrix"] .lightning {
+            background: #00ff00;
+        }
+
+        [data-theme="matrix"] .shooting-star {
+            background: linear-gradient(to right, rgba(0, 255, 0, 1), rgba(0, 255, 0, 0));
+        }
+
+        [data-theme="matrix"] .main-title {
+            color: #00ff00;
+            text-shadow: 0 0 30px rgba(0, 255, 0, 0.6), 0 0 5px rgba(0, 0, 0, 1);
+            font-family: monospace, var(--font-primary, 'Cinzel', serif);
+        }
+
+        [data-theme="matrix"] .menu-btn {
+            color: #00aa00;
+            font-family: monospace, var(--font-secondary, 'Merriweather', sans-serif);
+        }
+
+        [data-theme="matrix"] .menu-btn:not(.save-btn):hover {
+            color: #00ff00;
+            text-shadow: 0 0 15px rgba(0, 255, 0, 0.6), 0 2px 10px rgba(0, 0, 0, 0.9);
+        }
+
+        [data-theme="matrix"] .save-btn {
+            color: #00aa00;
+        }
+
+        [data-theme="matrix"] #save-list-container {
+            background: rgba(0, 15, 0, 0.75);
+            border-color: rgba(0, 255, 0, 0.2);
+        }
+
+        [data-theme="matrix"] .save-title {
+            color: #00ff00;
+        }
+    </style>
+</head>
+
+<body>
+
+    <audio id="bgm" src="assets/menu, rain and thunder.mp3" autoplay loop preload="auto"></audio>
+
+    <div class="background-container">
+        <div class="stars"></div>
+        <div class="shooting-star primary"></div>
+        <div class="shooting-star secondary"></div>
+        <div class="moon"></div>
+        <div class="lightning"></div>
+        <div class="parallax-layer layer-1"></div>
+        <div class="parallax-layer layer-2"></div>
+        <div class="parallax-layer layer-3"></div>
+    </div>
+
+    <div class="menu-content" id="menu-content">
+        <h1 class="main-title">Odyssey</h1>
+        <div class="menu-buttons" id="menu-buttons">
+            <button class="menu-btn" onclick="startNewGame()">New Game</button>
+            <button class="menu-btn" onclick="loadGameMenu()">Load Game</button>
+            <button class="menu-btn" onclick="window.location.href='settings.html'">Settings</button>
+            <button class="menu-btn" onclick="window.location.href='presets.html'">Presets</button>
+            <button class="menu-btn" onclick="window.location.href='infowiki.html'">Info</button>
+        </div>
+        <div id="save-list-container" class="hidden">
+            <h2 class="save-title">Select Save</h2>
+            <div id="save-list" class="save-list"></div>
+            <button class="menu-btn back-btn" onclick="hideLoadMenu()">Back</button>
+        </div>
+    </div>
+
+</body>
+
+</html>

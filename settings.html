@@ -51,6 +51,7 @@
                         <select id="api-provider-select" onchange="handleProviderChange()"
                             style="width: 300px; padding: 6px;">
                             <option value="openrouter">OpenRouter</option>
+                            <option value="lmstudio">LM Studio (Local)</option>
                             <option value="openai">OpenAI Compatible</option>
                             <option value="xai">XAI</option>
                             <option value="googleai">Google AI</option>
@@ -294,8 +295,13 @@
         function handleProviderChange() {
             const provider = document.getElementById('api-provider-select').value;
             const baseUrlGroup = document.getElementById('base-url-group');
-            if (provider === 'openai') {
+            if (provider === 'openai' || provider === 'lmstudio') {
                 baseUrlGroup.style.display = 'block';
+                // Auto-fill default LM Studio URL if empty
+                const baseUrlInput = document.getElementById('api-base-url');
+                if (provider === 'lmstudio' && !baseUrlInput.value) {
+                    baseUrlInput.value = 'http://localhost:1234/v1';
+                }
             } else {
                 baseUrlGroup.style.display = 'none';
             }
@@ -454,7 +460,7 @@
                 ? document.getElementById('image-model-fetch-status')
                 : document.getElementById('model-fetch-status');
 
-            if (!apiKey && provider !== 'openai') {
+            if (!apiKey && provider !== 'openai' && provider !== 'lmstudio') {
                 statusEl.textContent = "Please enter and save an API key first.";
                 statusEl.style.color = "#dc3545";
                 return;
@@ -465,16 +471,25 @@
 
             let fetchUrl = "";
             let headers = {
-                "Authorization": `Bearer ${apiKey}`,
                 "Content-Type": "application/json"
             };
+            if (apiKey) {
+                headers["Authorization"] = `Bearer ${apiKey}`;
+            }
 
             if (provider === 'openrouter') {
                 fetchUrl = "https://openrouter.ai/api/v1/models";
             } else if (provider === 'xai') {
-                fetchUrl = "https://api.x.ai/v1/models";
+                fetchUrl = "/api/xai-proxy/v1/models";
             } else if (provider === 'googleai') {
                 fetchUrl = "https://generativelanguage.googleapis.com/v1beta/openai/models";
+            } else if (provider === 'lmstudio') {
+                if (!baseUrl) {
+                    statusEl.textContent = "Please enter a Base URL (default: http://localhost:1234/v1).";
+                    statusEl.style.color = "#dc3545";
+                    return;
+                }
+                fetchUrl = baseUrl.endsWith('/') ? `${baseUrl}models` : `${baseUrl}/models`;
             } else if (provider === 'openai') {
                 if (!baseUrl) {
                     statusEl.textContent = "Please enter a Base URL.";
@@ -496,7 +511,19 @@
                 }
 
                 const data = await response.json();
-                const models = data.data;
+
+                // LM Studio uses { models: [...] } with key/display_name instead of { data: [...] } with id/name
+                let models;
+                if (provider === 'lmstudio' && data.models) {
+                    models = data.models
+                        .filter(m => m.type === 'llm') // exclude embedding models
+                        .map(m => ({
+                            id: m.key,
+                            name: m.display_name || m.key
+                        }));
+                } else {
+                    models = data.data;
+                }
 
                 // Filter models that do not support structured outputs to prevent crashes
                 let filteredModels = models;
@@ -528,6 +555,8 @@
                         if (provider === 'openrouter') {
                             const providerComponent = model.id.split('/')[0];
                             groupProvider = providerComponent ? providerComponent : "Unknown";
+                        } else if (provider === 'lmstudio') {
+                            groupProvider = "LM Studio";
                         } else {
                             groupProvider = provider.charAt(0).toUpperCase() + provider.slice(1);
                         }

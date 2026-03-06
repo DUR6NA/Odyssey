@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Odyssey - Presets</title>
+    <!-- Code and CSS for the themes system -->
+    <link rel="stylesheet" href="style.css">
+    <script src="theme.js"></script>
+    <style>
+        body {
+            background-color: var(--bg-main, #000);
+            color: var(--text-main, #fff);
+            font-family: var(--font-secondary, sans-serif);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .back-btn {
+            background: none;
+            border: 1px solid var(--border-color, #555);
+            color: var(--text-heading, #fff);
+            padding: 10px 20px;
+            cursor: pointer;
+            font-family: var(--font-primary, serif);
+        }
+
+        .back-btn:hover {
+            color: var(--accent-hover, #ccc);
+            border-color: var(--accent-hover, #ccc);
+        }
+
+        /* Unfunctional area placeholders */
+        .content-placeholder {
+            margin-top: 50px;
+            text-align: center;
+            opacity: 0.5;
+            padding: 50px;
+            border: 1px dashed var(--border-color, #555);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1>Presets</h1>
+        <!-- Back button to the main menu -->
+        <button class="back-btn" onclick="window.location.href='mainmenu.html'">Back to Main Menu</button>
+    </div>
+
+    <div class="content-placeholder">
+        <p>Unfunctional area. Structure and systems to be explained later.</p>
+    </div>
+</body>
+
+</html>

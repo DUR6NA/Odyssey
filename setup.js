@@ -21,16 +21,30 @@ function buildFetchPayload(model, messages, temp, maxTokens, topP, presPen, freq
     if (freqPen !== 0) payload.frequency_penalty = freqPen;
 
     if (jsonSchema && typeof jsonSchema === 'object') {
+        // Determine schema name based on content
+        const schemaName = jsonSchema.properties && jsonSchema.properties.textoutput ? "game_turn" : "structured_response";
         payload.response_format = {
             type: 'json_schema',
             json_schema: {
-                name: "game_turn",
+                name: schemaName,
                 strict: true,
                 schema: jsonSchema
             }
         };
     } else if (jsonSchema !== false) {
-        payload.response_format = { type: 'json_object' };
+        if (provider === 'lmstudio') {
+            // LM Studio rejects json_object — use json_schema with a simple string result fallback
+            payload.response_format = {
+                type: 'json_schema',
+                json_schema: {
+                    name: "json_response",
+                    strict: true,
+                    schema: { type: "object", properties: { result: { type: "string" } }, required: ["result"], additionalProperties: false }
+                }
+            };
+        } else {
+            payload.response_format = { type: 'json_object' };
+        }
     }
 
     return JSON.stringify(payload);
@@ -886,7 +900,7 @@ async function autoGenerateForField(fieldInfo, phase) {
     const presPen = parseFloat(localStorage.getItem('jsonAdventure_apiPresencePenalty')) || 0.0;
     const freqPen = parseFloat(localStorage.getItem('jsonAdventure_apiFrequencyPenalty')) || 0.0;
 
-    if (!apiKey && provider !== 'openai') { alert('No API key found. Please configure it in Settings first.'); return; }
+    if (!apiKey && provider !== 'openai' && provider !== 'lmstudio') { alert('No API key found. Please configure it in Settings first.'); return; }
 
     // Build context
     const contextParts = [];
@@ -937,9 +951,23 @@ The value of "result" must be ${expectedFormatStr}.`;
         if (resultContainer) resultContainer.classList.remove('hidden');
 
         let fetchUrl = "https://openrouter.ai/api/v1/chat/completions";
-        if (provider === 'xai') fetchUrl = "https://api.x.ai/v1/chat/completions";
+        if (provider === 'xai') fetchUrl = "/api/xai-proxy/v1/chat/completions";
         else if (provider === 'googleai') fetchUrl = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
-        else if (provider === 'openai') fetchUrl = baseUrl.endsWith('/') ? `${baseUrl}chat/completions` : `${baseUrl}/chat/completions`;
+        else if (provider === 'lmstudio' || provider === 'openai') fetchUrl = baseUrl.endsWith('/') ? `${baseUrl}chat/completions` : `${baseUrl}/chat/completions`;
+
+        // Build a proper schema for LM Studio structured output
+        let diceSchema = null;
+        if (provider === 'lmstudio') {
+            if (fieldInfo.isArray) {
+                diceSchema = { type: "object", properties: { result: { type: "array", items: { type: "string" } } }, required: ["result"], additionalProperties: false };
+            } else if (fieldInfo.type === 'number') {
+                diceSchema = { type: "object", properties: { result: { type: "integer" } }, required: ["result"], additionalProperties: false };
+            } else if (fieldInfo.type === 'date') {
+                diceSchema = { type: "object", properties: { result: { type: "object" } }, required: ["result"] };
+            } else {
+                diceSchema = { type: "object", properties: { result: { type: "string" } }, required: ["result"], additionalProperties: false };
+            }
+        }
 
         const response = await fetch(fetchUrl, {
             method: 'POST',
@@ -947,7 +975,7 @@ The value of "result" must be ${expectedFormatStr}.`;
             body: buildFetchPayload(model, [
                 { role: 'system', content: instructions },
                 { role: 'user', content: `Please auto-generate the '${fieldInfo.id}' field.` }
-            ], temp, maxTokens, topP, presPen, freqPen, provider)
+            ], temp, maxTokens, topP, presPen, freqPen, provider, diceSchema)
         });
 
         if (!response.ok) throw new Error(`API returned status ${response.status}: ${await response.text()}`);
@@ -1123,7 +1151,7 @@ async function processWithAI(userInputValue, fieldInfo, phase) {
     const presPen = parseFloat(localStorage.getItem('jsonAdventure_apiPresencePenalty')) || 0.0;
     const freqPen = parseFloat(localStorage.getItem('jsonAdventure_apiFrequencyPenalty')) || 0.0;
 
-    if (!apiKey && provider !== 'openai') {
+    if (!apiKey && provider !== 'openai' && provider !== 'lmstudio') {
         alert('No API key found. Please configure it in Settings first.');
         return;
     }
@@ -1164,10 +1192,10 @@ The JSON object must have exactly one key named "result", and its value must be 
     try {
         let fetchUrl = "https://openrouter.ai/api/v1/chat/completions";
         if (provider === 'xai') {
-            fetchUrl = "https://api.x.ai/v1/chat/completions";
+            fetchUrl = "/api/xai-proxy/v1/chat/completions";
         } else if (provider === 'googleai') {
             fetchUrl = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
-        } else if (provider === 'openai') {
+        } else if (provider === 'lmstudio' || provider === 'openai') {
             fetchUrl = baseUrl.endsWith('/') ? `${baseUrl}chat/completions` : `${baseUrl}/chat/completions`;
         }
 
@@ -1180,7 +1208,12 @@ The JSON object must have exactly one key named "result", and its value must be 
             body: buildFetchPayload(model, [
                 { role: 'system', content: promptInstructions },
                 { role: 'user', content: `User input: ${userInputValue}` }
-            ], temp, maxTokens, topP, presPen, freqPen, provider)
+            ], temp, maxTokens, topP, presPen, freqPen, provider,
+                provider === 'lmstudio' ? (fieldInfo.isArray
+                    ? { type: "object", properties: { result: { type: "array", items: { type: "string" } } }, required: ["result"], additionalProperties: false }
+                    : { type: "object", properties: { result: { type: "string" } }, required: ["result"], additionalProperties: false }
+                ) : null
+            )
         });
 
         if (!response.ok) {
@@ -1406,10 +1439,10 @@ CRITICAL RULES:
 
     let fetchUrl = "https://openrouter.ai/api/v1/chat/completions";
     if (provider === 'xai') {
-        fetchUrl = "https://api.x.ai/v1/chat/completions";
+        fetchUrl = "/api/xai-proxy/v1/chat/completions";
     } else if (provider === 'googleai') {
         fetchUrl = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
-    } else if (provider === 'openai') {
+    } else if (provider === 'lmstudio' || provider === 'openai') {
         fetchUrl = baseUrl.endsWith('/') ? `${baseUrl}chat/completions` : `${baseUrl}/chat/completions`;
     }
 
@@ -1447,7 +1480,7 @@ async function performImageGeneration(promptText, aspect_ratio = "2:3", baseImag
     } else if (provider === 'xai') {
         // xAI: Use /v1/images/edits when we have a base image, otherwise /v1/images/generations
         if (baseImageUrl) {
-            fetchUrl = "https://api.x.ai/v1/images/edits";
+            fetchUrl = "/api/xai-proxy/v1/images/edits";
             payload = {
                 model: imageModel,
                 prompt: promptText,
@@ -1455,7 +1488,7 @@ async function performImageGeneration(promptText, aspect_ratio = "2:3", baseImag
                 aspect_ratio: aspect_ratio
             };
         } else {
-            fetchUrl = "https://api.x.ai/v1/images/generations";
+            fetchUrl = "/api/xai-proxy/v1/images/generations";
             payload = {
                 model: imageModel,
                 prompt: promptText,
@@ -1469,7 +1502,7 @@ async function performImageGeneration(promptText, aspect_ratio = "2:3", baseImag
             prompt: promptText
         };
 
-        if (provider === 'openai') {
+        if (provider === 'lmstudio' || provider === 'openai') {
             payload.size = "1024x1024";
             fetchUrl = baseUrl.endsWith('/') ? `${baseUrl}images/generations` : `${baseUrl}/images/generations`;
         } else if (provider === 'googleai') {
@@ -1622,7 +1655,7 @@ async function generateSummary() {
     const presPen = parseFloat(localStorage.getItem('jsonAdventure_apiPresencePenalty')) || 0.0;
     const freqPen = parseFloat(localStorage.getItem('jsonAdventure_apiFrequencyPenalty')) || 0.0;
 
-    if (!apiKey && provider !== 'openai') {
+    if (!apiKey && provider !== 'openai' && provider !== 'lmstudio') {
         alert('No OpenRouter API key found. Please configure it in Settings first.');
         renderScenarioStep();
         return;
@@ -1658,10 +1691,10 @@ CRITICAL: Output ONLY a valid JSON object with one key "summary" containing the 
     try {
         let fetchUrl = "https://openrouter.ai/api/v1/chat/completions";
         if (provider === 'xai') {
-            fetchUrl = "https://api.x.ai/v1/chat/completions";
+            fetchUrl = "/api/xai-proxy/v1/chat/completions";
         } else if (provider === 'googleai') {
             fetchUrl = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
-        } else if (provider === 'openai') {
+        } else if (provider === 'lmstudio' || provider === 'openai') {
             fetchUrl = baseUrl.endsWith('/') ? `${baseUrl}chat/completions` : `${baseUrl}/chat/completions`;
         }
 
@@ -1674,7 +1707,11 @@ CRITICAL: Output ONLY a valid JSON object with one key "summary" containing the 
             body: buildFetchPayload(model, [
                 { role: 'system', content: summaryPrompt },
                 { role: 'user', content: 'Generate the adventure summary now.' }
-            ], temp, maxTokens, topP, presPen, freqPen, provider)
+            ], temp, maxTokens, topP, presPen, freqPen, provider,
+                provider === 'lmstudio'
+                    ? { type: "object", properties: { summary: { type: "string" } }, required: ["summary"], additionalProperties: false }
+                    : null
+            )
         });
 
         if (!response.ok) {
@@ -1981,10 +2018,10 @@ async function launchGame(summaryText, allData) {
     try {
         let fetchUrl = "https://openrouter.ai/api/v1/chat/completions";
         if (provider === 'xai') {
-            fetchUrl = "https://api.x.ai/v1/chat/completions";
+            fetchUrl = "/api/xai-proxy/v1/chat/completions";
         } else if (provider === 'googleai') {
             fetchUrl = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
-        } else if (provider === 'openai') {
+        } else if (provider === 'lmstudio' || provider === 'openai') {
             fetchUrl = baseUrl.endsWith('/') ? `${baseUrl}chat/completions` : `${baseUrl}/chat/completions`;
         }
 
@@ -2268,7 +2305,7 @@ async function runPrompter(userInput) {
     const baseUrl = localStorage.getItem('jsonAdventure_apiBaseUrl') || '';
     const apiKey = localStorage.getItem('jsonAdventure_openRouterApiKey');
     const model = localStorage.getItem('jsonAdventure_openRouterModel') || 'openai/gpt-3.5-turbo';
-    if (!apiKey && provider !== 'openai') return userInput;
+    if (!apiKey && provider !== 'openai' && provider !== 'lmstudio') return userInput;
 
     const defaultPrompterPrompt = `You are the Prompter. You sit between the user and the Game Master.
 Your job is to read the user's input and determine if they mentioned any known Locations or NPCs in the game state. 
@@ -2295,10 +2332,10 @@ CRITICAL: Output ONLY a JSON object:
     try {
         let fetchUrl = "https://openrouter.ai/api/v1/chat/completions";
         if (provider === 'xai') {
-            fetchUrl = "https://api.x.ai/v1/chat/completions";
+            fetchUrl = "/api/xai-proxy/v1/chat/completions";
         } else if (provider === 'googleai') {
             fetchUrl = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
-        } else if (provider === 'openai') {
+        } else if (provider === 'lmstudio' || provider === 'openai') {
             fetchUrl = baseUrl.endsWith('/') ? `${baseUrl}chat/completions` : `${baseUrl}/chat/completions`;
         }
 
@@ -2310,7 +2347,11 @@ CRITICAL: Output ONLY a JSON object:
             },
             body: buildFetchPayload(model, [
                 { role: 'system', content: promptInstructions }
-            ], 0.1, 512, 1.0, 0, 0, provider)
+            ], 0.1, 512, 1.0, 0, 0, provider,
+                provider === 'lmstudio'
+                    ? { type: "object", properties: { relevant: { type: "boolean" }, context_string: { type: "string" } }, required: ["relevant", "context_string"], additionalProperties: false }
+                    : null
+            )
         });
 
         if (response.ok) {
@@ -2410,10 +2451,10 @@ async function sendChatMessage() {
     try {
         let fetchUrl = "https://openrouter.ai/api/v1/chat/completions";
         if (provider === 'xai') {
-            fetchUrl = "https://api.x.ai/v1/chat/completions";
+            fetchUrl = "/api/xai-proxy/v1/chat/completions";
         } else if (provider === 'googleai') {
             fetchUrl = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
-        } else if (provider === 'openai') {
+        } else if (provider === 'lmstudio' || provider === 'openai') {
             fetchUrl = baseUrl.endsWith('/') ? `${baseUrl}chat/completions` : `${baseUrl}/chat/completions`;
         }
 
@@ -2499,10 +2540,10 @@ async function regenerateLastAI() {
     try {
         let fetchUrl = "https://openrouter.ai/api/v1/chat/completions";
         if (provider === 'xai') {
-            fetchUrl = "https://api.x.ai/v1/chat/completions";
+            fetchUrl = "/api/xai-proxy/v1/chat/completions";
         } else if (provider === 'googleai') {
             fetchUrl = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
-        } else if (provider === 'openai') {
+        } else if (provider === 'lmstudio' || provider === 'openai') {
             fetchUrl = baseUrl.endsWith('/') ? `${baseUrl}chat/completions` : `${baseUrl}/chat/completions`;
         }
 
@@ -2666,7 +2707,7 @@ async function playTTS(text) {
     if (provider === 'connected') {
         const connectedProv = localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter';
         baseUrl = localStorage.getItem('jsonAdventure_apiBaseUrl') || '';
-        if (connectedProv === 'openai') {
+        if (connectedProv === 'openai' || connectedProv === 'lmstudio') {
             baseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
             baseUrl += '/audio/speech';
         } else if (connectedProv === 'kokoro') {
@@ -2682,7 +2723,7 @@ async function playTTS(text) {
         model = localStorage.getItem('jsonAdventure_ttsModel') || 'tts-1';
         voice = localStorage.getItem('jsonAdventure_ttsVoice') || 'alloy';
         speed = parseFloat(localStorage.getItem('jsonAdventure_ttsSpeed')) || 1.0;
-    } else if (provider === 'openai') {
+    } else if (provider === 'lmstudio' || provider === 'openai') {
         baseUrl = localStorage.getItem('jsonAdventure_ttsBaseUrl') || '';
         baseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
         baseUrl += '/audio/speech';
