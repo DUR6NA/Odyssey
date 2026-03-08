@@ -112,6 +112,6 @@ dist
 # Project specific
 openrouter_models.json
 player.json
-queue.txt
 images/
 games/
+todo.txt 
