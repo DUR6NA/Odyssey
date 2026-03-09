@@ -55,6 +55,10 @@
                             title="Regenerate Image" onclick="triggerImageGeneration()">🔄</button>
                     </div>
                 </div>
+
+                <div style="margin-top: 15px;">
+                    <button onclick="openPlayerMenu()" class="btn-player-menu">Player Menu</button>
+                </div>
             </aside>
 
             <!-- Central larger column -->
@@ -77,7 +81,6 @@
             <aside class="right-column">
                 <div class="top-bar-actions"
                     style="display: flex; gap: 10px; justify-content: flex-end; margin-bottom: 25px;">
-                    <button onclick="openInventory()" class="btn-settings-square" title="Inventory">🎒</button>
                     <button onclick="settings()" class="btn-settings-square" title="Settings">⚙️</button>
                 </div>
                 <div class="clock-widget" id="clock-widget">
@@ -85,22 +88,70 @@
                     <div class="clock-day" id="clock-day">------</div>
                     <div class="clock-date" id="clock-date">--/--/----</div>
                 </div>
+                <div style="margin-top: 15px;">
+                    <button onclick="openCodexMenu()" class="btn-player-menu" style="width: 100%;">Game Codex</button>
+                </div>
             </aside>
         </div>
     </div>
 
-    <!-- Inventory Modal -->
-    <div id="inventory-modal" class="inventory-modal hidden">
-        <div class="inventory-modal-content">
-            <div class="inventory-modal-header">
-                <h2>Inventory</h2>
-                <span class="close-btn" onclick="closeInventory()">&times;</span>
+    <!-- Player Menu Modal -->
+    <div id="player-menu-modal" class="inventory-modal hidden">
+        <div class="player-menu-modal-content">
+            <div class="inventory-modal-header" style="flex: 0 0 auto;">
+                <h2>Player Menu</h2>
+                <span class="close-btn" onclick="closePlayerMenu()">&times;</span>
             </div>
-            <div id="inventory-grid" class="inventory-grid">
-                <!-- Inventory items injected here -->
+
+            <div class="player-menu-body">
+                <!-- Left Side: Player Info -->
+                <div class="player-menu-left">
+                    <div class="player-info-container" id="player-info-container">
+                        <!-- Player details injected here -->
+                    </div>
+                </div>
+
+                <!-- Right Side: Inventory -->
+                <div class="player-menu-right">
+                    <h3 style="margin-top: 0; color: var(--accent-color); text-transform: uppercase;">Inventory</h3>
+                    <div id="inventory-grid" class="inventory-grid">
+                        <!-- Inventory items injected here -->
+                    </div>
+                </div>
             </div>
         </div>
     </div>
+    </div>
+
+    <!-- Game Codex Modal -->
+    <div id="game-codex-modal" class="inventory-modal hidden">
+        <div class="player-menu-modal-content">
+            <div class="inventory-modal-header" style="flex: 0 0 auto;">
+                <h2>Game Codex</h2>
+                <span class="close-btn" onclick="closeCodexMenu()">&times;</span>
+            </div>
+
+            <div class="player-menu-body">
+                <!-- Left Side: NPC Ledger -->
+                <div class="player-menu-left">
+                    <h3 style="margin-top: 0; color: var(--accent-color); text-transform: uppercase;">NPC Ledger</h3>
+                    <div id="npc-ledger-container" class="player-info-container"
+                        style="display: flex; flex-direction: column; gap: 15px;">
+                        <!-- NPC list injected here -->
+                    </div>
+                </div>
+
+                <!-- Right Side: Location Ledger -->
+                <div class="player-menu-right">
+                    <h3 style="margin-top: 0; color: var(--accent-color); text-transform: uppercase;">Location Ledger
+                    </h3>
+                    <div id="location-ledger-container" class="player-info-container"
+                        style="display: flex; flex-direction: column; gap: 15px;">
+                        <!-- Locations injected here -->
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -147,7 +198,7 @@
 
                 if (window.gamestate.time) updateClock(window.gamestate.time);
                 if (window.gamestate.stats) updateStatsUI(window.gamestate.stats);
-                renderInventoryUI();
+                renderPlayerMenuUI();
 
                 // Setup image UI
                 const enableImage = localStorage.getItem('jsonAdventure_enableImage') === 'true';
@@ -293,61 +344,172 @@
             });
         }
 
-        function openInventory() {
-            const modal = document.getElementById('inventory-modal');
+        function openPlayerMenu() {
+            const modal = document.getElementById('player-menu-modal');
             if (modal) {
                 modal.classList.remove('hidden');
-                renderInventoryUI();
+                renderPlayerMenuUI();
             }
         }
 
-        function closeInventory() {
-            const modal = document.getElementById('inventory-modal');
+        function closePlayerMenu() {
+            const modal = document.getElementById('player-menu-modal');
             if (modal) {
                 modal.classList.add('hidden');
             }
         }
 
-        function renderInventoryUI() {
+        function renderPlayerMenuUI() {
+            // Render Right Side (Inventory)
             const grid = document.getElementById('inventory-grid');
-            if (!grid) return;
-            grid.innerHTML = '';
+            if (grid) {
+                grid.innerHTML = '';
+                const items = window.gamestate.inventory || [];
+                if (items.length === 0) {
+                    grid.innerHTML = '<div style="color: var(--text-muted); grid-column: 1 / -1; text-align: center; padding: 20px;">Your inventory is empty.</div>';
+                } else {
+                    items.forEach(item => {
+                        const card = document.createElement('div');
+                        card.className = 'inventory-card';
 
-            const items = window.gamestate.inventory || [];
-            if (items.length === 0) {
-                grid.innerHTML = '<div style="color: var(--text-muted); grid-column: 1 / -1; text-align: center; padding: 20px;">Your inventory is empty.</div>';
-                return;
+                        const name = document.createElement('div');
+                        name.className = 'inventory-item-name';
+                        name.textContent = item.name;
+
+                        const desc = document.createElement('div');
+                        desc.className = 'inventory-item-desc';
+                        desc.textContent = item.description || '';
+
+                        card.appendChild(name);
+                        card.appendChild(desc);
+                        grid.appendChild(card);
+                    });
+
+                    // Auto-scale names to fit the square tiles
+                    requestAnimationFrame(() => {
+                        grid.querySelectorAll('.inventory-item-name').forEach(nameEl => {
+                            let fontSize = 0.75; // rem starting size
+                            const minFont = 0.55;
+                            nameEl.style.fontSize = fontSize + 'rem';
+                            while (nameEl.scrollHeight > nameEl.clientHeight && fontSize > minFont) {
+                                fontSize -= 0.03;
+                                nameEl.style.fontSize = fontSize + 'rem';
+                            }
+                        });
+                    });
+                }
             }
 
-            items.forEach(item => {
-                const card = document.createElement('div');
-                card.className = 'inventory-card';
+            // Render Left Side (Player Info)
+            const infoContainer = document.getElementById('player-info-container');
+            if (infoContainer) {
+                infoContainer.innerHTML = '';
 
-                const name = document.createElement('div');
-                name.className = 'inventory-item-name';
-                name.textContent = item.name;
+                const pInfo = window.playerInfo?.player || window.playerInfo || {};
 
-                const desc = document.createElement('div');
-                desc.className = 'inventory-item-desc';
-                desc.textContent = item.description || '';
+                // Try grabbing the player image source if available dynamically in the UI already
+                let imgSrc = '';
+                const imgEl = document.getElementById('player-dynamic-image');
+                if (imgEl && imgEl.style.display !== 'none' && imgEl.src) {
+                    imgSrc = imgEl.src;
+                }
 
-                card.appendChild(name);
-                card.appendChild(desc);
-                grid.appendChild(card);
-            });
+                const topProfileNode = document.createElement('div');
+                topProfileNode.className = 'player-profile-top';
 
-            // Auto-scale names to fit the square tiles
-            requestAnimationFrame(() => {
-                grid.querySelectorAll('.inventory-item-name').forEach(nameEl => {
-                    let fontSize = 0.75; // rem starting size
-                    const minFont = 0.55;
-                    nameEl.style.fontSize = fontSize + 'rem';
-                    while (nameEl.scrollHeight > nameEl.clientHeight && fontSize > minFont) {
-                        fontSize -= 0.03;
-                        nameEl.style.fontSize = fontSize + 'rem';
+                if (imgSrc) {
+                    const imgNode = document.createElement('img');
+                    imgNode.src = imgSrc;
+                    imgNode.className = 'player-menu-image';
+                    topProfileNode.appendChild(imgNode);
+                }
+
+                const detailsNode = document.createElement('div');
+                detailsNode.className = 'player-menu-details';
+
+                const propsToShow = ['name', 'age', 'gender', 'height', 'weight', 'athleticism', 'intelligence'];
+                propsToShow.forEach(prop => {
+                    if (pInfo[prop] !== undefined && pInfo[prop] !== "") {
+                        let label = prop.charAt(0).toUpperCase() + prop.slice(1).replace('-', ' ');
+
+                        const row = document.createElement('div');
+                        row.className = 'player-info-row';
+                        row.innerHTML = `<div class="player-info-label">${label}</div> <div class="player-info-value">${pInfo[prop]}</div>`;
+                        detailsNode.appendChild(row);
                     }
                 });
-            });
+
+                topProfileNode.appendChild(detailsNode);
+                infoContainer.appendChild(topProfileNode);
+
+                const longSectionsNode = document.createElement('div');
+                longSectionsNode.className = 'player-menu-long-sections';
+
+                // Add larger text blobs for appearance, personality, backstory
+                const longProps = ['appearance', 'personality', 'backstory'];
+                longProps.forEach(prop => {
+                    if (pInfo[prop]) {
+                        let label = prop.charAt(0).toUpperCase() + prop.slice(1);
+                        const section = document.createElement('div');
+                        section.className = 'player-info-section';
+                        section.innerHTML = `<div class="player-info-section-label">${label}</div><div class="player-info-section-value">${pInfo[prop]}</div>`;
+                        longSectionsNode.appendChild(section);
+                    }
+                });
+
+                if (longSectionsNode.children.length > 0) {
+                    infoContainer.appendChild(longSectionsNode);
+                }
+            }
+        }
+
+        function openCodexMenu() {
+            const modal = document.getElementById('game-codex-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                renderCodexUI();
+            }
+        }
+
+        function closeCodexMenu() {
+            const modal = document.getElementById('game-codex-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+            }
+        }
+
+        function renderCodexUI() {
+            const npcContainer = document.getElementById('npc-ledger-container');
+            if (npcContainer) {
+                npcContainer.innerHTML = '';
+                const npcs = window.gamestate.npcs || [];
+                if (npcs.length === 0) {
+                    npcContainer.innerHTML = '<div style="color: var(--text-muted); font-style: italic;">No NPC knowledge recorded.</div>';
+                } else {
+                    npcs.forEach(npc => {
+                        const section = document.createElement('div');
+                        section.className = 'player-info-section';
+                        section.innerHTML = `<div class="player-info-section-label">${npc.name}</div><div class="player-info-section-value">${npc.status_or_history || ''}</div>`;
+                        npcContainer.appendChild(section);
+                    });
+                }
+            }
+
+            const locContainer = document.getElementById('location-ledger-container');
+            if (locContainer) {
+                locContainer.innerHTML = '';
+                const locations = window.gamestate.locations || [];
+                if (locations.length === 0) {
+                    locContainer.innerHTML = '<div style="color: var(--text-muted); font-style: italic;">No location knowledge recorded.</div>';
+                } else {
+                    locations.forEach(loc => {
+                        const section = document.createElement('div');
+                        section.className = 'player-info-section';
+                        section.innerHTML = `<div class="player-info-section-label">${loc.name}</div><div class="player-info-section-value">${loc.description || ''}</div>`;
+                        locContainer.appendChild(section);
+                    });
+                }
+            }
         }
     </script>
 </body>

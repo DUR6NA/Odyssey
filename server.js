@@ -193,6 +193,17 @@ const server = http.createServer((req, res) => {
                 if (data.locationsLedger) {
                     fs.writeFileSync(path.join(gameDir, 'locationsledger.json'), JSON.stringify(data.locationsLedger, null, 4));
                 }
+                if (data.summary !== undefined) {
+                    const scenarioPath = path.join(gameDir, 'scenario.json');
+                    let scenarioData = { startingScenario: '', summary: '' };
+                    if (fs.existsSync(scenarioPath)) {
+                        try {
+                            scenarioData = JSON.parse(fs.readFileSync(scenarioPath, 'utf8'));
+                        } catch (e) { }
+                    }
+                    scenarioData.summary = data.summary;
+                    fs.writeFileSync(scenarioPath, JSON.stringify(scenarioData, null, 4));
+                }
 
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ success: true }));
@@ -327,12 +338,12 @@ const server = http.createServer((req, res) => {
     if (req.url.startsWith('/api/xai-proxy/')) {
         const targetUrl = 'https://api.x.ai/' + req.url.substring('/api/xai-proxy/'.length);
         const https = require('https');
-        
+
         const options = {
             method: req.method,
             headers: {}
         };
-        
+
         // Forward standard headers
         for (const h of ['authorization', 'content-type', 'accept', 'content-length']) {
             if (req.headers[h]) options.headers[h] = req.headers[h];
@@ -344,7 +355,7 @@ const server = http.createServer((req, res) => {
             delete resHeaders['access-control-allow-origin'];
             delete resHeaders['access-control-allow-headers'];
             delete resHeaders['access-control-allow-methods'];
-            
+
             res.writeHead(proxyRes.statusCode, resHeaders);
             proxyRes.pipe(res, { end: true });
         });
