@@ -31,6 +31,7 @@ function createCustomSelect(nativeSelect, opts = {}) {
     if (width) wrapper.style.width = width;
     else if (nativeSelect.style.width) wrapper.style.width = nativeSelect.style.width;
     else if (nativeSelect.style.maxWidth) wrapper.style.maxWidth = nativeSelect.style.maxWidth;
+    if (nativeSelect.style.flex) wrapper.style.flex = nativeSelect.style.flex;
 
     // Trigger button
     const trigger = document.createElement('div');
@@ -273,6 +274,9 @@ function createCustomNumberInput(nativeInput) {
     if (nativeInput.style.width) {
         wrapper.style.width = nativeInput.style.width;
         nativeInput.style.width = '100%';
+    }
+    if (nativeInput.style.flex) {
+        wrapper.style.flex = nativeInput.style.flex;
     }
 
     // Insert wrapper in place of input

@@ -281,10 +281,11 @@ const playerSetupFields = [
 
 function getActivePlayerFields() {
     let fields = [...playerSetupFields];
+    const options = ['None (Custom)'];
     if (PLAYER_PRESETS && PLAYER_PRESETS.length > 0) {
-        const options = ['None (Custom)', ...PLAYER_PRESETS.map(p => p.presetName)];
-        fields.unshift({ id: 'preset', type: 'select', label: 'Select a Character Preset (Optional)', options: options });
+        options.push(...PLAYER_PRESETS.map(p => p.presetName));
     }
+    fields.unshift({ id: 'preset', type: 'select', label: 'Select a Character Preset (Optional)', options: options });
     return fields;
 }
 
@@ -485,7 +486,7 @@ function renderFieldStep(fields, step, phase, phaseLabel) {
         select.style.flex = '1';
         field.options.forEach(opt => {
             const el = document.createElement('option');
-            el.value = opt.toLowerCase();
+            el.value = opt;
             el.textContent = opt;
             select.appendChild(el);
         });
@@ -540,9 +541,27 @@ function renderFieldStep(fields, step, phase, phaseLabel) {
 
         // Set initial value
         let initialVal = 30; // default to "Average"
+        let isCustomVal = false;
+        let customValText = '';
+
         if (prevValue && typeof prevValue === 'string') {
-            const match = field.markers.find(m => m.label === prevValue);
-            if (match) initialVal = match.value;
+            if (prevValue.startsWith('Custom: ')) {
+                isCustomVal = true;
+                customValText = prevValue.replace('Custom: ', '');
+            } else {
+                const searchVal = prevValue.toLowerCase();
+                const match = field.markers.find(m => 
+                    m.label.toLowerCase() === searchVal || 
+                    m.label.toLowerCase().includes(searchVal) || 
+                    searchVal.includes(m.label.toLowerCase())
+                );
+                if (match) {
+                    initialVal = match.value;
+                } else if (prevValue.trim() !== '') {
+                    isCustomVal = true;
+                    customValText = prevValue;
+                }
+            }
         }
         slider.value = initialVal;
         const initMarker = findNearestMarker(initialVal);
@@ -594,12 +613,17 @@ function renderFieldStep(fields, step, phase, phaseLabel) {
         customTextarea.className = 'setup-textarea attribute-custom-textarea';
         customTextarea.rows = 3;
         customTextarea.placeholder = 'Describe your ' + field.id + ' in your own words...';
-        if (prevValue && typeof prevValue === 'string' && prevValue.startsWith('Custom: ')) {
-            customTextarea.value = prevValue.replace('Custom: ', '');
+        if (isCustomVal) {
+            customTextarea.value = customValText;
         }
         customWrap.appendChild(customTextarea);
 
-        let isCustomMode = false;
+        let isCustomMode = isCustomVal;
+        if (isCustomMode) {
+            container.classList.add('hidden');
+            customWrap.classList.remove('hidden');
+            defineToggle.textContent = '📊 Use the slider instead';
+        }
         defineToggle.onclick = () => {
             isCustomMode = !isCustomMode;
             if (isCustomMode) {
@@ -1100,12 +1124,6 @@ function saveFieldAndNext(val, phase) {
             if (preset) {
                 Object.assign(playerAnswers, preset);
                 delete playerAnswers.presetName; // Optional cleanup
-
-                // Skip the rest of the player fields
-                currentPhase = 'scenario';
-                currentStep = 0;
-                renderScenarioStep();
-                return;
             }
         }
     }

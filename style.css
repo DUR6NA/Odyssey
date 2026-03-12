@@ -57,8 +57,13 @@
     font-size: 1em;
 }
 
+.setup-input {
+    text-align: center;
+}
+
 .setup-textarea {
     resize: vertical;
+    text-align: left;
 }
 
 .ai-actions-row,
@@ -763,6 +768,7 @@ textarea:focus {
     flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;
+    text-align: center;
 }
 
 .custom-select-arrow {

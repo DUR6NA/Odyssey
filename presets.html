@@ -72,11 +72,11 @@
             background: var(--bg-tertiary);
             border: 1px solid var(--border-color);
             border-radius: 12px;
-            padding: 20px;
+            padding: 25px;
             display: flex;
             flex-direction: column;
-            gap: 10px;
-            transition: transform 0.2s ease;
+            gap: 15px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
         }
 
         .preset-card:hover {
@@ -101,6 +101,7 @@
             margin-top: auto;
             display: flex;
             justify-content: flex-end;
+            gap: 12px;
             padding-top: 15px;
             border-top: 1px dashed var(--border-color);
         }
@@ -116,6 +117,9 @@
         .form-row label {
             color: var(--text-heading);
             font-weight: bold;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         .form-grid {
@@ -164,6 +168,7 @@
         .btn-ai:hover {
             border-color: var(--accent-hover);
             color: var(--accent-hover);
+            transform: translateY(-2px);
         }
 
         .btn-ai.btn-refine {
@@ -243,7 +248,10 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>Character Presets</h1>
+            <div>
+                <h1>Character Presets</h1>
+                <p style="color: var(--text-muted); margin: 5px 0 0 0;">Manage your custom characters to load instantly into new worlds.</p>
+            </div>
             <button class="back-btn" onclick="window.location.href='mainmenu.html'">Back to Main Menu</button>
         </div>
 
@@ -294,7 +302,7 @@
                         <div class="setup-input-row">
                             <input type="text" id="p_name" class="setup-input" style="flex: 1;" required>
                             <button type="button" class="btn-dice" onclick="autoGenerateField('name', 'Name')"
-                                title="Auto-generate with AI">🎲</button>
+                                title="Auto-generate with AI">🪄 Auto</button>
                         </div>
                     </div>
                     <div class="form-row">
@@ -302,7 +310,7 @@
                         <div class="setup-input-row">
                             <input type="number" id="p_age" class="setup-input" style="flex: 1;" required>
                             <button type="button" class="btn-dice" onclick="autoGenerateField('age', 'Age')"
-                                title="Auto-generate with AI">🎲</button>
+                                title="Auto-generate with AI">🪄 Auto</button>
                         </div>
                     </div>
                     <div class="form-row">
@@ -314,7 +322,7 @@
                                 <option value="Other">Other / Custom</option>
                             </select>
                             <button type="button" class="btn-dice" onclick="autoGenerateField('gender', 'Gender')"
-                                title="Auto-generate with AI">🎲</button>
+                                title="Auto-generate with AI">🪄 Auto</button>
                         </div>
                         <input type="text" id="p_gender_custom" class="setup-input hidden"
                             placeholder="Type custom gender here..." style="margin-top: 5px;">
@@ -325,7 +333,7 @@
                             <input type="text" id="p_height" class="setup-input" placeholder="e.g. 5'11&quot;"
                                 style="flex: 1;" required>
                             <button type="button" class="btn-dice" onclick="autoGenerateField('height', 'Height')"
-                                title="Auto-generate with AI">🎲</button>
+                                title="Auto-generate with AI">🪄 Auto</button>
                         </div>
                     </div>
                     <div class="form-row">
@@ -334,7 +342,7 @@
                             <input type="text" id="p_weight" class="setup-input" placeholder="e.g. 180lbs"
                                 style="flex: 1;" required>
                             <button type="button" class="btn-dice" onclick="autoGenerateField('weight', 'Weight')"
-                                title="Auto-generate with AI">🎲</button>
+                                title="Auto-generate with AI">🪄 Auto</button>
                         </div>
                     </div>
                     <div class="form-row">
@@ -364,6 +372,10 @@
                                         class="attribute-marker-tick-label">Superhuman</span></div>
                             </div>
                         </div>
+                        <button type="button" class="btn btn-secondary attribute-define-toggle" id="ath-define-toggle" style="margin-top: 10px; width: 100%;">✍️ Define it myself</button>
+                        <div class="attribute-custom-wrap hidden" id="ath-custom-wrap" style="margin-top: 10px;">
+                            <textarea id="p_athleticism_custom" class="setup-textarea" rows="3" placeholder="Describe Athleticism in your own words..."></textarea>
+                        </div>
                     </div>
                     <div class="form-row">
                         <label>Intelligence</label>
@@ -392,6 +404,10 @@
                                         class="attribute-marker-tick-label">Polymath</span></div>
                             </div>
                         </div>
+                        <button type="button" class="btn btn-secondary attribute-define-toggle" id="int-define-toggle" style="margin-top: 10px; width: 100%;">✍️ Define it myself</button>
+                        <div class="attribute-custom-wrap hidden" id="int-custom-wrap" style="margin-top: 10px;">
+                            <textarea id="p_intelligence_custom" class="setup-textarea" rows="3" placeholder="Describe Intelligence in your own words..."></textarea>
+                        </div>
                     </div>
                 </div>
 
@@ -402,7 +418,7 @@
                         <div class="setup-input-row">
                             <textarea id="p_appearance" class="setup-textarea" style="flex: 1;" rows="2"></textarea>
                             <button type="button" class="btn btn-ai btn-refine"
-                                onclick="processWithAI('appearance', false, this)">✨ AI</button>
+                                onclick="processWithAI('appearance', false, this)">✨ Assist</button>
                         </div>
                     </div>
                 </div>
@@ -412,7 +428,7 @@
                         <div class="setup-input-row">
                             <textarea id="p_personality" class="setup-textarea" style="flex: 1;" rows="2"></textarea>
                             <button type="button" class="btn btn-ai btn-refine"
-                                onclick="processWithAI('personality', false, this)">✨ AI</button>
+                                onclick="processWithAI('personality', false, this)">✨ Assist</button>
                         </div>
                     </div>
                 </div>
@@ -422,7 +438,7 @@
                         <div class="setup-input-row">
                             <textarea id="p_backstory" class="setup-textarea" style="flex: 1;" rows="3"></textarea>
                             <button type="button" class="btn btn-ai btn-refine"
-                                onclick="processWithAI('backstory', false, this)">✨ AI</button>
+                                onclick="processWithAI('backstory', false, this)">✨ Assist</button>
                         </div>
                     </div>
                 </div>
@@ -433,7 +449,7 @@
                             <textarea id="p_family" class="setup-textarea" style="flex: 1;" rows="2"
                                 placeholder="Comma separated, e.g. Mother Sarah, Brother John"></textarea>
                             <button type="button" class="btn btn-ai btn-refine"
-                                onclick="processWithAI('family', true, this)">✨ AI</button>
+                                onclick="processWithAI('family', true, this)">✨ Assist</button>
                         </div>
                     </div>
                 </div>
@@ -455,7 +471,7 @@
                             <textarea id="p_inventory" class="setup-textarea" style="flex: 1;" rows="2"
                                 placeholder="Comma separated"></textarea>
                             <button type="button" class="btn btn-ai btn-refine"
-                                onclick="processWithAI('inventory', true, this)">✨ AI</button>
+                                onclick="processWithAI('inventory', true, this)">✨ Assist</button>
                         </div>
                     </div>
                 </div>
@@ -511,9 +527,13 @@
         ];
 
         function setupMiniSliders() {
-            const bindSlider = (id, labelId, markers) => {
+            const bindSlider = (id, labelId, markers, toggleId, wrapperId, customId) => {
                 const slider = document.getElementById(id);
                 const label = document.getElementById(labelId);
+                const toggle = document.getElementById(toggleId);
+                const wrapper = document.getElementById(wrapperId);
+                const custom = document.getElementById(customId);
+                const sliderContainer = slider.closest('.attribute-slider-container');
 
                 const findNearest = (val) => {
                     let closest = markers[0];
@@ -540,10 +560,24 @@
                 const initM = findNearest(parseInt(slider.value));
                 slider.value = initM.value;
                 label.textContent = initM.label;
+
+                toggle.onclick = () => {
+                    const isCustom = wrapper.classList.contains('hidden');
+                    if (isCustom) {
+                        sliderContainer.classList.add('hidden');
+                        wrapper.classList.remove('hidden');
+                        toggle.textContent = '📊 Use the slider instead';
+                        custom.focus();
+                    } else {
+                        sliderContainer.classList.remove('hidden');
+                        wrapper.classList.add('hidden');
+                        toggle.textContent = '✍️ Define it myself';
+                    }
+                };
             };
 
-            bindSlider('p_athleticism', 'ath-label', athMarkers);
-            bindSlider('p_intelligence', 'int-label', intMarkers);
+            bindSlider('p_athleticism', 'ath-label', athMarkers, 'ath-define-toggle', 'ath-custom-wrap', 'p_athleticism_custom');
+            bindSlider('p_intelligence', 'int-label', intMarkers, 'int-define-toggle', 'int-custom-wrap', 'p_intelligence_custom');
         }
 
         // --- Core Preset Logic ---
@@ -575,12 +609,14 @@
                     const gendStr = p.gender || '';
 
                     card.innerHTML = `
-                        <h3>${p.presetName}</h3>
-                        <p><strong>Character:</strong> ${charName}</p>
-                        <p><strong>Stats:</strong> ${ageStr} ${gendStr}</p>
+                        <h3 style="margin-bottom: 5px; font-size: 1.3rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">${p.presetName}</h3>
+                        <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 5px;">
+                            <p style="color: var(--text-main); font-size: 1.05rem;"><strong>Character:</strong> ${charName}</p>
+                            <p><strong>Attributes:</strong> ${ageStr} ${gendStr}</p>
+                        </div>
                         <div class="preset-actions">
-                            <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="editPreset('${p.presetName.replace(/'/g, "\\'")}')">Edit</button>
-                            <button class="btn btn-danger" style="padding: 6px 12px; font-size: 0.85rem;" onclick="deletePreset('${p.presetName.replace(/'/g, "\\'")}')">Delete</button>
+                            <button type="button" class="btn btn-secondary" style="padding: 6px 16px; font-size: 0.9rem; text-transform: uppercase; font-weight: bold; letter-spacing: 1px;" onclick="editPreset('${p.presetName.replace(/'/g, "\\'")}')">Edit</button>
+                            <button type="button" class="btn btn-danger" style="padding: 6px 16px; font-size: 0.9rem; text-transform: uppercase; font-weight: bold; letter-spacing: 1px;" onclick="deletePreset('${p.presetName.replace(/'/g, "\\'")}')">Delete</button>
                         </div>
                     `;
                     listEl.appendChild(card);
@@ -604,8 +640,17 @@
 
             document.getElementById('p_athleticism').value = 30;
             document.getElementById('ath-label').textContent = 'Average Joe';
+            document.getElementById('p_athleticism').closest('.attribute-slider-container').classList.remove('hidden');
+            document.getElementById('ath-custom-wrap').classList.add('hidden');
+            document.getElementById('p_athleticism_custom').value = '';
+            document.getElementById('ath-define-toggle').textContent = '✍️ Define it myself';
+
             document.getElementById('p_intelligence').value = 30;
             document.getElementById('int-label').textContent = 'Average';
+            document.getElementById('p_intelligence').closest('.attribute-slider-container').classList.remove('hidden');
+            document.getElementById('int-custom-wrap').classList.add('hidden');
+            document.getElementById('p_intelligence_custom').value = '';
+            document.getElementById('int-define-toggle').textContent = '✍️ Define it myself';
         }
 
         function editPreset(presetName) {
@@ -637,21 +682,42 @@
             document.getElementById('p_weight').value = p.weight || '';
 
             const findFuzzyMarker = (valStr, markers) => {
-                if (!valStr) return markers[2]; // Default to 'Average Joe' or 'Average'
+                if (!valStr) return markers[2]; 
                 valStr = valStr.toLowerCase();
-                // Try exact match first, then fuzzy match
+                if (valStr.startsWith('custom: ')) return null;
                 return markers.find(m => m.label.toLowerCase() === valStr) ||
                     markers.find(m => valStr.includes(m.label.toLowerCase()) || m.label.toLowerCase().includes(valStr)) ||
-                    markers[2]; // Fallback if no match
+                    null; 
             };
 
-            const athMarker = findFuzzyMarker(p.athleticism, athMarkers);
-            document.getElementById('p_athleticism').value = athMarker.value;
-            document.getElementById('ath-label').textContent = athMarker.label;
+            const loadAttribute = (valStr, markers, sliderId, labelId, toggleId, wrapperId, customId) => {
+                const marker = findFuzzyMarker(valStr, markers);
+                const sliderContainer = document.getElementById(sliderId).closest('.attribute-slider-container');
+                const toggle = document.getElementById(toggleId);
+                const wrapper = document.getElementById(wrapperId);
+                const customInput = document.getElementById(customId);
+                
+                if (marker) {
+                    document.getElementById(sliderId).value = marker.value;
+                    document.getElementById(labelId).textContent = marker.label;
+                    
+                    sliderContainer.classList.remove('hidden');
+                    wrapper.classList.add('hidden');
+                    toggle.textContent = '✍️ Define it myself';
+                    customInput.value = '';
+                } else {
+                    let textVal = valStr || '';
+                    if (typeof textVal === 'string' && textVal.startsWith('Custom: ')) textVal = textVal.replace('Custom: ', '');
+                    customInput.value = textVal;
+                    
+                    sliderContainer.classList.add('hidden');
+                    wrapper.classList.remove('hidden');
+                    toggle.textContent = '📊 Use the slider instead';
+                }
+            };
 
-            const intMarker = findFuzzyMarker(p.intelligence, intMarkers);
-            document.getElementById('p_intelligence').value = intMarker.value;
-            document.getElementById('int-label').textContent = intMarker.label;
+            loadAttribute(p.athleticism, athMarkers, 'p_athleticism', 'ath-label', 'ath-define-toggle', 'ath-custom-wrap', 'p_athleticism_custom');
+            loadAttribute(p.intelligence, intMarkers, 'p_intelligence', 'int-label', 'int-define-toggle', 'int-custom-wrap', 'p_intelligence_custom');
 
             document.getElementById('p_appearance').value = p.appearance || '';
             document.getElementById('p_personality').value = p.personality || '';
@@ -675,10 +741,7 @@
 
             const splitArray = (val) => val ? val.split(',').map(s => s.trim()).filter(s => s) : [];
 
-            // Read the sliders 
-            const athVal = parseInt(document.getElementById('p_athleticism').value) || 30;
-            const intVal = parseInt(document.getElementById('p_intelligence').value) || 30;
-
+            // Read the sliders or customs
             const getMarkerLabel = (val, markers) => {
                 let closest = markers[0];
                 let minDist = Math.abs(val - closest.value);
@@ -688,6 +751,19 @@
                 }
                 return closest.label;
             };
+
+            const readAttribute = (sliderId, wrapperId, customId, markers) => {
+                const wrapper = document.getElementById(wrapperId);
+                if (!wrapper.classList.contains('hidden')) {
+                    const customText = document.getElementById(customId).value.trim();
+                    if (customText) return 'Custom: ' + customText;
+                }
+                const val = parseInt(document.getElementById(sliderId).value) || 30;
+                return getMarkerLabel(val, markers);
+            };
+
+            const finalAthleticism = readAttribute('p_athleticism', 'ath-custom-wrap', 'p_athleticism_custom', athMarkers);
+            const finalIntelligence = readAttribute('p_intelligence', 'int-custom-wrap', 'p_intelligence_custom', intMarkers);
 
             const finalGender = document.getElementById('p_gender').value === 'Other'
                 ? (document.getElementById('p_gender_custom').value || 'Other')
@@ -700,8 +776,8 @@
                 gender: finalGender,
                 height: document.getElementById('p_height').value,
                 weight: document.getElementById('p_weight').value,
-                athleticism: getMarkerLabel(athVal, athMarkers),
-                intelligence: getMarkerLabel(intVal, intMarkers),
+                athleticism: finalAthleticism,
+                intelligence: finalIntelligence,
                 appearance: document.getElementById('p_appearance').value,
                 personality: document.getElementById('p_personality').value,
                 backstory: document.getElementById('p_backstory').value,
