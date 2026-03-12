@@ -35,6 +35,98 @@ const server = http.createServer((req, res) => {
         return;
     }
 
+    if (req.method === 'POST' && req.url === '/api/save-preset') {
+        let body = '';
+        req.on('data', chunk => body += chunk.toString());
+        req.on('end', () => {
+            try {
+                const data = JSON.parse(body);
+                const presetsDir = path.join(__dirname, 'presets');
+
+                if (!fs.existsSync(presetsDir)) {
+                    fs.mkdirSync(presetsDir);
+                }
+
+                if (!data.presetName) {
+                    throw new Error("Missing preset name.");
+                }
+
+                // Sanitize filename
+                const safeName = data.presetName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                const filePath = path.join(presetsDir, `${safeName}.json`);
+
+                fs.writeFileSync(filePath, JSON.stringify(data, null, 4));
+
+                console.log(`Saved character preset: ${safeName}`);
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: true, preset: safeName }));
+            } catch (error) {
+                console.error("Error saving preset:", error);
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, error: error.message }));
+            }
+        });
+        return;
+    }
+
+    if (req.method === 'GET' && req.url === '/api/list-presets') {
+        try {
+            const presetsDir = path.join(__dirname, 'presets');
+            if (!fs.existsSync(presetsDir)) {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify([]));
+                return;
+            }
+            const files = fs.readdirSync(presetsDir).filter(f => f.endsWith('.json'));
+            const presets = [];
+
+            for (const file of files) {
+                try {
+                    const content = JSON.parse(fs.readFileSync(path.join(presetsDir, file), 'utf8'));
+                    presets.push(content);
+                } catch (e) {
+                    console.error(`Error reading preset ${file}:`, e);
+                }
+            }
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(presets));
+        } catch (error) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: error.message }));
+        }
+        return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/delete-preset') {
+        let body = '';
+        req.on('data', chunk => body += chunk.toString());
+        req.on('end', () => {
+            try {
+                const data = JSON.parse(body);
+                if (!data.presetName) throw new Error("Missing preset name");
+
+                const presetsDir = path.join(__dirname, 'presets');
+                const safeName = data.presetName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                const filePath = path.join(presetsDir, `${safeName}.json`);
+
+                if (fs.existsSync(filePath)) {
+                    fs.unlinkSync(filePath);
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ success: true }));
+                } else {
+                    res.writeHead(404, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ success: false, error: "Preset not found" }));
+                }
+            } catch (error) {
+                console.error("Error deleting preset:", error);
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, error: error.message }));
+            }
+        });
+        return;
+    }
+
     if (req.method === 'POST' && req.url === '/api/save-new-game') {
         let body = '';
         req.on('data', chunk => body += chunk.toString());

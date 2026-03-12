@@ -57,6 +57,7 @@
                 </div>
 
                 <div style="margin-top: 15px;">
+                    <button onclick="window.location.href='mainmenu.html'" class="btn-player-menu" style="margin-bottom: 15px;">Main Menu</button>
                     <button onclick="openPlayerMenu()" class="btn-player-menu">Player Menu</button>
                 </div>
             </aside>
@@ -156,7 +157,8 @@
 
     <script>
         function settings() {
-            window.location.href = "settings.html";
+            const searchParams = window.location.search;
+            window.location.href = "settings.html" + (searchParams ? searchParams + "&from=game" : "?from=game");
         }
 
         document.addEventListener('DOMContentLoaded', () => {

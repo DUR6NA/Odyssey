@@ -14,11 +14,12 @@ let startingScenario = '';
 let aiProcessedResult = null;
 let currentGameFolder = null;
 let playerImageBaseURL = null;
+let PLAYER_PRESETS = [];
 
 function buildFetchPayload(model, messages, temp, maxTokens, topP, presPen, freqPen, provider, jsonSchema = null) {
     const payload = { model: model, messages: messages, temperature: temp, max_tokens: maxTokens, top_p: topP };
-    if (presPen !== 0) payload.presence_penalty = presPen;
-    if (freqPen !== 0) payload.frequency_penalty = freqPen;
+    if (presPen !== 0 && provider !== 'xai') payload.presence_penalty = presPen;
+    if (freqPen !== 0 && provider !== 'xai') payload.frequency_penalty = freqPen;
 
     if (jsonSchema && typeof jsonSchema === 'object') {
         // Determine schema name based on content
@@ -278,15 +279,31 @@ const playerSetupFields = [
     { id: 'inventory', type: 'ai', label: 'What is in your Inventory?', isArray: true }
 ];
 
+function getActivePlayerFields() {
+    let fields = [...playerSetupFields];
+    if (PLAYER_PRESETS && PLAYER_PRESETS.length > 0) {
+        const options = ['None (Custom)', ...PLAYER_PRESETS.map(p => p.presetName)];
+        fields.unshift({ id: 'preset', type: 'select', label: 'Select a Character Preset (Optional)', options: options });
+    }
+    return fields;
+}
+
 // ============================================================
 // ENTRY POINT
 // ============================================================
-function initSetupMode() {
+async function initSetupMode() {
     const welcomeScreen = document.getElementById('welcome-screen');
     if (welcomeScreen) welcomeScreen.classList.add('hidden');
 
     const setupContainer = document.getElementById('setup-screen');
     if (setupContainer) setupContainer.classList.remove('hidden');
+
+    try {
+        const res = await fetch('/api/list-presets');
+        PLAYER_PRESETS = await res.json();
+    } catch (e) {
+        console.error("Failed to load player presets", e);
+    }
 
     currentPhase = 'world';
     currentStep = 0;
@@ -385,13 +402,15 @@ function renderWorldStep() {
 // PHASE 2: PLAYER CREATION
 // ============================================================
 function renderPlayerStep() {
-    if (currentStep >= playerSetupFields.length) {
+    const fields = getActivePlayerFields();
+    if (currentStep >= fields.length) {
         // Player creation complete — move to starting scenario
         currentPhase = 'scenario';
+        currentStep = 0;
         renderScenarioStep();
         return;
     }
-    renderFieldStep(playerSetupFields, currentStep, 'player', 'Player Creation');
+    renderFieldStep(fields, currentStep, 'player', 'Player Creation');
 }
 
 // ============================================================
@@ -792,7 +811,15 @@ function renderFieldStep(fields, step, phase, phaseLabel) {
         textarea.rows = 4;
         textarea.style.flex = '1';
         textarea.placeholder = field.aiHint || 'Enter your idea here...';
-        textarea.value = typeof prevValue === 'string' ? prevValue : '';
+        
+        let initialVal = '';
+        if (Array.isArray(prevValue)) {
+            initialVal = prevValue.join('\n');
+        } else if (typeof prevValue === 'string') {
+            initialVal = prevValue;
+        }
+        textarea.value = initialVal;
+        
         inputRow.appendChild(textarea);
         inputRow.appendChild(createDiceBtn());
         inputWrap.appendChild(inputRow);
@@ -805,7 +832,20 @@ function renderFieldStep(fields, step, phase, phaseLabel) {
         btnGen.id = 'btn-generate-ai';
         btnGen.textContent = '✨ Refine with AI';
         btnGen.onclick = () => processWithAI(textarea.value, field, phase);
+        
+        const btnNext = document.createElement('button');
+        btnNext.className = 'btn';
+        btnNext.textContent = 'Next';
+        btnNext.onclick = () => {
+            let finalVal = textarea.value.trim();
+            if (field.isArray && finalVal) {
+                finalVal = finalVal.split('\n').filter(s => s.trim());
+            }
+            saveFieldAndNext(finalVal, phase);
+        };
+
         aiActions.appendChild(btnGen);
+        aiActions.appendChild(btnNext);
         inputWrap.appendChild(aiActions);
     }
 
@@ -1028,7 +1068,7 @@ function saveFieldAndNext(val, phase) {
         return;
     }
     const answers = phase === 'world' ? worldAnswers : playerAnswers;
-    const fields = phase === 'world' ? getActiveWorldFields() : playerSetupFields;
+    const fields = phase === 'world' ? getActiveWorldFields() : getActivePlayerFields();
     const field = fields[currentStep];
     answers[field.id] = val;
 
@@ -1053,6 +1093,23 @@ function saveFieldAndNext(val, phase) {
         }
     }
 
+    // When a player preset is selected
+    if (field.id === 'preset' && phase === 'player') {
+        if (val !== 'None (Custom)') {
+            const preset = PLAYER_PRESETS.find(p => p.presetName === val);
+            if (preset) {
+                Object.assign(playerAnswers, preset);
+                delete playerAnswers.presetName; // Optional cleanup
+
+                // Skip the rest of the player fields
+                currentPhase = 'scenario';
+                currentStep = 0;
+                renderScenarioStep();
+                return;
+            }
+        }
+    }
+
     currentStep++;
 
     if (phase === 'world') {
@@ -1063,18 +1120,53 @@ function saveFieldAndNext(val, phase) {
 }
 
 function goBack(phase) {
+    // Save current active input to prevent losing unsaved work
+    const inp = document.getElementById('setup-field-input');
+    const fields = phase === 'world' ? getActiveWorldFields() : getActivePlayerFields();
+    if (fields[currentStep]) {
+        const answers = phase === 'world' ? worldAnswers : playerAnswers;
+        const field = fields[currentStep];
+        
+        if (inp && inp.tagName === 'TEXTAREA' && field.type === 'ai') {
+            let val = inp.value.trim();
+            if (field.isArray && val) val = val.split('\n').filter(s => s.trim());
+            if (val) answers[field.id] = val;
+        } else if (inp && (inp.tagName === 'INPUT' || inp.tagName === 'SELECT')) {
+            if (inp.value && field.type !== 'date') answers[field.id] = inp.value;
+        } else if (field.type === 'attribute') {
+            // For attributes, either the slider or the custom text is active
+            const customTextarea = document.querySelector('.attribute-custom-textarea');
+            if (customTextarea && !customTextarea.closest('.hidden')) {
+                if (customTextarea.value.trim()) answers[field.id] = 'Custom: ' + customTextarea.value.trim();
+            } else if (inp && inp.type === 'range') {
+                const label = document.querySelector('.attribute-label-name');
+                if (label) answers[field.id] = label.textContent;
+            }
+        } else if (field.type === 'date') {
+            const yearInput = document.getElementById('date-year');
+            const eraSelect = document.getElementById('date-era');
+            const monthInput = document.getElementById('date-month');
+            const dayInput = document.getElementById('date-day');
+            if (yearInput && yearInput.value) {
+                let dateObj = { year: parseInt(yearInput.value) || 0 };
+                if (eraSelect) dateObj.era = eraSelect.value;
+                if (monthInput) dateObj.month = parseInt(monthInput.value) || 1;
+                if (dayInput) dateObj.day = parseInt(dayInput.value) || 1;
+                answers[field.id] = dateObj;
+            }
+        }
+    }
+
     if (currentStep > 0) {
         currentStep--;
         if (phase === 'world') renderWorldStep();
         else renderPlayerStep();
     } else if (phase === 'player') {
-        // Go back to last world step
         currentPhase = 'world';
-        const fields = getActiveWorldFields();
-        currentStep = fields.length - 1;
+        const wfields = getActiveWorldFields();
+        currentStep = wfields.length - 1;
         renderWorldStep();
     } else if (phase === 'world') {
-        // Go back to world type choice
         renderWorldTypeChoice();
     }
 }
@@ -1182,10 +1274,15 @@ async function processWithAI(userInputValue, fieldInfo, phase) {
         ? localStorage.getItem('jsonAdventure_promptWorld') || 'You are a world-building assistant for a text-based RPG.'
         : localStorage.getItem('jsonAdventure_promptPlayer') || 'You are a game character creation assistant for a text-based RPG.';
 
+    let extraHints = "";
+    if (fieldInfo.id === 'inventory') {
+        extraHints = "\nCRITICAL FOR INVENTORY: Separate each unique item into its own array string. Do not group multiple items into a single string. Keep item descriptions grounded, highly concise, and precise (e.g. 'Sturdy iron shortsword' or 'Frayed rope').";
+    }
+
     const promptInstructions = `${domainHint}
 The user provided their input for the '${fieldInfo.id}' field.
 Please fix any mistakes, formalize the answer, and expand slightly if the input is too brief to make it fitting and immersive.
-${contextBlock}${wikiHint}
+${contextBlock}${wikiHint}${extraHints}
 CRITICAL: You must output ONLY a valid JSON object. Do not include markdown code block formatting like \`\`\`json.
 The JSON object must have exactly one key named "result", and its value must be ${expectedFormat}.`;
 
@@ -1495,6 +1592,17 @@ async function performImageGeneration(promptText, aspect_ratio = "2:3", baseImag
                 aspect_ratio: aspect_ratio
             };
         }
+    } else if (provider === 'googleai') {
+        // Google AI (Imagen / Nano Banana)
+        const arMap = { "2:3": "3:4", "16:9": "16:9", "1:1": "1:1", "3:2": "4:3", "9:16": "9:16" };
+        const mappedAr = arMap[aspect_ratio] || "3:4";
+        // Strip off the path if the model ID has 'models/' prefix already
+        const modelName = imageModel.replace(/^models\//, "");
+        fetchUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:predict?key=${apiKey}`;
+        payload = {
+            instances: [{ prompt: promptText }],
+            parameters: { sampleCount: 1, aspectRatio: mappedAr }
+        };
     } else {
         // OpenAI-compatible providers
         payload = {
@@ -1505,17 +1613,17 @@ async function performImageGeneration(promptText, aspect_ratio = "2:3", baseImag
         if (provider === 'lmstudio' || provider === 'openai') {
             payload.size = "1024x1024";
             fetchUrl = baseUrl.endsWith('/') ? `${baseUrl}images/generations` : `${baseUrl}/images/generations`;
-        } else if (provider === 'googleai') {
-            throw new Error("Direct Google Web API routing doesn't natively support OpenAI image gen via standard endpoint yet. Please use OpenRouter for Nano Banana.");
         }
+    }
+
+    let reqHeaders = { 'Content-Type': 'application/json' };
+    if (provider !== 'googleai') {
+        reqHeaders['Authorization'] = `Bearer ${apiKey || 'dummy'}`;
     }
 
     const res = await fetch(fetchUrl, {
         method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${apiKey || 'dummy'}`,
-            'Content-Type': 'application/json'
-        },
+        headers: reqHeaders,
         body: JSON.stringify(payload)
     });
 
@@ -1526,7 +1634,12 @@ async function performImageGeneration(promptText, aspect_ratio = "2:3", baseImag
 
     const data = await res.json();
 
-    if (provider === 'openrouter') {
+    if (provider === 'googleai') {
+        if (data.predictions && data.predictions.length > 0) {
+            const b64 = data.predictions[0].bytesBase64Encoded || data.predictions[0].bytes;
+            if (b64) return `data:image/jpeg;base64,${b64}`;
+        }
+    } else if (provider === 'openrouter') {
         const message = data.choices[0].message;
         if (message.images && message.images.length > 0) {
             return message.images[0].url || message.images[0].image_url?.url || message.images[0];
@@ -2066,7 +2179,7 @@ async function launchGame(summaryText, allData) {
     saveCurrentGame();
 }
 
-function buildGameSystemPrompt(allData, summaryText) {
+function buildGameSystemPrompt(allData, summaryText, relevantLore = '', wikipediaData = '', fandomData = '') {
     const defaultGamePrompt = `You are now a seasoned novelist acting as the Game Master. Write a dynamic, immersive, and grounded text-based adventure. 
 
 CRITICAL NARRATIVE RULES:
@@ -2097,7 +2210,16 @@ ${JSON.stringify(allData.playerInfo, null, 2)}
 ${JSON.stringify(allData.gameState, null, 2)}
 
 === ADVENTURE SUMMARY ===
-${summaryText}`;
+${summaryText}
+
+=== RELEVANT CODEX ENTRIES ===
+${relevantLore}
+
+=== RELEVANT WORLD INFO ===
+${wikipediaData}
+
+=== FANDOM LORE ===
+${fandomData}`;
 }
 
 // ============================================================
@@ -2370,6 +2492,32 @@ CRITICAL: Output ONLY a JSON object:
     return userInput;
 }
 
+function retrieveInternalLore(userInput) {
+    if (!window.gamestate) return '';
+
+    const npcs = window.gamestate.npcs || [];
+    const locations = window.gamestate.locations || [];
+    let loreLines = [];
+
+    const lowerInput = userInput.toLowerCase();
+
+    // Scan NPCs
+    for (const npc of npcs) {
+        if (npc.name && lowerInput.includes(npc.name.toLowerCase())) {
+            loreLines.push(`NPC - ${npc.name}: ${npc.status_or_history}`);
+        }
+    }
+
+    // Scan Locations
+    for (const loc of locations) {
+        if (loc.name && lowerInput.includes(loc.name.toLowerCase())) {
+            loreLines.push(`Location - ${loc.name}: ${loc.description}`);
+        }
+    }
+
+    return loreLines.length > 0 ? loreLines.join('\n') : '';
+}
+
 // Ensure the chat input dynamically scales
 function setupChatInput() {
     const sendBtn = document.querySelector('.send-btn');
@@ -2395,6 +2543,158 @@ function setupChatInput() {
         if (this.value === '') this.style.height = 'auto';
     });
 }
+
+async function runWikipediaPreCheck(userInput) {
+    if (localStorage.getItem('jsonAdventure_enableWebSearch') !== 'true') return { needs_search: false, query: '' };
+
+    const provider = localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter';
+    const baseUrl = localStorage.getItem('jsonAdventure_apiBaseUrl') || '';
+    const apiKey = localStorage.getItem('jsonAdventure_openRouterApiKey');
+    const model = localStorage.getItem('jsonAdventure_openRouterModel') || 'openai/gpt-3.5-turbo';
+    if (!apiKey && provider !== 'openai' && provider !== 'lmstudio') return { needs_search: false, query: '' };
+
+    const promptInstructions = `You are a search analysis tool analyzing the latest player action in a modern-day text-adventure game.
+Determine if the user's action involves or mentions a specific REAL-WORLD factual entity (like a current government leader, a real-world business CEO, a real country, a real company, historical event, etc.) where the Game Master might need accurate real-world context to describe the scene or consequences properly.
+
+If the Game Master needs real-world context, set "needs_search" to true and extract the EXACT, optimal short search query (e.g. "CEO of Apple", "President of France", "Microsoft", "Tim Cook") into "search_query".
+If the message is just general game actions (e.g., "I open the door", "I talk to the bartender"), fictional game items, or fictional lore characters, set "needs_search" to false and leave "search_query" empty.
+
+USER MESSAGE: "${userInput}"
+
+CRITICAL: Output ONLY valid JSON:
+{"needs_search": true/false, "search_query": "search terms here or empty"}`;
+
+    try {
+        let fetchUrl = "https://openrouter.ai/api/v1/chat/completions";
+        if (provider === 'xai') fetchUrl = "/api/xai-proxy/v1/chat/completions";
+        else if (provider === 'googleai') fetchUrl = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+        else if (provider === 'lmstudio' || provider === 'openai') fetchUrl = baseUrl.endsWith('/') ? `${baseUrl}chat/completions` : `${baseUrl}/chat/completions`;
+
+        const response = await fetch(fetchUrl, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${apiKey || 'dummy'}`, 'Content-Type': 'application/json' },
+            body: buildFetchPayload(model, [{ role: 'system', content: promptInstructions }], 0.1, 150, 1.0, 0, 0, provider,
+                provider === 'lmstudio' || provider === 'openai'
+                    ? { type: "object", properties: { needs_search: { type: "boolean" }, search_query: { type: "string" } }, required: ["needs_search", "search_query"], additionalProperties: false }
+                    : null
+            )
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            const content = data.choices[0].message.content.trim();
+            const parsed = JSON.parse(content.replace(/^```json/, '').replace(/```$/, '').trim());
+            return { needs_search: !!parsed.needs_search, query: parsed.search_query || '' };
+        }
+    } catch (err) { console.error("Wiki precheck error:", err); }
+
+    return { needs_search: false, query: '' };
+}
+
+async function performWikipediaSearch(query) {
+    if (!query) return '';
+    try {
+        console.log("Querying Wikipedia for:", query);
+        const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&utf8=&format=json&origin=*`;
+        const res = await fetch(searchUrl);
+        const data = await res.json();
+        if (data.query && data.query.search && data.query.search.length > 0) {
+            // Grab the top result snippet and clean HTML tags
+            let topHit = data.query.search[0];
+            let cleanSnippet = topHit.snippet.replace(/<\/?[^>]+(>|$)/g, "");
+            return `WIKIPEDIA RESULT FOR "${topHit.title}": ${cleanSnippet}`;
+        }
+    } catch (err) {
+        console.error("Wikipedia search failed:", err);
+    }
+    return '';
+}
+
+async function runFandomPreCheck(userInput, presetKey) {
+    if (localStorage.getItem('jsonAdventure_enableFandomSearch') !== 'true') return { needs_search: false, query: '' };
+    const presetData = WORLD_PRESETS[presetKey];
+    if (!presetData || !presetData.wikiUrl) return { needs_search: false, query: '' };
+
+    const provider = localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter';
+    const baseUrl = localStorage.getItem('jsonAdventure_apiBaseUrl') || '';
+    const apiKey = localStorage.getItem('jsonAdventure_openRouterApiKey');
+    const model = localStorage.getItem('jsonAdventure_openRouterModel') || 'openai/gpt-3.5-turbo';
+    if (!apiKey && provider !== 'openai' && provider !== 'lmstudio') return { needs_search: false, query: '' };
+
+    const promptInstructions = `You are a search analysis tool analyzing the latest player action in a "${presetData.name}" universe text-adventure game.
+Determine if the user's action involves or mentions a specific lore entity, character, location, faction, or item from this specific universe where the Game Master might need accurate wiki context to describe the scene or consequences properly.
+
+If the Game Master needs lore context, set "needs_search" to true and extract the EXACT, optimal short search query (e.g. "Darth Vader", "Tatooine", "Hogwarts", "Mandalorian") into "search_query".
+If the message is just general game actions (e.g., "I open the door", "I walk forward"), set "needs_search" to false and leave "search_query" empty.
+
+USER MESSAGE: "${userInput}"
+
+CRITICAL: Output ONLY valid JSON:
+{"needs_search": true/false, "search_query": "search terms here or empty"}`;
+
+    try {
+        let fetchUrl = "https://openrouter.ai/api/v1/chat/completions";
+        if (provider === 'xai') fetchUrl = "/api/xai-proxy/v1/chat/completions";
+        else if (provider === 'googleai') fetchUrl = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+        else if (provider === 'lmstudio' || provider === 'openai') fetchUrl = baseUrl.endsWith('/') ? `${baseUrl}chat/completions` : `${baseUrl}/chat/completions`;
+
+        const response = await fetch(fetchUrl, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${apiKey || 'dummy'}`, 'Content-Type': 'application/json' },
+            body: buildFetchPayload(model, [{ role: 'system', content: promptInstructions }], 0.1, 150, 1.0, 0, 0, provider,
+                provider === 'lmstudio' || provider === 'openai'
+                    ? { type: "object", properties: { needs_search: { type: "boolean" }, search_query: { type: "string" } }, required: ["needs_search", "search_query"], additionalProperties: false }
+                    : null
+            )
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            const content = data.choices[0].message.content.trim();
+            const parsed = JSON.parse(content.replace(/^```json/, '').replace(/```$/, '').trim());
+            return { needs_search: !!parsed.needs_search, query: parsed.search_query || '' };
+        }
+    } catch (err) { console.error("Fandom precheck error:", err); }
+
+    return { needs_search: false, query: '' };
+}
+
+async function performFandomSearch(query, presetKey) {
+    if (!query) return '';
+    const presetData = WORLD_PRESETS[presetKey];
+    if (!presetData || !presetData.wikiUrl) return '';
+    try {
+        console.log(`Querying ${presetData.name} Fandom Wiki for:`, query);
+        // Process wikiUrl to extract origin since API is at root /api.php
+        const urlObj = new URL(presetData.wikiUrl);
+        // Sometimes wookieepedia has a specific path like starwars.fandom.com/pt/api.php if localized, but default english is starwars.fandom.com/api.php
+        // Just use origin + /api.php which covers 99% of Fandom sites. For awoiaf it's awoiaf.westeros.org/api.php 
+        // We will construct it by replacing the /wiki/ or /index.php/ part with /api.php
+        let apiEndpointStr = presetData.wikiUrl;
+        if (apiEndpointStr.includes('/wiki/')) {
+            apiEndpointStr = apiEndpointStr.replace('/wiki/', '/api.php');
+        } else if (apiEndpointStr.includes('/index.php/')) {
+            apiEndpointStr = apiEndpointStr.replace('/index.php/', '/api.php');
+        } else {
+            apiEndpointStr = urlObj.origin + '/api.php';
+        }
+
+        const searchUrl = `${apiEndpointStr}?action=query&list=search&srsearch=${encodeURIComponent(query)}&utf8=&format=json&origin=*`;
+
+        const res = await fetch(searchUrl);
+        const data = await res.json();
+        if (data.query && data.query.search && data.query.search.length > 0) {
+            // Grab the top result snippet and clean HTML tags
+            let topHit = data.query.search[0];
+            let cleanSnippet = topHit.snippet.replace(/<\/?[^>]+(>|$)/g, "");
+            return `LORE WIKI RESULT FOR "${topHit.title}": ${cleanSnippet}`;
+        }
+    } catch (err) {
+        console.error("Fandom search failed:", err);
+    }
+    return '';
+}
+
 
 async function sendChatMessage() {
     const chatInput = document.getElementById('chat-input');
@@ -2423,6 +2723,26 @@ async function sendChatMessage() {
     const loaderContent = loadingMsg.querySelector('.message-content');
     if (loaderContent) loaderContent.textContent = '⏳ Thinking...';
 
+    // 1: Check Internal Lore
+    const internalLore = retrieveInternalLore(message);
+
+    // 2: Check Real-World Wikipedia Search
+    let wikiData = '';
+    const searchContext = await runWikipediaPreCheck(message);
+    if (searchContext && searchContext.needs_search && searchContext.query) {
+        wikiData = await performWikipediaSearch(searchContext.query);
+    }
+
+    // 3: Check IP Fandom Lore Search
+    let fandomData = '';
+    const presetKey = (window.worldInfo?.world?.preset || '').toLowerCase();
+    if (presetKey && WORLD_PRESETS[presetKey]) {
+        const fandomContext = await runFandomPreCheck(message, presetKey);
+        if (fandomContext && fandomContext.needs_search && fandomContext.query) {
+            fandomData = await performFandomSearch(fandomContext.query, presetKey);
+        }
+    }
+
     // Add to history (with potential prompter context)
     window.chatHistory.push({ role: 'user', content: promptedMessage });
 
@@ -2433,7 +2753,7 @@ async function sendChatMessage() {
             playerInfo: window.playerInfo || {},
             gameState: window.gamestate || {}
         };
-        window.chatHistory[0].content = buildGameSystemPrompt(allData, window.gameSummaryText || '');
+        window.chatHistory[0].content = buildGameSystemPrompt(allData, window.gameSummaryText || '', internalLore, wikiData, fandomData);
     }
 
     const provider = localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter';
@@ -2518,6 +2838,37 @@ async function regenerateLastAI() {
     const loadingMsg = createChatMessage('ai', '🔄 Regenerating...');
     chatMessages.appendChild(loadingMsg);
 
+    // Find the last user message to use as context for regeneration searches
+    let lastUserMessage = '';
+    for (let i = window.chatHistory.length - 1; i >= 0; i--) {
+        if (window.chatHistory[i].role === 'user') {
+            // Strip any prompter system notes that might be prepended
+            lastUserMessage = window.chatHistory[i].content.split('Player action: ').pop();
+            break;
+        }
+    }
+
+    // 1: Check Internal Lore
+    const internalLore = retrieveInternalLore(lastUserMessage);
+
+    // 2: Check Real-World Wikipedia Search
+    let wikiData = '';
+    let fandomData = '';
+    if (lastUserMessage) {
+        const searchContext = await runWikipediaPreCheck(lastUserMessage);
+        if (searchContext && searchContext.needs_search && searchContext.query) {
+            wikiData = await performWikipediaSearch(searchContext.query);
+        }
+
+        const presetKey = (window.worldInfo?.world?.preset || '').toLowerCase();
+        if (presetKey && WORLD_PRESETS[presetKey]) {
+            const fandomContext = await runFandomPreCheck(lastUserMessage, presetKey);
+            if (fandomContext && fandomContext.needs_search && fandomContext.query) {
+                fandomData = await performFandomSearch(fandomContext.query, presetKey);
+            }
+        }
+    }
+
     // Refresh system prompt with latest game state before sending
     if (window.chatHistory.length > 0 && window.chatHistory[0].role === 'system') {
         const allData = {
@@ -2525,7 +2876,7 @@ async function regenerateLastAI() {
             playerInfo: window.playerInfo || {},
             gameState: window.gamestate || {}
         };
-        window.chatHistory[0].content = buildGameSystemPrompt(allData, window.gameSummaryText || '');
+        window.chatHistory[0].content = buildGameSystemPrompt(allData, window.gameSummaryText || '', internalLore, wikiData, fandomData);
     }
 
     const provider = localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter';

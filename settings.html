@@ -102,6 +102,20 @@
                     </div>
 
                     <div class="control-group" style="margin-top: 15px;">
+                        <label>Enable Real-World Web Search:</label>
+                        <input type="checkbox" id="api-enable-web-search" onchange="saveApiSettings()">
+                        <span style="font-size: 0.85em; color: var(--text-muted); margin-left: 10px;">Enables Wikipedia
+                            API integration</span>
+                    </div>
+
+                    <div class="control-group" style="margin-top: 15px;">
+                        <label>Enable IP Fandom Lore Integration:</label>
+                        <input type="checkbox" id="api-enable-fandom-search" onchange="saveApiSettings()">
+                        <span style="font-size: 0.85em; color: var(--text-muted); margin-left: 10px;">Enables Wiki
+                            (Wookieepedia, etc) lookups for presets</span>
+                    </div>
+
+                    <div class="control-group" style="margin-top: 15px;">
                         <button onclick="fetchModels('image')" class="btn" style="padding: 8px 16px;">Fetch Image
                             Models</button>
                         <span id="image-model-fetch-status"
@@ -271,10 +285,31 @@
             initCustomUIComponents(document.body, {
                 searchSelects: ['openrouter-model-select', 'openrouter-image-model-select', 'primary-font-select', 'secondary-font-select']
             });
+
+            // Update back button icon and title if from main menu
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('from') === 'mainmenu') {
+                const backBtn = document.querySelector('.btn-top-right');
+                if (backBtn) {
+                    backBtn.title = 'Back to Main Menu';
+                    backBtn.textContent = '🏠';
+                }
+            }
         });
 
         function backToGame() {
-            window.location.href = "game.html";
+            const params = new URLSearchParams(window.location.search);
+            const from = params.get('from');
+
+            if (from === 'mainmenu') {
+                window.location.href = 'mainmenu.html';
+            } else if (from === 'game') {
+                params.delete('from');
+                const queryString = params.toString();
+                window.location.href = 'game.html' + (queryString ? '?' + queryString : '');
+            } else {
+                window.location.href = "game.html";
+            }
         }
 
         // Tabbing Logic
@@ -392,8 +427,12 @@
 
             const imgCheck = document.getElementById('api-enable-image');
             const autoImgCheck = document.getElementById('api-enable-auto-image');
+            const webSearchCheck = document.getElementById('api-enable-web-search');
+            const fandomSearchCheck = document.getElementById('api-enable-fandom-search');
             imgCheck.checked = localStorage.getItem('jsonAdventure_enableImage') === 'true';
             autoImgCheck.checked = localStorage.getItem('jsonAdventure_enableAutoImage') === 'true';
+            webSearchCheck.checked = localStorage.getItem('jsonAdventure_enableWebSearch') === 'true';
+            fandomSearchCheck.checked = localStorage.getItem('jsonAdventure_enableFandomSearch') === 'true';
 
             imgCheck.addEventListener('change', () => {
                 autoImgCheck.disabled = !imgCheck.checked;
@@ -419,6 +458,8 @@
 
             const enableImage = document.getElementById('api-enable-image').checked;
             const enableAutoImage = document.getElementById('api-enable-auto-image').checked;
+            const enableWebSearch = document.getElementById('api-enable-web-search').checked;
+            const enableFandomSearch = document.getElementById('api-enable-fandom-search').checked;
             const selectedImageModel = document.getElementById('openrouter-image-model-select').value;
 
             // Save basic API info
@@ -442,6 +483,8 @@
 
             localStorage.setItem('jsonAdventure_enableImage', enableImage);
             localStorage.setItem('jsonAdventure_enableAutoImage', enableAutoImage);
+            localStorage.setItem('jsonAdventure_enableWebSearch', enableWebSearch);
+            localStorage.setItem('jsonAdventure_enableFandomSearch', enableFandomSearch);
             if (selectedImageModel) {
                 localStorage.setItem('jsonAdventure_imageModel_' + provider, selectedImageModel);
                 localStorage.setItem('jsonAdventure_openRouterImageModel', selectedImageModel);
@@ -541,9 +584,19 @@
                         });
                     }
                 } else if (fetchType === 'image') {
-                    // Simple heuristic for image models, or just don't heavily filter
-                    // OpenRouter image models don't necessarily need structured output. We let the user see all models or ones matching "image/dall/midjourney etc". Actually, returning all since models can handle image modality.
-                    filteredModels = models;
+                    if (provider === 'openrouter' && Array.isArray(models)) {
+                        filteredModels = models.filter(m => 
+                            m.architecture && m.architecture.output_modalities && m.architecture.output_modalities.includes("image")
+                        );
+                    } else if (provider === 'googleai' && Array.isArray(models)) {
+                        filteredModels = models.filter(m => {
+                            const id = (m.id || '').toLowerCase();
+                            const hasPredict = m.supportedGenerationMethods && m.supportedGenerationMethods.includes("predict");
+                            return hasPredict || id.includes("image") || id.includes("imagen");
+                        });
+                    } else {
+                        filteredModels = models;
+                    }
                 }
 
                 // Sort and group models by provider depending on API type
@@ -561,12 +614,19 @@
                             groupProvider = provider.charAt(0).toUpperCase() + provider.slice(1);
                         }
 
+                        let dName = model.name || model.id;
+                        if (provider === 'googleai' && fetchType === 'image') {
+                            if (dName.includes('gemini-2.5-flash-image')) dName = 'Nano Banana (Gemini 2.5 Flash Image)';
+                            else if (dName.includes('gemini-3.1-flash-image-preview')) dName = 'Nano Banana 2 (Gemini 3.1 Flash Image Preview)';
+                            else if (dName.includes('gemini-3-pro-image-preview')) dName = 'Nano Banana Pro (Gemini 3 Pro Image Preview)';
+                        }
+
                         if (!organizedModels[groupProvider]) {
                             organizedModels[groupProvider] = [];
                         }
                         organizedModels[groupProvider].push({
                             id: model.id,
-                            name: model.name || model.id
+                            name: dName
                         });
                     });
                 } else {
