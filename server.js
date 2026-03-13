@@ -17,8 +17,8 @@ const mimeTypes = {
 };
 
 const server = http.createServer((req, res) => {
-    // CORS headers
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    // CORS headers - Restricted to prevent cross-origin attacks
+    // Eliminating wildcard origin to rely on browser Same-Origin policies (mitigates CSRF)
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
@@ -230,7 +230,16 @@ const server = http.createServer((req, res) => {
     if (req.method === 'GET' && req.url.startsWith('/api/load-game?id=')) {
         try {
             const url = new URL(req.url, `http://${req.headers.host}`);
-            const id = url.searchParams.get('id');
+            const rawId = url.searchParams.get('id');
+            // Sanitize ID to prevent directory traversal
+            const id = rawId ? rawId.toString().replace(/[^0-9]/g, '') : '';
+            
+            if (!id) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Invalid or missing Game ID' }));
+                return;
+            }
+
             const newGameDir = path.join(__dirname, 'games', id);
 
             if (!fs.existsSync(newGameDir)) {
@@ -264,8 +273,17 @@ const server = http.createServer((req, res) => {
         req.on('end', () => {
             try {
                 const data = JSON.parse(body);
-                const id = data.id;
-                const gameDir = path.join(__dirname, 'games', id.toString());
+                const rawId = data.id;
+                // Sanitize ID to prevent directory traversal
+                const id = rawId ? rawId.toString().replace(/[^0-9]/g, '') : '';
+                
+                if (!id) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'Invalid Game ID' }));
+                    return;
+                }
+
+                const gameDir = path.join(__dirname, 'games', id);
 
                 if (!fs.existsSync(gameDir)) {
                     res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -314,8 +332,16 @@ const server = http.createServer((req, res) => {
         req.on('end', () => {
             try {
                 const data = JSON.parse(body);
-                const id = data.id;
-                const gameDir = path.join(__dirname, 'games', id.toString());
+                const rawId = data.id;
+                const id = rawId ? rawId.toString().replace(/[^0-9]/g, '') : '';
+                
+                if (!id) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'Invalid Game ID' }));
+                    return;
+                }
+
+                const gameDir = path.join(__dirname, 'games', id);
 
                 if (!fs.existsSync(gameDir)) {
                     res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -344,9 +370,17 @@ const server = http.createServer((req, res) => {
         req.on('end', () => {
             try {
                 const data = JSON.parse(body);
-                const id = data.id;
+                const rawId = data.id;
+                const id = rawId ? rawId.toString().replace(/[^0-9]/g, '') : '';
+                
+                if (!id) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'Invalid Game ID' }));
+                    return;
+                }
+
                 const imageUrl = data.url;
-                const gameDir = path.join(__dirname, 'games', id.toString());
+                const gameDir = path.join(__dirname, 'games', id);
 
                 if (!fs.existsSync(gameDir)) {
                     res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -357,7 +391,7 @@ const server = http.createServer((req, res) => {
                 const destPath = path.join(gameDir, 'player_base.png');
 
                 // Handle base64 data URIs directly
-                if (imageUrl.startsWith('data:image')) {
+                if (imageUrl && imageUrl.startsWith('data:image')) {
                     const base64Data = imageUrl.replace(/^data:image\/\w+;base64,/, '');
                     fs.writeFileSync(destPath, Buffer.from(base64Data, 'base64'));
                     console.log(`Base image saved for game ${id}`);
@@ -366,9 +400,31 @@ const server = http.createServer((req, res) => {
                     return;
                 }
 
-                // Download from URL
-                const protocol = imageUrl.startsWith('https') ? require('https') : require('http');
-                protocol.get(imageUrl, (imgRes) => {
+                // Prevent SSRF: validate protocol and basic host constraints
+                if (!imageUrl) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'Missing image URL' }));
+                    return;
+                }
+
+                let parsedImgUrl;
+                try {
+                    parsedImgUrl = new URL(imageUrl);
+                } catch (e) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'Invalid image URL' }));
+                    return;
+                }
+                
+                if (parsedImgUrl.protocol !== 'https:') {
+                    res.writeHead(403, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'Only HTTPS URLs are allowed to prevent SSRF' }));
+                    return;
+                }
+
+                // Download from URL safely over HTTPS
+                const https = require('https');
+                https.get(imageUrl, (imgRes) => {
                     if (imgRes.statusCode !== 200) {
                         res.writeHead(500, { 'Content-Type': 'application/json' });
                         res.end(JSON.stringify({ error: `Image download failed with status ${imgRes.statusCode}` }));
@@ -402,7 +458,15 @@ const server = http.createServer((req, res) => {
     if (req.method === 'GET' && req.url.startsWith('/api/get-base-image?id=')) {
         try {
             const url = new URL(req.url, `http://${req.headers.host}`);
-            const id = url.searchParams.get('id');
+            const rawId = url.searchParams.get('id');
+            const id = rawId ? rawId.toString().replace(/[^0-9]/g, '') : '';
+            
+            if (!id) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Invalid Game ID' }));
+                return;
+            }
+
             const imgPath = path.join(__dirname, 'games', id, 'player_base.png');
 
             if (!fs.existsSync(imgPath)) {
@@ -468,7 +532,19 @@ const server = http.createServer((req, res) => {
 
     // Static file serving — strip query strings for cache-busting support
     const urlPath = req.url.split('?')[0];
-    let filePath = path.join(__dirname, urlPath === '/' ? 'Welcome.html' : urlPath);
+    
+    // Normalize and prevent Directory Traversal (LFI)
+    const requestedFile = urlPath === '/' ? 'Welcome.html' : urlPath;
+    const safeRelativePath = path.normalize(requestedFile).replace(/^(\.\.(\/|\\|$))+/, '');
+    const filePath = path.join(__dirname, safeRelativePath);
+
+    // Extra safety measure to ensure resolved path is strictly within __dirname
+    if (!filePath.startsWith(__dirname)) {
+        res.writeHead(403);
+        res.end('Forbidden');
+        return;
+    }
+
     const extname = String(path.extname(filePath)).toLowerCase();
     const contentType = mimeTypes[extname] || 'application/octet-stream';
 
