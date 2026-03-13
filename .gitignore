@@ -114,5 +114,6 @@ openrouter_models.json
 player.json
 images/
 games/
-todo.txt 
+todo.md 
 log.md
+.agents/

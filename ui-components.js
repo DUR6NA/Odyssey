@@ -176,6 +176,14 @@ function createCustomSelect(nativeSelect, opts = {}) {
         });
 
         searchInput.addEventListener('click', (e) => e.stopPropagation());
+
+        // Escape key closes dropdown from search input
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeDropdown();
+                trigger.focus();
+            }
+        });
     }
 
     // Open/close logic
@@ -322,6 +330,13 @@ function createCustomNumberInput(nativeInput) {
     });
     upBtn.addEventListener('mouseup', () => clearInterval(upInterval));
     upBtn.addEventListener('mouseleave', () => clearInterval(upInterval));
+    // Touch support for mobile
+    upBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        doUp();
+        upInterval = setInterval(doUp, 120);
+    }, { passive: false });
+    upBtn.addEventListener('touchend', () => clearInterval(upInterval));
 
     // Down button
     const downBtn = document.createElement('button');
@@ -348,6 +363,24 @@ function createCustomNumberInput(nativeInput) {
     });
     downBtn.addEventListener('mouseup', () => clearInterval(downInterval));
     downBtn.addEventListener('mouseleave', () => clearInterval(downInterval));
+    // Touch support for mobile
+    downBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        doDown();
+        downInterval = setInterval(doDown, 120);
+    }, { passive: false });
+    downBtn.addEventListener('touchend', () => clearInterval(downInterval));
+
+    // Keyboard ArrowUp/ArrowDown support on the input
+    nativeInput.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            doUp();
+        } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            doDown();
+        }
+    });
 
     controls.appendChild(upBtn);
     controls.appendChild(downBtn);

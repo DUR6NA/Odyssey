@@ -46,10 +46,10 @@
                     <h2>API Configurations</h2>
                     <p>Configure your OpenRouter API keys and model parameters here.</p>
 
-                    <div class="control-group" style="margin-top: 20px;">
+                    <div class="control-group mt-lg">
                         <label>API Provider:</label>
                         <select id="api-provider-select" onchange="handleProviderChange()"
-                            style="width: 300px; padding: 6px;">
+                            class="input-md">
                             <option value="openrouter">OpenRouter</option>
                             <option value="lmstudio">LM Studio (Local)</option>
                             <option value="openai">OpenAI Compatible</option>
@@ -58,119 +58,119 @@
                         </select>
                     </div>
 
-                    <div class="control-group" id="base-url-group" style="margin-top: 15px; display: none;">
+                    <div class="control-group mt-md" id="base-url-group" style="display: none;">
                         <label>Base URL:</label>
                         <input type="text" id="api-base-url" placeholder="https://api.openai.com/v1"
-                            style="width: 300px; padding: 6px;" onchange="saveApiSettings()">
+                            class="input-md" onchange="saveApiSettings()">
                     </div>
 
-                    <div class="control-group" style="margin-top: 15px;">
+                    <div class="control-group mt-md">
                         <label>API Key:</label>
                         <input type="password" id="openrouter-api-key" placeholder="sk-..."
-                            style="width: 300px; padding: 6px;">
-                        <button onclick="saveApiSettings(true)" class="btn" style="padding: 8px 16px;">Save
+                            class="input-md">
+                        <button onclick="saveApiSettings(true)" class="btn btn-compact">Save
                             Settings</button>
                     </div>
 
-                    <div class="control-group" style="margin-top: 15px;">
-                        <button onclick="fetchModels()" class="btn" style="padding: 8px 16px;">Fetch Models</button>
+                    <div class="control-group mt-md">
+                        <button onclick="fetchModels()" class="btn btn-compact">Fetch Models</button>
                         <span id="model-fetch-status"
-                            style="margin-left: 10px; font-size: 0.9em; color: var(--text-muted);"></span>
+                            class="hint-text"></span>
                     </div>
 
-                    <div class="control-group" style="margin-top: 15px;">
+                    <div class="control-group mt-md">
                         <label>Select Model:</label>
                         <select id="openrouter-model-select" onchange="saveApiSettings()"
-                            style="width: 400px; max-width: 100%; padding: 6px;">
+                            class="input-lg">
                             <option value="">-- Load models first --</option>
                         </select>
                     </div>
 
-                    <hr style="margin: 20px 0; border: 1px solid var(--border-color);">
+                    <hr class="divider">
                     <h3>Image Generation Settings</h3>
 
-                    <div class="control-group" style="margin-top: 15px;">
+                    <div class="control-group mt-md">
                         <label>Enable Image Features:</label>
                         <input type="checkbox" id="api-enable-image" onchange="saveApiSettings()">
                     </div>
 
-                    <div class="control-group" style="margin-top: 15px;">
+                    <div class="control-group mt-md">
                         <label>Enable Auto Image Gen on Game Turn:</label>
                         <input type="checkbox" id="api-enable-auto-image" onchange="saveApiSettings()">
-                        <span style="font-size: 0.85em; color: var(--text-muted); margin-left: 10px;">Requires Image
+                        <span class="hint-text">Requires Image
                             Features enabled</span>
                     </div>
 
-                    <div class="control-group" style="margin-top: 15px;">
+                    <div class="control-group mt-md">
                         <label>Enable Real-World Web Search:</label>
                         <input type="checkbox" id="api-enable-web-search" onchange="saveApiSettings()">
-                        <span style="font-size: 0.85em; color: var(--text-muted); margin-left: 10px;">Enables Wikipedia
+                        <span class="hint-text">Enables Wikipedia
                             API integration</span>
                     </div>
 
-                    <div class="control-group" style="margin-top: 15px;">
+                    <div class="control-group mt-md">
                         <label>Enable IP Fandom Lore Integration:</label>
                         <input type="checkbox" id="api-enable-fandom-search" onchange="saveApiSettings()">
-                        <span style="font-size: 0.85em; color: var(--text-muted); margin-left: 10px;">Enables Wiki
+                        <span class="hint-text">Enables Wiki
                             (Wookieepedia, etc) lookups for presets</span>
                     </div>
 
-                    <div class="control-group" style="margin-top: 15px;">
-                        <button onclick="fetchModels('image')" class="btn" style="padding: 8px 16px;">Fetch Image
+                    <div class="control-group mt-md">
+                        <button onclick="fetchModels('image')" class="btn btn-compact">Fetch Image
                             Models</button>
                         <span id="image-model-fetch-status"
-                            style="margin-left: 10px; font-size: 0.9em; color: var(--text-muted);"></span>
+                            class="hint-text"></span>
                     </div>
 
-                    <div class="control-group" style="margin-top: 15px;">
+                    <div class="control-group mt-md">
                         <label>Select Image Model:</label>
                         <select id="openrouter-image-model-select" onchange="saveApiSettings()"
-                            style="width: 400px; max-width: 100%; padding: 6px;">
+                            class="input-lg">
                             <option value="">-- Load models first --</option>
                         </select>
                     </div>
 
-                    <hr style="margin: 20px 0; border: 1px solid var(--border-color);">
+                    <hr class="divider">
                     <h3>Model Settings</h3>
 
-                    <div class="control-group" style="margin-top: 15px;">
+                    <div class="control-group mt-md">
                         <label>Temperature:</label>
                         <input type="number" id="api-temperature" step="0.1" min="0" max="2" value="0.7"
-                            onchange="saveApiSettings()" style="width: 100px; padding: 6px;">
+                            onchange="saveApiSettings()" class="input-sm">
                     </div>
 
-                    <div class="control-group" style="margin-top: 15px;">
+                    <div class="control-group mt-md">
                         <label>Max Tokens:</label>
                         <input type="number" id="api-max-tokens" step="1" min="1" value="2048"
-                            onchange="saveApiSettings()" style="width: 100px; padding: 6px;">
+                            onchange="saveApiSettings()" class="input-sm">
                     </div>
 
-                    <div class="control-group" style="margin-top: 15px;">
+                    <div class="control-group mt-md">
                         <label>Top P:</label>
                         <input type="number" id="api-top-p" step="0.1" min="0" max="1" value="1.0"
-                            onchange="saveApiSettings()" style="width: 100px; padding: 6px;">
+                            onchange="saveApiSettings()" class="input-sm">
                     </div>
 
-                    <div class="control-group" style="margin-top: 15px;">
+                    <div class="control-group mt-md">
                         <label>Presence Penalty:</label>
                         <input type="number" id="api-presence-penalty" step="0.1" min="-2" max="2" value="0.0"
-                            onchange="saveApiSettings()" style="width: 100px; padding: 6px;">
+                            onchange="saveApiSettings()" class="input-sm">
                     </div>
 
-                    <div class="control-group" style="margin-top: 15px;">
+                    <div class="control-group mt-md">
                         <label>Frequency Penalty:</label>
                         <input type="number" id="api-frequency-penalty" step="0.1" min="-2" max="2" value="0.0"
-                            onchange="saveApiSettings()" style="width: 100px; padding: 6px;">
+                            onchange="saveApiSettings()" class="input-sm">
                     </div>
 
-                    <div class="control-group" style="margin-top: 15px;">
+                    <div class="control-group mt-md">
                         <label>Enable Reasoning (if supported):</label>
                         <input type="checkbox" id="api-enable-reasoning" onchange="saveApiSettings()">
                     </div>
 
-                    <div class="control-group" style="margin-top: 15px;">
+                    <div class="control-group mt-md">
                         <label>Reasoning Effort:</label>
-                        <select id="api-reasoning-effort" onchange="saveApiSettings()" style="padding: 6px;">
+                        <select id="api-reasoning-effort" onchange="saveApiSettings()">
                             <option value="low">Low</option>
                             <option value="medium" selected>Medium</option>
                             <option value="high">High</option>
@@ -237,8 +237,8 @@
                 </div>
 
                 <div class="prompt-actions">
-                    <button onclick="savePrompts(true)" class="btn" style="padding: 10px 24px;">Save Prompts</button>
-                    <button onclick="resetPrompts()" class="btn btn-danger" style="padding: 10px 24px;">Reset to
+                    <button onclick="savePrompts(true)" class="btn btn-normal">Save Prompts</button>
+                    <button onclick="resetPrompts()" class="btn btn-danger btn-normal">Reset to
                         Default</button>
                 </div>
             </div>
@@ -250,7 +250,7 @@
                     <!-- Cards injected by JS -->
                 </div>
 
-                <hr style="margin: 20px 0; border: 1px solid var(--border-color);">
+                <hr class="divider">
                 <h3>Typography</h3>
                 <div class="control-group">
                     <label>Primary Font (Titles):</label>
@@ -271,6 +271,19 @@
                         <div style="font-size: 1.1rem;">jumps over the lazy dog. 0123456789</div>
                     </div>
                 </div>
+
+                <hr class="divider">
+                <h3>Accessibility</h3>
+                <div class="control-group mt-md">
+                    <label>Disable Animations (Reduced Motion):</label>
+                    <input type="checkbox" id="appearance-reduce-motion" onchange="saveAppearanceSettings()">
+                    <span class="hint-text">Disables canvas backgrounds and UI transitions</span>
+                </div>
+                <div class="control-group mt-md">
+                    <label>Hide Keyboard Focus Ring:</label>
+                    <input type="checkbox" id="appearance-hide-focus-ring" onchange="saveAppearanceSettings()">
+                    <span class="hint-text">Hides the outline around focused elements (not recommended for keyboard navigation)</span>
+                </div>
             </div>
 
     </div>
@@ -281,6 +294,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             loadApiSettings();
             loadPrompts();
+            loadAppearanceSettings();
             // Initialize custom dropdowns and number inputs
             initCustomUIComponents(document.body, {
                 searchSelects: ['openrouter-model-select', 'openrouter-image-model-select', 'primary-font-select', 'secondary-font-select']
@@ -815,6 +829,37 @@
                 localStorage.setItem('jsonAdventure_primaryFont', pFont);
                 localStorage.setItem('jsonAdventure_secondaryFont', sFont);
             }
+        }
+
+        // Appearance Logic
+        function loadAppearanceSettings() {
+            const reduceMotionEl = document.getElementById('appearance-reduce-motion');
+            const hideFocusRingEl = document.getElementById('appearance-hide-focus-ring');
+            if (reduceMotionEl) reduceMotionEl.checked = localStorage.getItem('jsonAdventure_reduceMotion') === 'true';
+            if (hideFocusRingEl) hideFocusRingEl.checked = localStorage.getItem('jsonAdventure_hideFocusRing') === 'true';
+        }
+
+        function saveAppearanceSettings() {
+            const reduceMotion = document.getElementById('appearance-reduce-motion').checked;
+            const hideFocusRing = document.getElementById('appearance-hide-focus-ring').checked;
+            
+            localStorage.setItem('jsonAdventure_reduceMotion', reduceMotion);
+            localStorage.setItem('jsonAdventure_hideFocusRing', hideFocusRing);
+            
+            if (reduceMotion) {
+                document.documentElement.setAttribute('data-reduce-motion', 'true');
+            } else {
+                document.documentElement.removeAttribute('data-reduce-motion');
+            }
+            
+            if (hideFocusRing) {
+                document.documentElement.setAttribute('data-hide-focus-ring', 'true');
+            } else {
+                document.documentElement.removeAttribute('data-hide-focus-ring');
+            }
+            
+            const activeTheme = localStorage.getItem('jsonAdventure_activeThemeId') || 'dark';
+            applyTheme(activeTheme);
         }
 
         // Prompts Logic
