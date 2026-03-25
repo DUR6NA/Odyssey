@@ -16,6 +16,18 @@ let currentGameFolder = null;
 let playerImageBaseURL = null;
 let PLAYER_PRESETS = [];
 
+function formatErrorForUser(err) {
+    if (!err || !err.message) return "An unknown error occurred.";
+    const msg = err.message;
+    if (msg.includes('status 401')) return "It looks like your API key is missing or invalid. Please check your Settings.";
+    if (msg.includes('status 429')) return "You've hit a rate limit. Please wait a moment and try again.";
+    if (msg.includes('status 500')) return "The AI provider is currently experiencing issues. Please try again later.";
+    if (msg.includes('status 502') || msg.includes('status 503')) return "The AI service is unavailable right now.";
+    if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) return "Network error: Unable to reach the AI provider. Are you offline?";
+    return msg;
+}
+
+
 function buildFetchPayload(model, messages, temp, maxTokens, topP, presPen, freqPen, provider, jsonSchema = null) {
     const payload = { model: model, messages: messages, temperature: temp, max_tokens: maxTokens, top_p: topP };
     if (presPen !== 0 && provider !== 'xai') payload.presence_penalty = presPen;
@@ -1035,7 +1047,7 @@ The value of "result" must be ${expectedFormatStr}.`;
 
         const response = await fetch(fetchUrl, {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${apiKey || 'dummy'}`, 'Content-Type': 'application/json' },
+            headers: { 'Authorization': `Bearer ${apiKey || ''}`, 'Content-Type': 'application/json' },
             body: buildFetchPayload(model, [
                 { role: 'system', content: instructions },
                 { role: 'user', content: `Please auto-generate the '${fieldInfo.id}' field.` }
@@ -1317,7 +1329,7 @@ The JSON object must have exactly one key named "result", and its value must be 
         const response = await fetch(fetchUrl, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${apiKey || 'dummy'}`,
+                'Authorization': `Bearer ${apiKey || ''}`,
                 'Content-Type': 'application/json'
             },
             body: buildFetchPayload(model, [
@@ -1564,7 +1576,7 @@ CRITICAL RULES:
     const res = await fetch(fetchUrl, {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${apiKey || 'dummy'}`,
+            'Authorization': `Bearer ${apiKey || ''}`,
             'Content-Type': 'application/json'
         },
         body: buildFetchPayload(model, [{ role: 'user', content: promptText }], 0.8, 600, 1.0, 0, 0, provider, false)
@@ -1636,7 +1648,7 @@ async function performImageGeneration(promptText, aspect_ratio = "2:3", baseImag
 
     let reqHeaders = { 'Content-Type': 'application/json' };
     if (provider !== 'googleai') {
-        reqHeaders['Authorization'] = `Bearer ${apiKey || 'dummy'}`;
+        reqHeaders['Authorization'] = `Bearer ${apiKey || ''}`;
     }
 
     const res = await fetch(fetchUrl, {
@@ -1796,7 +1808,7 @@ async function generateSummary() {
     const worldData = buildWorldJson();
     const playerData = buildPlayerJson();
 
-    const defaultSummaryPrompt = `You are the narrator and game master for a text-based RPG called "JSON Adventure".
+    const defaultSummaryPrompt = `You are the narrator and game master for a text-based RPG called "Odyssey".
 The player has just finished creating their character and world. Read ALL the following information carefully and write a compelling, immersive narrative summary that weaves together:
 - The world setting and tone
 - The player character's background, personality, and appearance
@@ -1832,7 +1844,7 @@ CRITICAL: Output ONLY a valid JSON object with one key "summary" containing the 
         const response = await fetch(fetchUrl, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${apiKey || 'dummy'}`,
+                'Authorization': `Bearer ${apiKey || ''}`,
                 'Content-Type': 'application/json'
             },
             body: buildFetchPayload(model, [
@@ -2158,7 +2170,7 @@ async function launchGame(summaryText, allData) {
         const response = await fetch(fetchUrl, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${apiKey || 'dummy'}`,
+                'Authorization': `Bearer ${apiKey || ''}`,
                 'Content-Type': 'application/json'
             },
             body: buildFetchPayload(model, [
@@ -2481,7 +2493,7 @@ CRITICAL: Output ONLY a JSON object:
         const response = await fetch(fetchUrl, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${apiKey || 'dummy'}`,
+                'Authorization': `Bearer ${apiKey || ''}`,
                 'Content-Type': 'application/json'
             },
             body: buildFetchPayload(model, [
@@ -2590,7 +2602,7 @@ CRITICAL: Output ONLY valid JSON:
 
         const response = await fetch(fetchUrl, {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${apiKey || 'dummy'}`, 'Content-Type': 'application/json' },
+            headers: { 'Authorization': `Bearer ${apiKey || ''}`, 'Content-Type': 'application/json' },
             body: buildFetchPayload(model, [{ role: 'system', content: promptInstructions }], 0.1, 150, 1.0, 0, 0, provider,
                 provider === 'lmstudio' || provider === 'openai'
                     ? { type: "object", properties: { needs_search: { type: "boolean" }, search_query: { type: "string" } }, required: ["needs_search", "search_query"], additionalProperties: false }
@@ -2658,7 +2670,7 @@ CRITICAL: Output ONLY valid JSON:
 
         const response = await fetch(fetchUrl, {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${apiKey || 'dummy'}`, 'Content-Type': 'application/json' },
+            headers: { 'Authorization': `Bearer ${apiKey || ''}`, 'Content-Type': 'application/json' },
             body: buildFetchPayload(model, [{ role: 'system', content: promptInstructions }], 0.1, 150, 1.0, 0, 0, provider,
                 provider === 'lmstudio' || provider === 'openai'
                     ? { type: "object", properties: { needs_search: { type: "boolean" }, search_query: { type: "string" } }, required: ["needs_search", "search_query"], additionalProperties: false }
@@ -2798,7 +2810,7 @@ async function sendChatMessage() {
         const response = await fetch(fetchUrl, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${apiKey || 'dummy'}`,
+                'Authorization': `Bearer ${apiKey || ''}`,
                 'Content-Type': 'application/json'
             },
             body: buildFetchPayload(model, window.chatHistory, temp, maxTokens, topP, presPen, freqPen, provider, gameOutputSchema)
@@ -2832,7 +2844,7 @@ async function sendChatMessage() {
 
     } catch (err) {
         chatMessages.removeChild(loadingMsg);
-        const errorMsg = createChatMessage('ai', `⚠️ Error: ${err.message}`);
+        const errorMsg = createChatMessage('ai', `<div class="error-card" style="background: var(--bg-tertiary); border-left: 4px solid var(--accent-color); padding: 15px; border-radius: 8px; margin: 10px 0;"><strong>⚠️ Connection Error</strong><p style="margin-top: 5px; color: var(--text-muted);">${formatErrorForUser(err)}</p></div>`);
         chatMessages.appendChild(errorMsg);
     }
 }
@@ -2921,7 +2933,7 @@ async function regenerateLastAI() {
         const response = await fetch(fetchUrl, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${apiKey || 'dummy'}`,
+                'Authorization': `Bearer ${apiKey || ''}`,
                 'Content-Type': 'application/json'
             },
             body: buildFetchPayload(model, window.chatHistory, temp, maxTokens, topP, presPen, freqPen, provider, gameOutputSchema)
@@ -3021,7 +3033,7 @@ Output ONLY the new merged narrative summary. Do not include introductory text l
         const response = await fetch(fetchUrl, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${apiKey || 'dummy'}`,
+                'Authorization': `Bearer ${apiKey || ''}`,
                 'Content-Type': 'application/json'
             },
             body: buildFetchPayload(model, [
@@ -3164,7 +3176,7 @@ async function playTTS(text) {
         } else {
             baseUrl = "https://api.openai.com/v1/audio/speech";
         }
-        apiKey = localStorage.getItem('jsonAdventure_apiKey_' + connectedProv) || 'dummy';
+        apiKey = localStorage.getItem('jsonAdventure_apiKey_' + connectedProv) || '';
         model = localStorage.getItem('jsonAdventure_ttsModel') || 'tts-1';
         voice = localStorage.getItem('jsonAdventure_ttsVoice') || 'alloy';
         speed = parseFloat(localStorage.getItem('jsonAdventure_ttsSpeed')) || 1.0;
@@ -3172,7 +3184,7 @@ async function playTTS(text) {
         baseUrl = localStorage.getItem('jsonAdventure_ttsBaseUrl') || '';
         baseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
         baseUrl += '/audio/speech';
-        apiKey = localStorage.getItem('jsonAdventure_ttsApiKey') || 'dummy';
+        apiKey = localStorage.getItem('jsonAdventure_ttsApiKey') || '';
         model = localStorage.getItem('jsonAdventure_ttsModel') || 'tts-1';
         voice = localStorage.getItem('jsonAdventure_ttsVoice') || 'alloy';
         speed = parseFloat(localStorage.getItem('jsonAdventure_ttsSpeed')) || 1.0;

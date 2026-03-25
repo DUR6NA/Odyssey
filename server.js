@@ -3,7 +3,18 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
+
+// Global error logging for crash reports (Issue #19)
+process.on('uncaughtException', (err) => {
+    console.error('CRITICAL ERROR:', err);
+    try { fs.appendFileSync('error_log.txt', `[${new Date().toISOString()}] Uncaught Exception: ${err.message}\n${err.stack}\n\n`); } catch(e) {}
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection:', reason);
+    try { fs.appendFileSync('error_log.txt', `[${new Date().toISOString()}] Unhandled Rejection: ${reason}\n\n`); } catch(e) {}
+});
 
 const mimeTypes = {
     '.html': 'text/html',
@@ -227,6 +238,119 @@ const server = http.createServer((req, res) => {
         return;
     }
 
+    if (req.method === 'POST' && req.url === '/api/delete-game') {
+        let body = '';
+        req.on('data', chunk => body += chunk.toString());
+        req.on('end', () => {
+            try {
+                const data = JSON.parse(body);
+                const rawId = data.id;
+                // Sanitize ID
+                const id = rawId ? rawId.toString().replace(/[^0-9]/g, '') : '';
+                
+                if (!id) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'Invalid Game ID' }));
+                    return;
+                }
+
+                const gameDir = path.join(__dirname, 'games', id);
+                if (fs.existsSync(gameDir)) {
+                    fs.rmSync(gameDir, { recursive: true, force: true });
+                    console.log(`Deleted game folder: ${id}`);
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ success: true }));
+                } else {
+                    res.writeHead(404, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'Game not found' }));
+                }
+            } catch (error) {
+                console.error("Error deleting game:", error);
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, error: error.message }));
+            }
+        });
+        return;
+    }
+
+        if (req.method === 'GET' && req.url.startsWith('/api/export-game?id=')) {
+        try {
+            const url = new URL(req.url, `http://${req.headers.host}`);
+            const rawId = url.searchParams.get('id');
+            const id = rawId ? rawId.toString().replace(/[^0-9]/g, '') : '';
+            if (!id) throw new Error('Invalid ID');
+
+            const gameDir = path.join(__dirname, 'games', id);
+            if (!fs.existsSync(gameDir)) {
+                res.writeHead(404);
+                res.end(JSON.stringify({ error: 'Game not found' }));
+                return;
+            }
+
+            const files = fs.readdirSync(gameDir);
+            const exportData = { _backupVersion: 1, id };
+            for (const file of files) {
+                const filePath = path.join(gameDir, file);
+                if (file.endsWith('.json')) {
+                    exportData[file] = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+                } else if (file === 'player_base.png') {
+                    exportData[file] = fs.readFileSync(filePath).toString('base64');
+                }
+            }
+
+            res.writeHead(200, {
+                'Content-Type': 'application/json',
+                'Content-Disposition': `attachment; filename="odyssey_save_${id}.json"`
+            });
+            res.end(JSON.stringify(exportData, null, 2));
+        } catch (error) {
+            res.writeHead(500);
+            res.end(JSON.stringify({ error: error.message }));
+        }
+        return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/import-game') {
+        let body = '';
+        req.on('data', chunk => {
+            body += chunk;
+            if (body.length > 50 * 1024 * 1024) { // 50MB limit
+                res.writeHead(413, {'Content-Type': 'application/json'});
+                res.end(JSON.stringify({error: 'File too large'}));
+            }
+        });
+        req.on('end', () => {
+            try {
+                const data = JSON.parse(body);
+                if (!data._backupVersion) throw new Error('Invalid backup file');
+
+                const gamesDir = path.join(__dirname, 'games');
+                if (!fs.existsSync(gamesDir)) fs.mkdirSync(gamesDir);
+
+                let newId = 1;
+                while (fs.existsSync(path.join(gamesDir, newId.toString()))) newId++;
+
+                const newGameDir = path.join(gamesDir, newId.toString());
+                fs.mkdirSync(newGameDir);
+
+                for (const [filename, content] of Object.entries(data)) {
+                    if (filename.endsWith('.json')) {
+                        fs.writeFileSync(path.join(newGameDir, filename), JSON.stringify(content, null, 4));
+                    } else if (filename === 'player_base.png') {
+                        fs.writeFileSync(path.join(newGameDir, filename), Buffer.from(content, 'base64'));
+                    }
+                }
+
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: true, id: newId }));
+            } catch (error) {
+                if (res.writableEnded) return;
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: error.message }));
+            }
+        });
+        return;
+    }
     if (req.method === 'GET' && req.url.startsWith('/api/load-game?id=')) {
         try {
             const url = new URL(req.url, `http://${req.headers.host}`);
@@ -584,11 +708,11 @@ server.on('error', (e) => {
 
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`\n======================================================`);
-    console.log(` JSON Adventure is running!`);
+    console.log(` Odyssey is running!`);
     console.log(` - Local:   http://localhost:${PORT}/`);
 
     const networkInterfaces = os.networkInterfaces();
-    console.log(` - Network IPs (try these from your phone/macbook):`);
+    console.log(` - Network IPs (try these from your laptop/tablet):`);
     for (const interfaceName in networkInterfaces) {
         for (const net of networkInterfaces[interfaceName]) {
             // Ignore internal addresses and IPv6

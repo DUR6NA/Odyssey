@@ -3,7 +3,7 @@
 > A browser-based, AI-driven text adventure engine — build worlds, create characters, and shape your own story with any AI model you choose.
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
-[![Node.js 14+](https://img.shields.io/badge/node-%3E%3D14-brightgreen.svg)](https://nodejs.org/)
+[![Node.js 18+](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)](https://nodejs.org/)
 
 ## Why This Exists
 
@@ -40,7 +40,7 @@ npm start
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) v14 or higher (includes npm)
+- [Node.js](https://nodejs.org/) v18 or higher (includes npm)
 
 ## Installation
 
@@ -82,6 +82,7 @@ http://localhost:3001
 ```
 
 The server also prints LAN addresses so you can play on other devices on the same network.
+> **Security Note:** If you play over a LAN, your connection uses unencrypted HTTP. Do not play over public Wi-Fi as your game data and API keys will be sent over the network in plaintext.
 
 ### First-Time Setup
 

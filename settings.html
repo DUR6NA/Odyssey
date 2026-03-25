@@ -5,10 +5,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Settings and Configure</title>
-    <link rel="icon" type="image/x-icon" href="assets/c6a9f48d-87b4-4579-8e46-52d6543123b9.ico">
+    <link rel="icon" type="image/x-icon" href="assets/odyssey.ico">
     <link rel="stylesheet" href="style.css">
     <script src="theme.js"></script>
     <script src="ui-components.js"></script>
+    <meta name="description" content="Odyssey - A text-based AI adventure game">
+    <meta property="og:title" content="Odyssey">
+    <meta property="og:description" content="A text-based AI adventure game">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="http://localhost:3000/">
+    <meta property="og:image" content="http://localhost:3000/assets/favicon.ico">
+    <meta name="theme-color" content="#121212">
 </head>
 
 <body>
@@ -70,6 +77,8 @@
                             class="input-md">
                         <button onclick="saveApiSettings(true)" class="btn btn-compact">Save
                             Settings</button>
+                        <button onclick="testConnection()" class="btn btn-compact">Test Connection</button>
+                        <span id="test-connection-status" class="hint-text"></span>
                     </div>
 
                     <div class="control-group mt-md">
@@ -312,6 +321,17 @@
         });
 
         function backToGame() {
+            const provider = document.getElementById('api-provider-select').value;
+            const apiKey = document.getElementById('openrouter-api-key').value.trim();
+            if (!apiKey && provider !== 'lmstudio' && provider !== 'openai') {
+                alert('Please enter and save your API Key before leaving settings.');
+                document.getElementById('openrouter-api-key').focus();
+                if (document.getElementById('tab-api').style.display === 'none') {
+                    switchSettingsTab('api');
+                }
+                return;
+            }
+
             const params = new URLSearchParams(window.location.search);
             const from = params.get('from');
 
@@ -323,6 +343,65 @@
                 window.location.href = 'game.html' + (queryString ? '?' + queryString : '');
             } else {
                 window.location.href = "game.html";
+            }
+        }
+
+        async function testConnection() {
+            const provider = document.getElementById('api-provider-select').value;
+            const baseUrl = document.getElementById('api-base-url').value.trim();
+            const apiKey = document.getElementById('openrouter-api-key').value.trim();
+            const statusEl = document.getElementById('test-connection-status');
+            
+            if (!apiKey && provider !== 'openai' && provider !== 'lmstudio') {
+                statusEl.innerHTML = "❌ Please enter an API key.";
+                statusEl.style.color = "#dc3545";
+                return;
+            }
+
+            statusEl.innerHTML = "⏳ Testing...";
+            statusEl.style.color = "var(--text-muted)";
+
+            let testUrl = "";
+            let headers = { "Content-Type": "application/json" };
+            if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
+
+            if (provider === 'openrouter') {
+                testUrl = "https://openrouter.ai/api/v1/auth/key"; 
+            } else if (provider === 'xai') {
+                testUrl = "/api/xai-proxy/v1/models";
+            } else if (provider === 'googleai') {
+                testUrl = "https://generativelanguage.googleapis.com/v1beta/openai/models";
+            } else if (provider === 'lmstudio' || provider === 'openai') {
+                if (!baseUrl) {
+                    statusEl.innerHTML = "❌ Please enter a Base URL.";
+                    statusEl.style.color = "#dc3545";
+                    return;
+                }
+                testUrl = baseUrl.endsWith('/') ? `${baseUrl}models` : `${baseUrl}/models`;
+            }
+
+            try {
+                const response = await fetch(testUrl, { method: "GET", headers: headers });
+                
+                let errorDetails = "";
+                if (!response.ok) {
+                    try {
+                        const errJson = await response.json();
+                        errorDetails = errJson.error?.message || JSON.stringify(errJson);
+                    } catch (e) {
+                        try {
+                            errorDetails = await response.text();
+                        } catch(e2) {}
+                    }
+                    throw new Error(`HTTP ${response.status}` + (errorDetails ? ` - ${errorDetails}` : ''));
+                }
+                
+                statusEl.innerHTML = "✅ Connection successful!";
+                statusEl.style.color = "#28a745";
+            } catch (error) {
+                console.error("Test connection error:", error);
+                statusEl.innerHTML = `❌ Connection failed: ${error.message}`;
+                statusEl.style.color = "#dc3545";
             }
         }
 
@@ -865,7 +944,7 @@
         // Prompts Logic
         const defaultWorldPrompt = 'You are a world-building assistant for a text-based RPG.';
         const defaultPlayerPrompt = 'You are a game character creation assistant for a text-based RPG.';
-        const defaultSummaryPrompt = `You are the narrator and game master for a text-based RPG called "JSON Adventure".
+        const defaultSummaryPrompt = `You are the narrator and game master for a text-based RPG called "Odyssey".
 The player has just finished creating their character and world. Read ALL the following information carefully and write a compelling, immersive narrative summary that weaves together:
 - The world setting and tone
 - The player character's background, personality, and appearance

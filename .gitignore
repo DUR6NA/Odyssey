@@ -111,6 +111,7 @@ dist
 
 # Project specific
 openrouter_models.json
+models.json
 player.json
 images/
 games/

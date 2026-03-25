@@ -1,15 +1,18 @@
 {
-  "name": "jsonadventure",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "name": "odyssey",
+  "version": "0.1.0",
+  "description": "A text-based AI adventure game.",
+  "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test test.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": ["game", "ai", "text-adventure"],
+  "author": "Dur6na",
+  "license": "AGPL-3.0",
   "type": "commonjs",
   "dependencies": {
     "@openrouter/sdk": "^0.9.11"

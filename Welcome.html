@@ -5,9 +5,41 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Odyssey - Launch</title>
-    <link rel="icon" type="image/x-icon" href="assets/c6a9f48d-87b4-4579-8e46-52d6543123b9.ico">
+    <link rel="icon" type="image/x-icon" href="assets/odyssey.ico">
+    <script>
+        if (!localStorage.getItem('bypassMobileCheck')) {
+            const isMobileAgent = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            const isNarrowViewport = window.innerWidth < 768;
+            if (isMobileAgent || isNarrowViewport) {
+                window.location.href = 'mobile-not-supported.html';
+            }
+        }
+        if (localStorage.getItem('odyssey_intro_seen')) {
+            window.location.href = 'mainmenu.html';
+        }
+    </script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                const banner = document.createElement('div');
+                banner.className = 'glass-card';
+                banner.style.position = 'fixed';
+                banner.style.top = '20px';
+                banner.style.left = '50%';
+                banner.style.transform = 'translateX(-50%)';
+                banner.style.width = 'calc(100% - 40px)';
+                banner.style.maxWidth = '600px';
+                banner.style.borderLeft = '4px solid var(--color-danger, #ef4444)';
+                banner.style.background = 'rgba(15, 15, 20, 0.85)';
+                banner.style.color = 'var(--text-main, #d1d5db)';
+                banner.style.textAlign = 'center';
+                banner.style.padding = 'var(--space-md, 15px)';
+                banner.style.zIndex = '9999';
+                banner.style.fontSize = 'var(--font-size-sm, 0.9rem)';
+                banner.style.boxShadow = 'var(--shadow-lg)';
+                banner.innerHTML = '<strong style="color: var(--color-danger, #ef4444);">Security Warning:</strong> You are playing on a LAN connection. API keys are sent over unencrypted HTTP. Do not use over public Wi-Fi.';
+                document.body.appendChild(banner);
+            }
             const primaryFont = localStorage.getItem('jsonAdventure_primaryFont') || 'Cinzel';
             const secondaryFont = localStorage.getItem('jsonAdventure_secondaryFont') || 'Merriweather';
             const link = document.createElement('link');
@@ -464,6 +496,13 @@
             }
         }
     </style>
+    <meta name="description" content="Odyssey - A text-based AI adventure game">
+    <meta property="og:title" content="Odyssey">
+    <meta property="og:description" content="A text-based AI adventure game">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="http://localhost:3000/">
+    <meta property="og:image" content="http://localhost:3000/assets/favicon.ico">
+    <meta name="theme-color" content="#121212">
 </head>
 
 <body>
@@ -472,6 +511,9 @@
 
     <div id="start-overlay" onclick="playSequence();">
         <div class="start-text">Click to begin</div>
+    </div>
+    <div id="skip-message" style="display:none; position:fixed; bottom:20px; width:100%; text-align:center; color:rgba(255,255,255,0.5); font-size:0.9rem; z-index:1000; pointer-events:none; font-family: var(--font-secondary, 'Merriweather', sans-serif);">
+        Tap anywhere or press Enter to skip intro
     </div>
 
     <!-- Global Intro Fade -->
@@ -511,7 +553,80 @@
     </div>
 
     <script>
+        let introStarted = false;
+        let sequenceTimeouts = [];
+        let sequenceIntervals = [];
+
+        function setTrackedTimeout(cb, delay) {
+            let id = setTimeout(cb, delay);
+            sequenceTimeouts.push(id);
+            return id;
+        }
+
+        function setTrackedInterval(cb, delay) {
+            let id = setInterval(cb, delay);
+            sequenceIntervals.push(id);
+            return id;
+        }
+
+        function skipIntro() {
+            sequenceTimeouts.forEach(clearTimeout);
+            sequenceIntervals.forEach(clearInterval);
+            const audio = document.getElementById('startup-audio');
+            
+            let fadeOut = setInterval(() => {
+                if (audio.volume > 0.05) {
+                    audio.volume -= 0.05;
+                } else {
+                    audio.volume = 0;
+                    audio.pause();
+                    clearInterval(fadeOut);
+                }
+            }, 50);
+
+            // Hide the global fade overlay (z-index 100 blocker) 
+            const globalFade = document.getElementById('global-fade');
+            if (globalFade) globalFade.style.opacity = '0';
+
+            // Hide the start-overlay click catcher
+            const startOverlay = document.getElementById('start-overlay');
+            if (startOverlay) startOverlay.style.display = 'none';
+
+            document.getElementById('screen-1').style.opacity = '0';
+            document.getElementById('screen-1').classList.remove('active');
+            document.getElementById('screen-2').style.opacity = '0';
+            document.getElementById('screen-2').classList.remove('active');
+            
+            const sm = document.getElementById('skip-message');
+            if (sm) sm.style.display = 'none';
+
+            const screen3 = document.getElementById('screen-3');
+            screen3.classList.add('active');
+            screen3.style.opacity = '1';
+        }
+
+        const handleSkipEvent = (e) => {
+            if (introStarted && (e.type === 'click' || (e.type === 'keydown' && (e.key === 'Enter' || e.key === ' ')))) {
+                if (!document.getElementById('screen-3').classList.contains('active')) {
+                    skipIntro();
+                }
+            }
+        };
+
+        document.addEventListener('click', handleSkipEvent);
+        document.addEventListener('keydown', handleSkipEvent);
+
         const playSequence = () => {
+            if (introStarted) return;
+            introStarted = true;
+            
+            setTimeout(() => {
+                const sm = document.getElementById('skip-message');
+                if (!document.getElementById('screen-3').classList.contains('active')) {
+                    if (sm) sm.style.display = 'block';
+                }
+            }, 2000);
+
             const startBtn = document.getElementById('start-overlay');
             const audio = document.getElementById('startup-audio');
             const fade = document.getElementById('global-fade');
@@ -521,11 +636,10 @@
             const logo = document.getElementById('logo-container');
             const pText = document.getElementById('p-text');
 
-            // Start audio in sync with animation start and fade in gently
             audio.volume = 0;
             audio.play().catch(e => console.log('Audio could not auto-play', e));
 
-            let fadeIn = setInterval(() => {
+            let fadeIn = setTrackedInterval(() => {
                 if (audio.volume < 0.35) {
                     audio.volume = Math.min(0.35, audio.volume + 0.01);
                 } else {
@@ -533,41 +647,32 @@
                 }
             }, 100);
 
-            // Fade out the physical start overlay
             startBtn.style.opacity = '0';
-            setTimeout(() => { startBtn.style.display = 'none'; }, 1000);
+            setTrackedTimeout(() => { startBtn.style.display = 'none'; }, 1000);
 
-            // Timeline: Total Length 30 seconds
+            setTrackedTimeout(() => { fade.style.opacity = '0'; }, 500);
 
-            // 0.5s: Global reveal from true black
-            setTimeout(() => { fade.style.opacity = '0'; }, 500);
-
-            // 1.5s: Odyssey text slams in
             screen1.classList.add('active');
-            setTimeout(() => {
+            setTrackedTimeout(() => {
                 logo.classList.add('animate-slam');
             }, 1500);
 
-            // 6.5s: Fade out Odyssey screen
-            setTimeout(() => {
+            setTrackedTimeout(() => {
                 screen1.style.opacity = '0';
             }, 6500);
 
-            // 8.0s: Crossfade into Stormy Waves Parallax
-            setTimeout(() => {
+            setTrackedTimeout(() => {
                 screen1.classList.remove('active');
                 screen2.classList.add('active');
                 screen2.style.opacity = '1';
             }, 8000);
 
-            // 15.0s: Fade out the "Prepare for the Unknown" text to leave just atmosphere
-            setTimeout(() => {
+            setTrackedTimeout(() => {
                 if (pText) pText.style.opacity = '0';
             }, 15000);
 
-            // 25.0s: Start fading out the audio slowly
-            setTimeout(() => {
-                let fadeOut = setInterval(() => {
+            setTrackedTimeout(() => {
+                let fadeOut = setTrackedInterval(() => {
                     if (audio.volume > 0.01) {
                         audio.volume = Math.max(0, audio.volume - 0.01);
                     } else {
@@ -577,25 +682,25 @@
                 }, 100);
             }, 25000);
 
-            // 26.0s: Fade out the Stormy Parallax scene
-            setTimeout(() => {
+            setTrackedTimeout(() => {
                 screen2.style.opacity = '0';
             }, 26000);
 
-            // 27.5s: Fade in Disclaimer exactly at climax/soft finish of song
-            setTimeout(() => {
+            setTrackedTimeout(() => {
                 screen2.classList.remove('active');
                 screen3.classList.add('active');
                 screen3.style.opacity = '1';
+                const sm = document.getElementById('skip-message');
+                if (sm) sm.style.display = 'none';
             }, 27500);
         };
 
         function handleAgree() {
-            // Fade out everything, then redirect
+            localStorage.setItem('odyssey_intro_seen', 'true');
             const fade = document.getElementById('global-fade');
             fade.style.opacity = '1';
             setTimeout(() => {
-                window.location.href = '/mainmenu.html';
+                window.location.href = 'mainmenu.html';
             }, 1200);
         }
 

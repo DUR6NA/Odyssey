@@ -45,7 +45,23 @@ const presetThemes = {
             '--menu-btn-color': '#d1d5db',
             '--menu-btn-hover': '#ffffff',
             '--menu-show-stars': '1',
-            '--menu-show-lightning': '1'
+            '--menu-show-lightning': '1',
+            '--save-panel-bg': 'rgba(10, 15, 25, 0.75)',
+            '--save-panel-border': '1px solid rgba(255, 255, 255, 0.08)',
+            '--save-panel-shadow': '0 15px 40px rgba(0, 0, 0, 0.6)',
+            '--save-panel-radius': '16px',
+            '--save-btn-bg': 'transparent',
+            '--save-btn-border': 'none',
+            '--save-btn-text': 'var(--menu-btn-color)',
+            '--save-btn-shadow': 'none',
+            '--save-btn-radius': '0',
+            '--save-btn-padding': '5px 0',
+            '--save-btn-text-shadow': '0 2px 10px rgba(0, 0, 0, 0.9)',
+            '--save-btn-text-hover': 'var(--menu-btn-hover)',
+            '--save-btn-bg-hover': 'transparent',
+            '--save-btn-shadow-hover': 'none',
+            '--save-btn-text-shadow-hover': '0 0 15px rgba(255, 255, 255, 0.6), 0 2px 10px rgba(0, 0, 0, 0.9)',
+            '--save-btn-transform-hover': 'translateY(0)'
         }
     },
     'light': {
@@ -94,57 +110,88 @@ const presetThemes = {
             '--menu-btn-color': '#333333',
             '--menu-btn-hover': '#000000',
             '--menu-show-stars': '0',
-            '--menu-show-lightning': '0'
+            '--menu-show-lightning': '0',
+            '--save-panel-bg': 'rgba(255, 255, 255, 0.85)',
+            '--save-panel-border': '1px solid rgba(0, 0, 0, 0.1)',
+            '--save-panel-shadow': '0 15px 40px rgba(0, 0, 0, 0.1)',
+            '--save-panel-radius': '16px',
+            '--save-btn-bg': 'transparent',
+            '--save-btn-border': 'none',
+            '--save-btn-text': '#333333',
+            '--save-btn-shadow': 'none',
+            '--save-btn-radius': '0',
+            '--save-btn-padding': '5px 0',
+            '--save-btn-text-shadow': 'none',
+            '--save-btn-text-hover': '#000000',
+            '--save-btn-bg-hover': 'transparent',
+            '--save-btn-shadow-hover': 'none',
+            '--save-btn-text-shadow-hover': '0 0 15px rgba(255,255,255,0.8)',
+            '--save-btn-transform-hover': 'translateY(0)'
         }
     },
     'bliss': {
-        name: 'Bliss',
-        type: 'image',
-        bgImage: 'assets/BlissBackground.jpg',
+        name: 'Frutiger Aero',
+        type: 'canvas-aero',
         vars: {
-            '--bg-main': '#000000',
-            '--bg-secondary': 'rgba(255, 255, 255, 0.15)',
-            '--bg-tertiary': 'rgba(255, 255, 255, 0.3)',
-            '--text-main': '#1a1a1a',
-            '--text-heading': '#FFFCE0',
-            '--text-muted': '#333333',
-            '--accent-color': '#FFFCE0',
-            '--accent-hover': '#fdf8c2',
-            '--accent-active': '#fcf4a3',
-            '--border-color': 'rgba(255, 255, 255, 0.3)',
-            '--btn-text': '#000000',
-            '--input-bg': 'rgba(255, 255, 255, 0.7)',
-            '--input-text': '#000000',
-            '--color-success': '#388e3c',
-            '--color-success-hover': '#43a047',
-            '--color-danger': '#d32f2f',
-            '--color-danger-hover': '#e53935',
-            '--color-warning': '#f57f17',
-            '--color-warning-hover': '#f9a825',
-            '--color-ai': '#7b1fa2',
-            '--color-ai-hover': '#9c27b0',
-            '--color-info': '#1976d2',
-            '--color-info-hover': '#1e88e5',
-            '--color-secondary': '#546e7a',
-            '--color-secondary-hover': '#607d8b',
-            '--shadow-sm': '0 2px 8px rgba(0,0,0,0.15)',
-            '--shadow-md': '0 4px 16px rgba(0,0,0,0.25)',
-            '--shadow-lg': '0 8px 32px rgba(0,0,0,0.4)',
-            '--shadow-xl': '0 12px 48px rgba(0,0,0,0.6)',
-            '--menu-bg-top': '#0068c8',
-            '--menu-bg-mid': '#2a8df5',
-            '--menu-bg-bottom': '#6db6ff',
-            '--menu-wave1': '#84d12c',
-            '--menu-wave2': '#6bb51b',
-            '--menu-wave3': '#48820c',
-            '--menu-moon-bg': '#ffecba',
-            '--menu-moon-glow': 'rgba(255, 236, 186, 0.6)',
-            '--menu-moon-inset': 'rgba(255, 200, 0, 0.4)',
-            '--menu-title-color': '#FFD700',
-            '--menu-btn-color': '#FFFFFF',
-            '--menu-btn-hover': '#FFD700',
+            '--bg-main': '#eef5ff',
+            '--bg-secondary': 'rgba(255, 255, 255, 0.4)',
+            '--bg-tertiary': 'rgba(240, 248, 255, 0.65)',
+            '--text-main': '#0a4275',
+            '--text-heading': '#005b9f',
+            '--text-muted': '#3b82f6',
+            '--accent-color': '#00a8ff',
+            '--accent-hover': '#0097e6',
+            '--accent-active': '#0084c9',
+            '--border-color': 'rgba(255, 255, 255, 0.8)',
+            '--btn-text': '#ffffff',
+            '--input-bg': 'rgba(255, 255, 255, 0.85)',
+            '--input-text': '#0a4275',
+            '--color-success': '#4cd137',
+            '--color-success-hover': '#44bd32',
+            '--color-danger': '#fc5c65',
+            '--color-danger-hover': '#eb3b5a',
+            '--color-warning': '#fed330',
+            '--color-warning-hover': '#f7b731',
+            '--color-ai': '#4a69bd',
+            '--color-ai-hover': '#1e3799',
+            '--color-info': '#45aaf2',
+            '--color-info-hover': '#2d98da',
+            '--color-secondary': '#a5b1c2',
+            '--color-secondary-hover': '#778ca3',
+            '--shadow-sm': '0 2px 8px rgba(0, 100, 200, 0.1)',
+            '--shadow-md': '0 4px 16px rgba(0, 100, 200, 0.15)',
+            '--shadow-lg': '0 8px 32px rgba(0, 100, 200, 0.2)',
+            '--shadow-xl': '0 12px 48px rgba(0, 100, 200, 0.25)',
+            '--menu-bg-top': 'transparent',
+            '--menu-bg-mid': 'transparent',
+            '--menu-bg-bottom': 'transparent',
+            '--menu-wave1': 'transparent',
+            '--menu-wave2': 'transparent',
+            '--menu-wave3': 'transparent',
+            '--menu-moon-bg': 'transparent',
+            '--menu-moon-glow': 'transparent',
+            '--menu-moon-inset': 'transparent',
+            '--menu-title-color': '#005b9f',
+            '--menu-btn-color': '#0a4275',
+            '--menu-btn-hover': '#00a8ff',
             '--menu-show-stars': '0',
-            '--menu-show-lightning': '0'
+            '--menu-show-lightning': '0',
+            '--save-panel-bg': 'linear-gradient(135deg, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.4) 100%)',
+            '--save-panel-border': '1px solid rgba(255, 255, 255, 0.9)',
+            '--save-panel-shadow': '0 8px 32px 0 rgba(0, 100, 200, 0.3)',
+            '--save-panel-radius': '20px',
+            '--save-btn-bg': 'linear-gradient(180deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.2) 48%, rgba(255,255,255,0.0) 50%, rgba(255,255,255,0.2) 100%), var(--accent-color)',
+            '--save-btn-border': '1px solid rgba(255,255,255,0.8)',
+            '--save-btn-text': '#ffffff',
+            '--save-btn-shadow': 'inset 0 1px 1px rgba(255,255,255,0.9), 0 2px 6px rgba(0, 100, 200, 0.2)',
+            '--save-btn-radius': '20px',
+            '--save-btn-padding': '8px 15px',
+            '--save-btn-text-shadow': '0 1px 2px rgba(255, 255, 255, 0.8), 0 2px 4px rgba(0,0,0,0.1)',
+            '--save-btn-text-hover': '#ffffff',
+            '--save-btn-bg-hover': 'linear-gradient(180deg, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.3) 48%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.3) 100%), var(--accent-hover)',
+            '--save-btn-shadow-hover': 'inset 0 1px 2px rgba(255,255,255,0.9), 0 4px 12px rgba(0, 100, 200, 0.3)',
+            '--save-btn-text-shadow-hover': '0 1px 2px rgba(255, 255, 255, 0.9), 0 2px 5px rgba(0,0,0,0.2)',
+            '--save-btn-transform-hover': 'translateY(-2px)'
         }
     },
     'starry': {
@@ -193,7 +240,23 @@ const presetThemes = {
             '--menu-btn-color': '#d8c4ff',
             '--menu-btn-hover': '#ffffff',
             '--menu-show-stars': '1',
-            '--menu-show-lightning': '0'
+            '--menu-show-lightning': '0',
+            '--save-panel-bg': 'rgba(10, 5, 25, 0.8)',
+            '--save-panel-border': '1px solid rgba(138, 43, 226, 0.3)',
+            '--save-panel-shadow': '0 15px 40px rgba(0, 0, 0, 0.7)',
+            '--save-panel-radius': '16px',
+            '--save-btn-bg': 'transparent',
+            '--save-btn-border': 'none',
+            '--save-btn-text': '#d8c4ff',
+            '--save-btn-shadow': 'none',
+            '--save-btn-radius': '0',
+            '--save-btn-padding': '5px 0',
+            '--save-btn-text-shadow': '0 2px 10px rgba(0, 0, 0, 0.9)',
+            '--save-btn-text-hover': '#ffffff',
+            '--save-btn-bg-hover': 'transparent',
+            '--save-btn-shadow-hover': 'none',
+            '--save-btn-text-shadow-hover': '0 0 15px rgba(186, 133, 255, 0.8), 0 2px 10px rgba(0, 0, 0, 0.9)',
+            '--save-btn-transform-hover': 'translateY(0)'
         }
     },
     'matrix': {
@@ -242,7 +305,23 @@ const presetThemes = {
             '--menu-btn-color': '#00aa00',
             '--menu-btn-hover': '#00ff00',
             '--menu-show-stars': '1',
-            '--menu-show-lightning': '1'
+            '--menu-show-lightning': '1',
+            '--save-panel-bg': 'rgba(0, 20, 0, 0.85)',
+            '--save-panel-border': '1px solid rgba(0, 255, 0, 0.3)',
+            '--save-panel-shadow': '0 15px 40px rgba(0, 255, 0, 0.2)',
+            '--save-panel-radius': '0px',
+            '--save-btn-bg': 'transparent',
+            '--save-btn-border': '1px solid transparent',
+            '--save-btn-text': '#00aa00',
+            '--save-btn-shadow': 'none',
+            '--save-btn-radius': '0',
+            '--save-btn-padding': '5px 0',
+            '--save-btn-text-shadow': '0 2px 10px rgba(0, 0, 0, 0.9)',
+            '--save-btn-text-hover': '#00ff00',
+            '--save-btn-bg-hover': 'rgba(0, 255, 0, 0.1)',
+            '--save-btn-shadow-hover': '0 0 10px rgba(0, 255, 0, 0.3)',
+            '--save-btn-text-shadow-hover': '0 0 10px rgba(0, 255, 0, 0.8)',
+            '--save-btn-transform-hover': 'translateY(0)'
         }
     }
 };
@@ -264,6 +343,7 @@ function applyTheme(themeId) {
     const oldCanvas = document.getElementById('bg-canvas');
     if (oldCanvas) oldCanvas.remove();
     document.body.style.backgroundImage = 'none';
+    document.documentElement.setAttribute('data-theme', themeId);
 
     for (const [key, value] of Object.entries(theme.vars)) {
         document.documentElement.style.setProperty(key, value);
@@ -284,6 +364,11 @@ function applyTheme(themeId) {
         const wantsReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches || localStorage.getItem('jsonAdventure_reduceMotion') === 'true';
         if (!wantsReducedMotion) {
             initMatrixBackground();
+        }
+    } else if (theme.type === 'canvas-aero') {
+        const wantsReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches || localStorage.getItem('jsonAdventure_reduceMotion') === 'true';
+        if (!wantsReducedMotion) {
+            initAeroBackground();
         }
     }
 
@@ -424,7 +509,98 @@ function initMatrixBackground() {
     bgCanvasInterval = setInterval(draw, 33);
 }
 
+function initAeroBackground() {
+    const canvas = document.createElement('canvas');
+    canvas.id = 'bg-canvas';
+    canvas.style.position = 'fixed';
+    canvas.style.top = '0';
+    canvas.style.left = '0';
+    canvas.style.width = '100vw';
+    canvas.style.height = '100vh';
+    canvas.style.zIndex = '-1';
+    canvas.style.pointerEvents = 'none';
+    document.body.appendChild(canvas);
+
+    const ctx = canvas.getContext('2d');
+    let width, height;
+    function resize() {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // The beautiful aero waves (fluid geometric grass/ocean vectors)
+    const waves = [];
+    for (let i = 0; i < 4; i++) {
+        waves.push({
+            yBase: height * 0.7 - (i * 80),
+            amplitude: Math.random() * 80 + 40,
+            frequency: Math.random() * 0.0015 + 0.0008,
+            offset: Math.random() * Math.PI * 2,
+            speed: Math.random() * 0.003 + 0.0015,
+            color: `hsla(${140 + i * 15}, 80%, ${60 - i * 5}%, ${0.35 - i * 0.05})` // Layered fresh greens and vibrant cyan
+        });
+    }
+
+    let time = 0;
+
+    function draw() {
+        time += 1;
+        
+        // Background Gradient Sky (Frutiger Aero Blues & Greens)
+        const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
+        bgGrad.addColorStop(0, '#0a66c2'); // Deep sky blue top
+        bgGrad.addColorStop(0.5, '#76d7ea'); // Vibrant light cyan middle
+        bgGrad.addColorStop(1, '#a3e9a4'); // Fresh grass green bottom
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, width, height);
+
+        // Draw Ambient Aero Waves (Fluid glassy vectors)
+        waves.forEach((w, index) => {
+            w.offset += w.speed;
+            
+            // Build the path mapped to the bottom of the screen
+            ctx.beginPath();
+            ctx.moveTo(0, height);
+            
+            for (let x = 0; x <= width; x += 20) {
+                // Complex wave motion for high quality fluid feel
+                const modifier = Math.sin(x * 0.0005 + w.offset * 0.5) * 20; 
+                const y = w.yBase + Math.sin(x * w.frequency + w.offset) * w.amplitude + modifier;
+                ctx.lineTo(x, y);
+            }
+            ctx.lineTo(width, height);
+            
+            // Glossy/Glassy wave fill
+            ctx.fillStyle = w.color;
+            ctx.fill();
+
+            // Aero Glass high-light stroke on the lip of each wave
+            ctx.beginPath();
+            for (let x = 0; x <= width; x += 20) {
+                const modifier = Math.sin(x * 0.0005 + w.offset * 0.5) * 20; 
+                const y = w.yBase + Math.sin(x * w.frequency + w.offset) * w.amplitude + modifier;
+                if(x === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.strokeStyle = `rgba(255, 255, 255, ${0.5 - index * 0.08})`;
+            ctx.lineWidth = 4; // Bold glassy lip
+            ctx.stroke();
+            
+            // Subtle glowing drop shadow below the lip
+            ctx.strokeStyle = `rgba(0, 100, 50, ${0.15 - index * 0.02})`;
+            ctx.lineWidth = 12;
+            ctx.stroke();
+        });
+
+        animFrameId = requestAnimationFrame(draw);
+    }
+    draw();
+}
+
 function loadGoogleFont(fontName, isPrimary = true) {
+
     if (!fontName) return;
     const fontId = 'google-font-' + fontName.replace(/\s+/g, '-').toLowerCase();
     if (!document.getElementById(fontId)) {

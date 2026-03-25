@@ -5,16 +5,30 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Odyssey</title>
-    <link rel="icon" type="image/x-icon" href="assets/c6a9f48d-87b4-4579-8e46-52d6543123b9.ico">
+    <link rel="icon" type="image/x-icon" href="assets/odyssey.ico">
     <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="assets/marked.min.js"></script>
+    <script src="assets/dompurify.min.js"></script>
     <script src="theme.js?v=2"></script>
     <script src="ui-components.js?v=2"></script>
     <script src="setup.js?v=2"></script>
+    <meta name="description" content="Odyssey - A text-based AI adventure game">
+    <meta property="og:title" content="Odyssey">
+    <meta property="og:description" content="A text-based AI adventure game">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="http://localhost:3000/">
+    <meta property="og:image" content="http://localhost:3000/assets/favicon.ico">
+    <meta name="theme-color" content="#121212">
 </head>
 
 <body>
     <div class="app-container">
+        <!-- Loading Overlay -->
+        <div id="loading-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg-overlay, rgba(0,0,0,0.85)); backdrop-filter:blur(8px); z-index:9999; flex-direction:column; align-items:center; justify-content:center; color:var(--text-heading, white); font-family:var(--font-primary, serif); font-size:1.5rem; letter-spacing:0.05em; text-transform:uppercase;">
+            <div style="border: 4px solid var(--border-color, rgba(255,255,255,0.1)); border-top: 4px solid var(--accent-color, #fff); border-radius: var(--radius-circle, 50%); width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom:20px; box-shadow: 0 0 15px var(--accent-color, rgba(255,255,255,0.2));"></div>
+            <div style="text-shadow: 0 2px 10px rgba(0,0,0,0.8);">Loading Game...</div>
+        </div>
+        <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
 
 
         <!-- Setup Screen (multi-phase wizard) -->
@@ -181,6 +195,8 @@
         });
 
         async function doLoadGame(gameId) {
+            const loader = document.getElementById('loading-overlay');
+            if (loader) loader.style.display = 'flex';
             try {
                 const res = await fetch(`/api/load-game?id=${gameId}`);
                 if (!res.ok) throw new Error("Load failed");
@@ -260,10 +276,12 @@
                 }
 
                 if (typeof setupChatInput === 'function') setupChatInput();
+                if (loader) loader.style.display = 'none';
 
             } catch (err) {
                 console.error(err);
                 alert("Error loading game.");
+                if (loader) loader.style.display = 'none';
             }
         }
 
@@ -436,7 +454,7 @@
 
                         const row = document.createElement('div');
                         row.className = 'player-info-row';
-                        row.innerHTML = `<div class="player-info-label">${label}</div> <div class="player-info-value">${pInfo[prop]}</div>`;
+                        row.innerHTML = `<div class="player-info-label">${DOMPurify.sanitize(label)}</div> <div class="player-info-value">${DOMPurify.sanitize(String(pInfo[prop]))}</div>`;
                         detailsNode.appendChild(row);
                     }
                 });
@@ -454,7 +472,7 @@
                         let label = prop.charAt(0).toUpperCase() + prop.slice(1);
                         const section = document.createElement('div');
                         section.className = 'player-info-section';
-                        section.innerHTML = `<div class="player-info-section-label">${label}</div><div class="player-info-section-value">${pInfo[prop]}</div>`;
+                        section.innerHTML = `<div class="player-info-section-label">${DOMPurify.sanitize(label)}</div><div class="player-info-section-value">${DOMPurify.sanitize(String(pInfo[prop]))}</div>`;
                         longSectionsNode.appendChild(section);
                     }
                 });
@@ -491,7 +509,7 @@
                     npcs.forEach(npc => {
                         const section = document.createElement('div');
                         section.className = 'player-info-section';
-                        section.innerHTML = `<div class="player-info-section-label">${npc.name}</div><div class="player-info-section-value">${npc.status_or_history || ''}</div>`;
+                        section.innerHTML = `<div class="player-info-section-label">${DOMPurify.sanitize(npc.name)}</div><div class="player-info-section-value">${DOMPurify.sanitize(String(npc.status_or_history || ""))}</div>`;
                         npcContainer.appendChild(section);
                     });
                 }
@@ -507,7 +525,7 @@
                     locations.forEach(loc => {
                         const section = document.createElement('div');
                         section.className = 'player-info-section';
-                        section.innerHTML = `<div class="player-info-section-label">${loc.name}</div><div class="player-info-section-value">${loc.description || ''}</div>`;
+                        section.innerHTML = `<div class="player-info-section-label">${DOMPurify.sanitize(loc.name)}</div><div class="player-info-section-value">${DOMPurify.sanitize(String(loc.description || ""))}</div>`;
                         locContainer.appendChild(section);
                     });
                 }
