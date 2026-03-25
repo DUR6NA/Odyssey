@@ -171,15 +171,6 @@ All settings are stored in the browser's `localStorage` under keys prefixed with
 | Primary Font | `jsonAdventure_primaryFont` | `Cinzel` |
 | Secondary Font | `jsonAdventure_secondaryFont` | `Merriweather` |
 
-## Contributing
-
-Contributions are welcome! Please open an issue or submit a pull request on [GitHub](https://github.com/DUR6NA/Odyssey).
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/my-feature`)
-3. Commit your changes
-4. Push to the branch and open a Pull Request
-
 ## License
 
 This project is licensed under the [GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE).
