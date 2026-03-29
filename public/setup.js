@@ -312,7 +312,12 @@ async function initSetupMode() {
     if (setupContainer) setupContainer.classList.remove('hidden');
 
     try {
-        const res = await fetch('/api/list-presets');
+        if (window.tauriBridge && typeof window.tauriBridge.listPresets === 'function') {
+            PLAYER_PRESETS = await window.tauriBridge.listPresets();
+        } else {
+            const res = await fetch('/api/list-presets');
+            PLAYER_PRESETS = await res.json();
+        }
         PLAYER_PRESETS = await res.json();
     } catch (e) {
         console.error("Failed to load player presets", e);

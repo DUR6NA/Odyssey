@@ -2,10 +2,8 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Odyssey",
   "version": "0.1.0",
-  "identifier": "com.odyssey.game",
+  "identifier": "com.dur6na.odyssey",
   "build": {
-    "beforeDevCommand": "npm run start",
-    "devUrl": "http://localhost:3001",
     "frontendDist": "../public"
   },
   "app": {
@@ -31,6 +29,7 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "copyright": "© Dur6na 2025"
   }
 }

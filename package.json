@@ -1,25 +1,16 @@
 {
   "name": "odyssey",
   "version": "0.1.0",
-  "description": "A text-based AI adventure game.",
-  "main": "server.js",
+  "description": "Odyssey - Desktop Tauri app for AI-driven text adventure game",
   "scripts": {
-    "start": "node server.js",
     "tauri": "tauri",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build",
-    "test": "node --test test.js",
-    "build:frontend": "xcopy . public /E /I /Y /exclude:exclude.txt"
+    "dev": "tauri dev",
+    "build": "tauri build"
   },
-  "engines": {
-    "node": ">=18.0.0"
-  },
-  "keywords": ["game", "ai", "text-adventure"],
+  "keywords": ["tauri", "desktop", "game", "ai", "text-adventure"],
   "author": "Dur6na",
   "license": "AGPL-3.0",
-  "type": "commonjs",
   "dependencies": {
-    "@openrouter/sdk": "^0.9.11",
     "@tauri-apps/api": "^2.4.1",
     "@tauri-apps/plugin-dialog": "^2.2.1",
     "@tauri-apps/plugin-fs": "^2.2.1",

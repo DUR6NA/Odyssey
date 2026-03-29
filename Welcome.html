@@ -713,7 +713,7 @@
 
             try {
                 // Issue POST to the backend shutdown endpoint
-                await fetch('/api/shutdown', { method: 'POST' });
+                // No server in Tauri desktop build
 
                 // Try to close window
                 setTimeout(() => {
