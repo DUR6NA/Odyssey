@@ -1,0 +1,22 @@
+{
+    "time": {
+        "hour": 3,
+        "minute": 5,
+        "period": "AM",
+        "dayOfWeek": "Tuesday",
+        "day": 24,
+        "month": 2,
+        "year": 2026
+    },
+    "inventory": [
+        {
+            "name": "Example Item",
+            "description": "A shiny object."
+        }
+    ],
+    "stats": {
+        "health": 100,
+        "mana": 100,
+        "stamina": 100
+    }
+}

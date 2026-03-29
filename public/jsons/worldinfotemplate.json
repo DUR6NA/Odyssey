@@ -1,0 +1,18 @@
+{
+    "world": {
+        "type": "",
+        "name": "",
+        "startDate": {
+            "day": 1,
+            "month": 1,
+            "year": 2026
+        },
+        "tone": "",
+        "setting": "",
+        "era": "",
+        "rules": "",
+        "magicOrTech": "",
+        "dangers": "",
+        "factions": ""
+    }
+}

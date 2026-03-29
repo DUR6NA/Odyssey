@@ -5,7 +5,11 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test test.js"
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "test": "node --test test.js",
+    "build:frontend": "xcopy . public /E /I /Y /exclude:exclude.txt"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -15,6 +19,13 @@
   "license": "AGPL-3.0",
   "type": "commonjs",
   "dependencies": {
-    "@openrouter/sdk": "^0.9.11"
+    "@openrouter/sdk": "^0.9.11",
+    "@tauri-apps/api": "^2.4.1",
+    "@tauri-apps/plugin-dialog": "^2.2.1",
+    "@tauri-apps/plugin-fs": "^2.2.1",
+    "@tauri-apps/plugin-shell": "^2.2.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.10.1"
   }
 }

@@ -11,7 +11,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             const bgm = document.getElementById('bgm');
             if (bgm) {
-                bgm.volume = 0.15;
+                bgm.volume = 0.35;
                 document.body.addEventListener('click', () => {
                     if (bgm.paused) {
                         bgm.play().catch(() => { });
@@ -541,7 +541,7 @@
 
 <body>
 
-    <audio id="bgm" src="assets/menu, rain and thunder.mp3" autoplay loop preload="auto" onplay="var btn = document.getElementById('enable-audio-btn'); if(btn) btn.style.display='none';"></audio>
+    <audio id="bgm" src="assets/menu, music.mp3" autoplay loop preload="auto" onplay="var btn = document.getElementById('enable-audio-btn'); if(btn) btn.style.display='none';"></audio>
     <button id="enable-audio-btn" onclick="document.getElementById('bgm').play()">🔊 Enable Music</button>
 
     <div class="background-container">

@@ -1,0 +1,36 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "Odyssey",
+  "version": "0.1.0",
+  "identifier": "com.odyssey.game",
+  "build": {
+    "beforeDevCommand": "npm run start",
+    "devUrl": "http://localhost:3001",
+    "frontendDist": "../public"
+  },
+  "app": {
+    "windows": [{
+      "title": "Odyssey",
+      "width": 1400,
+      "height": 900,
+      "resizable": true,
+      "fullscreen": false,
+      "url": "Welcome.html",
+      "devtools": true
+    }],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}

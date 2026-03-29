@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Odyssey - Info/Wiki</title>
+    <!-- Code and CSS for the themes system -->
+    <link rel="stylesheet" href="style.css">
+    <script src="theme.js"></script>
+    <style>
+        body {
+            background-color: var(--bg-main, #000);
+            color: var(--text-main, #fff);
+            font-family: var(--font-secondary, sans-serif);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .back-btn {
+            background: none;
+            border: 1px solid var(--border-color, #555);
+            color: var(--text-heading, #fff);
+            padding: 10px 20px;
+            cursor: pointer;
+            font-family: var(--font-primary, serif);
+        }
+
+        .back-btn:hover {
+            color: var(--accent-hover, #ccc);
+            border-color: var(--accent-hover, #ccc);
+        }
+
+        /* Tutorial styles */
+        .tutorial-container {
+            max-width: 800px;
+            margin: 40px auto;
+            background-color: var(--bg-secondary, #111);
+            padding: 40px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color, #333);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            line-height: 1.6;
+        }
+
+        .tutorial-container h2 {
+            font-family: var(--font-primary, serif);
+            color: var(--accent-main, #4dabf7);
+            border-bottom: 1px solid var(--border-color, #333);
+            padding-bottom: 10px;
+            margin-top: 40px;
+        }
+
+        .tutorial-container h2:first-of-type {
+            margin-top: 0;
+        }
+
+        .tutorial-container p {
+            font-size: 16px;
+            padding-bottom: 5px;
+        }
+
+        .tutorial-container a {
+            color: var(--accent-hover, #74c0fc);
+            text-decoration: none;
+        }
+
+        .tutorial-container a:hover {
+            text-decoration: underline;
+        }
+
+        .tutorial-container ul {
+            margin-bottom: 20px;
+            padding-left: 20px;
+        }
+
+        .tutorial-container li {
+            margin-bottom: 10px;
+        }
+
+        .step-box {
+            background-color: var(--bg-tertiary, rgba(0, 0, 0, 0.3));
+            padding: 15px;
+            border-left: 4px solid var(--accent-color, #fff);
+            margin-bottom: 20px;
+            border-radius: 0 4px 4px 0;
+            transition: border-color 0.3s;
+        }
+
+        .github-link {
+            display: inline-block;
+            margin-top: 30px;
+            padding: 10px 20px;
+            background-color: var(--accent-color, #fff);
+            color: var(--bg-main, #000);
+            font-weight: bold;
+            border-radius: 4px;
+            text-decoration: none;
+            transition: opacity 0.2s;
+        }
+
+        .github-link:hover {
+            opacity: 0.8;
+            text-decoration: none;
+        }
+
+        .highlight-text {
+            color: var(--accent-color, #fff);
+            font-weight: bold;
+        }
+    </style>
+    <meta name="description" content="Odyssey - A text-based AI adventure game">
+    <meta property="og:title" content="Odyssey">
+    <meta property="og:description" content="A text-based AI adventure game">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="http://localhost:3000/">
+    <meta property="og:image" content="http://localhost:3000/assets/favicon.ico">
+    <meta name="theme-color" content="#121212">
+</head>
+
+<body>
+    <div class="settings-layout">
+        <aside class="sidebar">
+            <nav class="sidebar-nav">
+                <button id="nav-btn-getting-started" class="active" onclick="switchTab('getting-started')">Getting Started</button>
+                <button id="nav-btn-providers" onclick="switchTab('providers')">AI Providers</button>
+                <button id="nav-btn-models" onclick="switchTab('models')">Models & Costs</button>
+                <button id="nav-btn-features" onclick="switchTab('features')">Features & Systems</button>
+                <button id="nav-btn-settings" onclick="switchTab('settings')">Settings Guide</button>
+            </nav>
+        </aside>
+
+        <main class="settings-main">
+            <!-- Back Button -->
+            <button onclick="window.location.href='mainmenu.html'" class="btn-top-right" title="Back to Main Menu">🏠</button>
+            
+            <header class="settings-header">
+                <h1>Info & Wiki</h1>
+            </header>
+
+            <div class="content" style="max-width: 100%; box-shadow: none; background-color: transparent; padding: 0;">
+                
+                <!-- Tab: Getting Started -->
+                <div id="tab-getting-started" class="settings-tab">
+                    <h2>Welcome to Odyssey!</h2>
+                    <p>Odyssey is a text-based, AI-driven adventure game. To get started, you need to connect the game to an AI model by setting up an <strong>API Key</strong>. Don't worry if you're not tech-savvy—this guide will walk you through the process step-by-step!</p>
+
+                    <h2>1. Getting a Free API Key (Google AI Studio)</h2>
+                    <p>An API Key is a secure password that allows Odyssey to communicate with a powerful AI model in the cloud. Google provides free access to their advanced "Gemini" models, which are perfect for playing the game.</p>
+                    
+                    <div class="step-box">
+                        <strong>Step 1:</strong> Go to <a href="https://aistudio.google.com/" target="_blank">Google AI Studio</a> and sign in with your Google account.
+                    </div>
+                    <div class="step-box">
+                        <strong>Step 2:</strong> Click on the <strong>"Get API key"</strong> button in the left sidebar.
+                    </div>
+                    <div class="step-box">
+                        <strong>Step 3:</strong> Click <strong>"Create API key"</strong>, then select "Create API key in a new project".
+                    </div>
+                    <div class="step-box">
+                        <strong>Step 4:</strong> Once generating finishes, copy the long string of letters and numbers. <strong>Keep this secret!</strong>
+                    </div>
+
+                    <h2>2. Giving Odyssey Your API Key</h2>
+                    <p>Now that you have your key, you need to paste it into the game's settings.</p>
+                    
+                    <div class="step-box">
+                        <strong>Step 1:</strong> In the game's main menu, click on <strong>Settings</strong>.
+                    </div>
+                    <div class="step-box">
+                        <strong>Step 2:</strong> Select the <strong>API Settings</strong> tab on the left.
+                    </div>
+                    <div class="step-box">
+                        <strong>Step 3:</strong> Change the <strong>AI Provider</strong> dropdown to <strong>Google AI</strong> (or whichever provider you got your key from).
+                    </div>
+                    <div class="step-box">
+                        <strong>Step 4:</strong> In the <strong>"API Key"</strong> box below that, paste the key you copied earlier.
+                    </div>
+                    <div class="step-box">
+                        <strong>Step 5:</strong> Click <strong>"Save Settings"</strong> to persist your key, then click <strong>"Fetch Models"</strong>.
+                    </div>
+                    <div class="step-box">
+                        <strong>Step 6:</strong> Scroll down and select a model from the dropdown. For Google AI, <strong>Gemini 1.5 Pro</strong> or <strong>Gemini 2.5 Flash</strong> are excellent choices. Don't forget to hit Save again!
+                    </div>
+
+                    <h3 style="margin-top: 20px; text-align: center;">Interactive Setup Example</h3>
+                    <canvas id="api-animation-canvas" width="600" height="300" style="background:var(--bg-tertiary); border:1px solid var(--border-color); border-radius:8px; display:block; margin: 20px auto; max-width: 100%; box-shadow: 0 4px 15px rgba(0,0,0,0.5);"></canvas>
+
+                    <h2 style="margin-top: 50px;">3. The "Reasoning Models" Setting</h2>
+                    <p>In the API Settings, you will see a toggle for <strong>Use Reasoning Model</strong>. This is designed for next-generation AI models (like xAI's <em>Grok 4.1 Thinking</em> or Anthropic's <em>Claude 3.7 Sonnet</em> extended-thinking mode) that are designed to "think" out loud before taking action.</p>
+                    
+                    <div class="step-box" style="border-left-color: #40c057;"> <!-- Green for advantages -->
+                        <h3 class="highlight-text" style="color: #40c057; margin-top: 0;">Advantages (Why turn it on)</h3>
+                        <p style="margin-bottom: 0;">• <strong>Superior Game Mastering:</strong> The AI acts much more intelligently, actively tracking inventory, health, and complex lore rules accurately instead of just guessing.<br>
+                        • <strong>Fewer Hallucinations:</strong> The AI creates an invisible "scratchpad" where it plans out the narrative consequences of your actions before it writes the actual story response.</p>
+                    </div>
+
+                    <div class="step-box" style="border-left-color: #fa5252;"> <!-- Red for tradeoffs -->
+                        <h3 class="highlight-text" style="color: #fa5252; margin-top: 0;">Trade-Offs (Why turn it off)</h3>
+                        <p style="margin-bottom: 0;">• <strong>Higher API Costs:</strong> Reasoning models write "invisible" text while thinking, and you <strong>are billed</strong> for those generated thinking tokens. Playing with reasoning on can drastically increase the cost of a gaming session.<br>
+                        • <strong>Slower Responses:</strong> Because the AI is actively "thinking" for 10-20 seconds before generating the final story text, you will have to wait significantly longer between turns.</p>
+                    </div>
+
+                    <h2 style="margin-top: 50px;">Open Source & Community</h2>
+                    <p>Odyssey is continuously evolving. If you want to see the code behind the magic, report a bug, or contribute to the project, check out our repository!</p>
+                    <div style="text-align: center;">
+                        <a href="https://github.com/DUR6NA/Odyssey" target="_blank" class="github-link">View Odyssey on GitHub</a>
+                    </div>
+                </div>
+
+                <!-- Tab: AI Providers -->
+                <div id="tab-providers" class="settings-tab" style="display: none;">
+                    <h2>Supported AI Providers</h2>
+                    <p>Odyssey supports several platforms for hosting AI. Depending on whether you want free models, the absolute smartest enterprise models, or complete offline privacy, you can choose the right provider for you.</p>
+
+                    <div class="step-box">
+                        <h3 class="highlight-text">1. OpenRouter (Highly Recommended)</h3>
+                        <p><strong>Ideal For:</strong> Accessing hundreds of different models (OpenAI, Anthropic, Meta, etc.) all in one place with a single unified wallet.</p>
+                        <p>OpenRouter is an aggregator that lets you use models from almost any AI company without making accounts for all of them. It offers many entirely free models, and paid models are billed per-token (meaning you only pay for exactly what you use). It is also the most reliable way to get high-quality Image Generation models like Flux.</p>
+                        <p><strong>Website:</strong> <a href="https://openrouter.ai" target="_blank">openrouter.ai</a></p>
+                    </div>
+
+                    <div class="step-box">
+                        <h3 class="highlight-text">2. Google AI Studio (Best Free Experience)</h3>
+                        <p><strong>Ideal For:</strong> High quality text and image generation completely free of charge.</p>
+                        <p>Google offers native API access to the Gemini family (Flash, Pro, Experimental). Their free tier allows for plenty of daily requests, making it the most sensible choice for newcomers who want world-class "brain" models without needing to enter a credit card.</p>
+                        <p><strong>Website:</strong> <a href="https://aistudio.google.com" target="_blank">aistudio.google.com</a></p>
+                    </div>
+
+                    <div class="step-box">
+                        <h3 class="highlight-text">3. xAI (Grok Models)</h3>
+                        <p><strong>Ideal For:</strong> Fast, highly intelligent reasoning models known for being less rigidly censored.</p>
+                        <p>The Grok family of models offer competitive logic and creative writing capabilities. If you prefer the xAI ecosystem, you can plug their API key directly into Odyssey.</p>
+                        <p><strong>Website:</strong> <a href="https://console.x.ai" target="_blank">console.x.ai</a></p>
+                    </div>
+
+                    <div class="step-box">
+                        <h3 class="highlight-text">4. LM Studio (Local / Offline)</h3>
+                        <p><strong>Ideal For:</strong> Gamers with powerful graphics cards who want 100% privacy, zero cost, and no internet reliance.</p>
+                        <p>LM Studio allows you to download open-source models (like Llama 3) directly to your hard drive and run them on your PC. This means there are no API fees and total privacy, but the intelligence of the AI is strictly limited by how much RAM/VRAM your computer has.</p>
+                        <p><strong>Website:</strong> <a href="https://lmstudio.ai" target="_blank">lmstudio.ai</a></p>
+                    </div>
+
+                    <div class="step-box">
+                        <h3 class="highlight-text">5. OpenAI Compatible Custom URLs</h3>
+                        <p><strong>Ideal For:</strong> Advanced users hosting their own inference server (e.g., KoboldCPP, vLLM, Oobabooga) or using a bespoke enterprise proxy.</p>
+                        <p>If you have an API endpoint that supports the standard OpenAI format, you can route the game's traffic there by specifying your custom Base URL in the settings.</p>
+                    </div>
+                </div>
+
+                <!-- Tab: Models & Costs -->
+                <div id="tab-models" class="settings-tab" style="display: none;">
+                    <h2>Demystifying Models & Costs</h2>
+                    <p>AI APIs are not usually billed via a monthly subscription. Instead, they bill you per fraction of a word, known as a <strong>"Token"</strong>.</p>
+                    <p>Think of 1 Token as roughly 0.75 of a word. You pay a fraction of a cent based on how much text you send to the AI (the prompt context) and how much text it writes back to you. The more you play, the longer the context history gets, and the more tokens each turn costs.</p>
+
+                    <div class="step-box">
+                        <h3 class="highlight-text">Projected API Costs</h3>
+                        <ul style="margin-bottom: 0;">
+                            <li><strong>Free Tier (Google AI Studio):</strong> $0.00 forever (subject to daily rate limits).</li>
+                            <li><strong>Fast & Small Paid Models (e.g., Claude 3 Haiku / Gemini Flash via OpenRouter):</strong> Very cheap! A heavy 3-hour gaming session might only cost $0.05 to $0.15 total.</li>
+                            <li><strong>Large "Smart" Models (e.g., Grok 4.1 / GPT-4o / Claude 3.5 Sonnet):</strong> More expensive. These are massive brains. A heavy 3-hour gaming session might cost $0.50 to $1.50 depending on how much game history is passing back and forth.</li>
+                            <li><strong>Image Generation:</strong> Usually a flat rate per image rather than per token. Most cost between $0.01 and $0.04 per image. Having auto-image generation on will add up faster than text generation!</li>
+                        </ul>
+                    </div>
+
+                    <h3 style="margin-top: 40px;" class="highlight-text">Recommended Text Models</h3>
+                    
+                    <div class="step-box">
+                        <strong>xAI Grok 4.1 (Reasoning / Thinking)</strong><br>
+                        <em>Cost: Very Competitive via xAI / OpenRouter</em><br>
+                        <p style="margin: 5px 0;">An incredibly powerful model that thinks deeply before acting. Grok 4.1 reasons through complex game states with high intelligence, delivering premium game-mastering at a very affordable price point.</p>
+                    </div>
+
+                    <div class="step-box">
+                        <strong>Google Gemini 2.5 Flash</strong><br>
+                        <em>Cost: Free via Google AI Studio / Extremely Cheap via OpenRouter</em><br>
+                        <p style="margin: 5px 0;">Currently the gold standard for balancing speed, logic, and cost. It is highly creative and handles massive amounts of context flawlessly. An amazing default choice.</p>
+                    </div>
+                    
+                    <div class="step-box">
+                        <strong>Anthropic Claude 3.5 Sonnet</strong><br>
+                        <em>Cost: Premium (~$3.00 per 1M context tokens via OpenRouter)</em><br>
+                        <p style="margin: 5px 0;">Widely considered one of the best literary AI models in the world. It is incredibly descriptive and acts as an impeccable Game Master, but you will pay for that premium quality.</p>
+                    </div>
+                    
+                    <div class="step-box">
+                        <strong>Meta Llama 3 / 3.1</strong><br>
+                        <em>Cost: Free/Very Cheap (OpenRouter) or 100% Free (LM Studio Local)</em><br>
+                        <p style="margin: 5px 0;">The apex of open-source models. It's smart, very fast, and extremely cost effective. Be wary that small versions (8B) might lose track of complex game rules, but large versions (70B) are fantastic.</p>
+                    </div>
+
+                    <h3 style="margin-top: 40px;" class="highlight-text">Recommended Image Models</h3>
+                    
+                    <div class="step-box">
+                        <strong>Grok Image</strong><br>
+                        <em>Cost: Cheap (via xAI)</em><br>
+                        <p style="margin: 5px 0;">A highly capable, uniquely styled image model. Known for following prompts better than legacy open-source models, at highly economical pricing for players who want a lot of auto-generated art.</p>
+                    </div>
+
+                    <div class="step-box">
+                        <strong>Nano Banana (Gemini Flash Image)</strong><br>
+                        <em>Cost: Free (Google AI Studio)</em><br>
+                        <p style="margin: 5px 0;">A blazing fast, highly capable image model natively available if you're using Google AI Studio. Perfect for quickly seeing your character or environment.</p>
+                    </div>
+
+                    <div class="step-box">
+                        <strong>Flux.1 (Dev or Schnell)</strong><br>
+                        <em>Cost: Cheap (OpenRouter) runs ~$0.01 to $0.03 per image</em><br>
+                        <p style="margin: 5px 0;">The absolute cutting edge of open-source image generation. It beats legacy models like Stable Diffusion handily, follows text prompts brilliantly, and is relatively inexpensive.</p>
+                    </div>
+                </div>
+
+                <!-- Tab: Features & Systems -->
+                <div id="tab-features" class="settings-tab" style="display: none;">
+                    <h2>Features & Game Systems</h2>
+                    <p>Odyssey goes beyond standard text-generation by integrating numerous RPG systems. Here is how they work:</p>
+                    
+                    <div class="step-box">
+                        <h3 class="highlight-text">Presets & IP Lore</h3>
+                        <p><strong>What is it?</strong> Presets map out existing universes (like Star Wars, Harry Potter, etc.) to immediately jump into a recognizable game state.</p>
+                        <p><strong>How it works:</strong> The backend automatically reads a `PRESET_KEY` attached to the universe you selected. When creating a character or playing the game, the AI Game Master is rigorously instructed to adhere to the lore, laws of physics, and character archetypes of that specific universe.</p>
+                    </div>
+
+                    <div class="step-box">
+                        <h3 class="highlight-text">Wikipedia & Fandom Lore Integration</h3>
+                        <p><strong>What is it?</strong> Retrieval-Augmented Generation (RAG). The AI actively researches the real world or game world to prevent hallucinating incorrect facts.</p>
+                        <p><strong>How it works:</strong> If you talk about a real-world politician or a specific Star Wars planet, the system silently pauses before answering, queries Wikipedia (for real life) or Wookieepedia (for Star Wars), and injects a secret summary of its findings directly into the AI's memory. This makes the answers extremely accurate!</p>
+                    </div>
+
+                    <div class="step-box">
+                        <h3 class="highlight-text">Game Codex</h3>
+                        <p><strong>What is it?</strong> A persistent tracking ledger of all Information uncovered during your adventure.</p>
+                        <p><strong>How it works:</strong> As you play, the AI is instructed to note down every new NPC it invents and every Location you visit in a hidden JSON file. You can open the <strong>Game Codex</strong> (on the right bar below the clock during gameplay) to view a comprehensive list of everyone and everywhere you've been.</p>
+                    </div>
+
+                    <div class="step-box">
+                        <h3 class="highlight-text">Player Menu & Stats</h3>
+                        <p><strong>What is it?</strong> The hub for your character, detailing physical attributes, appearance, and inventory.</p>
+                        <p><strong>How it works:</strong> The Game Master AI manages your physical health, energy, and money dynamically based on the storyline. If you get into a fight, it will secretly subtract health. You can view all these stats, along with anything you've collected or bought in the <strong>Player Menu</strong> (on the left sidebar below your avatar).</p>
+                    </div>
+                </div>
+
+                <!-- Tab: Settings Guide -->
+                <div id="tab-settings" class="settings-tab" style="display: none;">
+                    <h2>Understanding the Settings Options</h2>
+                    <p>The API Settings tabs allow you to deeply tweak how the AI behaves. Here’s what the different neuro-linguistic dials mean:</p>
+                    
+                    <div class="step-box">
+                        <strong>Temperature (Default: 0.7)</strong>
+                        <p style="margin-bottom: 0;">Controls how "creative" or random the AI is. 
+                        <br>• A lower value (e.g., 0.3) makes the AI more predictable, focused, and robotic. 
+                        <br>• A higher value (e.g., 1.2) makes it wild, highly creative, but sometimes prone to hallucinating nonsense. 
+                        <br>• For a balanced roleplay game, between 0.7 and 0.9 is generally ideal.</p>
+                    </div>
+
+                    <div class="step-box">
+                        <strong>Max Tokens (Default: 2048)</strong>
+                        <p style="margin-bottom: 0;">Determines how long the AI's responses are permitted to be. If you notice the AI frequently cutting its stories off mid-sentence, you need to increase this number. If you only want short punchy responses, lower it.</p>
+                    </div>
+
+                    <div class="step-box">
+                        <strong>Top P (Default: 1.0)</strong>
+                        <p style="margin-bottom: 0;">An alternative to Temperature. If set to 0.1, the AI only considers the top 10% most likely next words. Usually, you should leave this at 1.0 and just alter the Temperature.</p>
+                    </div>
+
+                    <div class="step-box">
+                        <strong>Frequency & Presence Penalties (Default: 0.0)</strong>
+                        <p style="margin-bottom: 0;">• <strong>Frequency Penalty</strong> penalizes the AI for repeating the exact same words over and over. If the AI sounds like a broken record using the same prose, turn this up slightly (e.g., 0.3).
+                        <br>• <strong>Presence Penalty</strong> encourages the AI to talk about new topics rather than circling back to the same concepts.</p>
+                    </div>
+
+                    <div class="step-box">
+                        <strong>System Prompts Tab</strong>
+                        <p style="margin-bottom: 0;">This is where the magic happens! System Prompts are the invisible rulebooks handed to the AI before every action. 
+                        <br><br>For instance, if you want the game to be extremely grimdark and punishing, you can open the <strong>Game Master</strong> prompt and add instructions like: <em>"The world is violent and unforgiving. Always inflict severe consequences for the player's mistakes."</em></p>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.settings-tab').forEach(el => el.style.display = 'none');
+            // Show target tab
+            document.getElementById('tab-' + tabName).style.display = 'block';
+
+            // Update sidebar active state
+            document.querySelectorAll('.sidebar-nav button').forEach(el => el.classList.remove('active'));
+            document.getElementById('nav-btn-' + tabName).classList.add('active');
+        }
+
+        // --- Interactive API Setup Canvas Animation ---
+        const canvas = document.getElementById('api-animation-canvas');
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            
+            let mouseX = 450;
+            let mouseY = 250;
+            let targetX = 450;
+            let targetY = 250;
+            let apiKeyText = "";
+            let phase = 0; 
+            let timer = 0;
+            const fullKey = "sk-opnRt-28f9A...x1";
+            
+            function updateState() {
+                timer++;
+                
+                // State Machine
+                if (phase === 0) { // Moving to dropdown
+                    targetX = 140; targetY = 70; // Move to provider dropdown
+                    if (Math.abs(mouseX - targetX) < 5 && Math.abs(mouseY - targetY) < 5) {
+                        phase = 1; timer = 0;
+                    }
+                } else if (phase === 1) { // Clicking dropdown
+                    if (timer > 30) { phase = 2; timer = 0; targetX = 300; targetY = 120; }
+                } else if (phase === 2) { // Moving to API Key Box
+                    if (Math.abs(mouseX - targetX) < 5 && Math.abs(mouseY - targetY) < 5) {
+                        phase = 3; timer = 0; apiKeyText = "";
+                    }
+                } else if (phase === 3) { // Typing API Key
+                    if (timer % 5 === 0 && apiKeyText.length < fullKey.length) {
+                        apiKeyText += fullKey[apiKeyText.length];
+                    }
+                    if (apiKeyText.length === fullKey.length && timer > 150) { // Wait before save
+                        phase = 4; timer = 0; targetX = 145; targetY = 220;
+                    }
+                } else if (phase === 4) { // Moving to Save Button
+                    if (Math.abs(mouseX - targetX) < 5 && Math.abs(mouseY - targetY) < 5) {
+                        phase = 5; timer = 0;
+                    }
+                } else if (phase === 5) { // Clicking Save
+                    if (timer > 30) { phase = 6; timer = 0; }
+                } else if (phase === 6) { // Showing Success, moving mouse away
+                    targetX = 450; targetY = 250;
+                    if (timer > 150) { phase = 0; timer = 0; } // Restart loop
+                }
+
+                // Smooth Mouse Movement
+                mouseX += (targetX - mouseX) * 0.1;
+                mouseY += (targetY - mouseY) * 0.1;
+
+                drawFrame();
+                requestAnimationFrame(updateState);
+            }
+
+            function drawFrame() {
+                ctx.clearRect(0,0,600,300);
+                
+                // Theme Vars Backup Colors
+                const bgSecondary = '#11182c';
+                const bgTertiary = '#080c16';
+                const textMain = '#a1a1aa';
+                const textHeading = '#ffffff';
+
+                // Base Window Wrapper
+                ctx.fillStyle = bgTertiary;
+                ctx.fillRect(40, 20, 520, 260);
+                ctx.strokeStyle = '#27272a';
+                ctx.strokeRect(40, 20, 520, 260);
+
+                // Title
+                ctx.fillStyle = textHeading;
+                ctx.font = "bold 18px sans-serif";
+                ctx.fillText("Odyssey > Config", 60, 45);
+
+                // Draw Dropdown
+                ctx.fillStyle = textMain;
+                ctx.font = "14px sans-serif";
+                ctx.fillText("AI Provider", 60, 80);
+                ctx.fillStyle = bgSecondary;
+                ctx.fillRect(150, 62, 150, 25);
+                ctx.strokeStyle = '#4dabf7'; 
+                ctx.strokeRect(150, 62, 150, 25);
+                ctx.fillStyle = textHeading;
+                ctx.fillText("OpenRouter", 155, 80);
+
+                if (phase === 1) { // Dropped Down
+                    ctx.fillStyle = '#0f172a';
+                    ctx.fillRect(150, 87, 150, 60);
+                    ctx.strokeRect(150, 87, 150, 60);
+                    ctx.fillStyle = '#1e293b'; // hover
+                    ctx.fillRect(150, 87, 150, 30);
+                    ctx.fillStyle = textHeading;
+                    ctx.fillText("OpenRouter", 155, 107);
+                    ctx.fillText("Google AI", 155, 137);
+                }
+
+                // Draw Text Input for API Key
+                ctx.fillStyle = textMain;
+                ctx.fillText("API Key", 60, 130);
+                
+                ctx.fillStyle = bgSecondary;
+                ctx.fillRect(60, 140, 480, 40);
+                
+                // Highlight input box if focused
+                ctx.strokeStyle = (phase === 3) ? '#4dabf7' : '#27272a';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(60, 140, 480, 40);
+                ctx.lineWidth = 1;
+
+                ctx.fillStyle = textHeading;
+                ctx.fillText(apiKeyText, 75, 166);
+                
+                // Cursor blink
+                if (phase === 3 && Math.floor(Date.now() / 400) % 2 === 0) {
+                    const textWidth = ctx.measureText(apiKeyText).width;
+                    ctx.fillRect(75 + textWidth + 2, 148, 2, 24);
+                }
+
+                // Draw Save Button
+                ctx.fillStyle = (phase === 5) ? '#1864ab' : '#4dabf7'; // darker when clicked
+                ctx.fillRect(60, 200, 150, 40);
+                // Save Button Text
+                ctx.fillStyle = "#fff";
+                ctx.font = "bold 14px sans-serif";
+                ctx.fillText("SAVE", 115, 225);
+
+                // Draw Success Notice
+                if (phase >= 6 || (phase === 5 && timer > 15)) {
+                    ctx.fillStyle = '#40c057';
+                    ctx.fillText("Settings saved successfully!", 230, 225);
+                }
+
+                // Draw Mock Mouse
+                drawMouse(mouseX, mouseY);
+            }
+
+            function drawMouse(x, y) {
+                ctx.fillStyle = "#ffffff";
+                ctx.strokeStyle = "#000000";
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x + 12, y + 15);
+                ctx.lineTo(x + 5, y + 15);
+                ctx.lineTo(x + 8, y + 22);
+                ctx.lineTo(x + 5, y + 23);
+                ctx.lineTo(x + 2, y + 16);
+                ctx.lineTo(x - 3, y + 16);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+            }
+
+            // Start Animation Loop
+            updateState();
+        }
+    </script>
+</body>
+
+</html>
