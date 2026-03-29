@@ -854,7 +854,7 @@
             }
 
             let fetchUrl = "https://openrouter.ai/api/v1/chat/completions";
-            if (provider === 'xai') fetchUrl = "/api/xai-proxy/v1/chat/completions";
+            if (provider === 'xai') fetchUrl = "https://api.x.ai/v1/chat/completions";
             else if (provider === 'googleai') fetchUrl = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
             else if (provider === 'lmstudio' || provider === 'openai') fetchUrl = baseUrl.endsWith('/') ? `${baseUrl}chat/completions` : `${baseUrl}/chat/completions`;
 

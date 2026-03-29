@@ -1032,7 +1032,7 @@ The value of "result" must be ${expectedFormatStr}.`;
         if (resultContainer) resultContainer.classList.remove('hidden');
 
         let fetchUrl = "https://openrouter.ai/api/v1/chat/completions";
-        if (provider === 'xai') fetchUrl = "/api/xai-proxy/v1/chat/completions";
+        if (provider === 'xai') fetchUrl = "https://api.x.ai/v1/chat/completions";
         else if (provider === 'googleai') fetchUrl = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
         else if (provider === 'lmstudio' || provider === 'openai') fetchUrl = baseUrl.endsWith('/') ? `${baseUrl}chat/completions` : `${baseUrl}/chat/completions`;
 
@@ -1324,7 +1324,7 @@ The JSON object must have exactly one key named "result", and its value must be 
     try {
         let fetchUrl = "https://openrouter.ai/api/v1/chat/completions";
         if (provider === 'xai') {
-            fetchUrl = "/api/xai-proxy/v1/chat/completions";
+            fetchUrl = "https://api.x.ai/v1/chat/completions";
         } else if (provider === 'googleai') {
             fetchUrl = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
         } else if (provider === 'lmstudio' || provider === 'openai') {
@@ -1571,7 +1571,7 @@ CRITICAL RULES:
 
     let fetchUrl = "https://openrouter.ai/api/v1/chat/completions";
     if (provider === 'xai') {
-        fetchUrl = "/api/xai-proxy/v1/chat/completions";
+        fetchUrl = "https://api.x.ai/v1/chat/completions";
     } else if (provider === 'googleai') {
         fetchUrl = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
     } else if (provider === 'lmstudio' || provider === 'openai') {
@@ -1612,7 +1612,7 @@ async function performImageGeneration(promptText, aspect_ratio = "2:3", baseImag
     } else if (provider === 'xai') {
         // xAI: Use /v1/images/edits when we have a base image, otherwise /v1/images/generations
         if (baseImageUrl) {
-            fetchUrl = "/api/xai-proxy/v1/images/edits";
+            fetchUrl = "https://api.x.ai/v1/images/edits";
             payload = {
                 model: imageModel,
                 prompt: promptText,
@@ -1620,7 +1620,7 @@ async function performImageGeneration(promptText, aspect_ratio = "2:3", baseImag
                 aspect_ratio: aspect_ratio
             };
         } else {
-            fetchUrl = "/api/xai-proxy/v1/images/generations";
+            fetchUrl = "https://api.x.ai/v1/images/generations";
             payload = {
                 model: imageModel,
                 prompt: promptText,
@@ -1839,7 +1839,7 @@ CRITICAL: Output ONLY a valid JSON object with one key "summary" containing the 
     try {
         let fetchUrl = "https://openrouter.ai/api/v1/chat/completions";
         if (provider === 'xai') {
-            fetchUrl = "/api/xai-proxy/v1/chat/completions";
+            fetchUrl = "https://api.x.ai/v1/chat/completions";
         } else if (provider === 'googleai') {
             fetchUrl = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
         } else if (provider === 'lmstudio' || provider === 'openai') {
@@ -2165,7 +2165,7 @@ async function launchGame(summaryText, allData) {
     try {
         let fetchUrl = "https://openrouter.ai/api/v1/chat/completions";
         if (provider === 'xai') {
-            fetchUrl = "/api/xai-proxy/v1/chat/completions";
+            fetchUrl = "https://api.x.ai/v1/chat/completions";
         } else if (provider === 'googleai') {
             fetchUrl = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
         } else if (provider === 'lmstudio' || provider === 'openai') {
@@ -2488,7 +2488,7 @@ CRITICAL: Output ONLY a JSON object:
     try {
         let fetchUrl = "https://openrouter.ai/api/v1/chat/completions";
         if (provider === 'xai') {
-            fetchUrl = "/api/xai-proxy/v1/chat/completions";
+            fetchUrl = "https://api.x.ai/v1/chat/completions";
         } else if (provider === 'googleai') {
             fetchUrl = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
         } else if (provider === 'lmstudio' || provider === 'openai') {
@@ -2601,7 +2601,7 @@ CRITICAL: Output ONLY valid JSON:
 
     try {
         let fetchUrl = "https://openrouter.ai/api/v1/chat/completions";
-        if (provider === 'xai') fetchUrl = "/api/xai-proxy/v1/chat/completions";
+        if (provider === 'xai') fetchUrl = "https://api.x.ai/v1/chat/completions";
         else if (provider === 'googleai') fetchUrl = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
         else if (provider === 'lmstudio' || provider === 'openai') fetchUrl = baseUrl.endsWith('/') ? `${baseUrl}chat/completions` : `${baseUrl}/chat/completions`;
 
@@ -2669,7 +2669,7 @@ CRITICAL: Output ONLY valid JSON:
 
     try {
         let fetchUrl = "https://openrouter.ai/api/v1/chat/completions";
-        if (provider === 'xai') fetchUrl = "/api/xai-proxy/v1/chat/completions";
+        if (provider === 'xai') fetchUrl = "https://api.x.ai/v1/chat/completions";
         else if (provider === 'googleai') fetchUrl = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
         else if (provider === 'lmstudio' || provider === 'openai') fetchUrl = baseUrl.endsWith('/') ? `${baseUrl}chat/completions` : `${baseUrl}/chat/completions`;
 
@@ -2805,7 +2805,7 @@ async function sendChatMessage() {
     try {
         let fetchUrl = "https://openrouter.ai/api/v1/chat/completions";
         if (provider === 'xai') {
-            fetchUrl = "/api/xai-proxy/v1/chat/completions";
+            fetchUrl = "https://api.x.ai/v1/chat/completions";
         } else if (provider === 'googleai') {
             fetchUrl = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
         } else if (provider === 'lmstudio' || provider === 'openai') {
@@ -2928,7 +2928,7 @@ async function regenerateLastAI() {
     try {
         let fetchUrl = "https://openrouter.ai/api/v1/chat/completions";
         if (provider === 'xai') {
-            fetchUrl = "/api/xai-proxy/v1/chat/completions";
+            fetchUrl = "https://api.x.ai/v1/chat/completions";
         } else if (provider === 'googleai') {
             fetchUrl = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
         } else if (provider === 'lmstudio' || provider === 'openai') {
@@ -3028,7 +3028,7 @@ Output ONLY the new merged narrative summary. Do not include introductory text l
     try {
         let fetchUrl = "https://openrouter.ai/api/v1/chat/completions";
         if (provider === 'xai') {
-            fetchUrl = "/api/xai-proxy/v1/chat/completions";
+            fetchUrl = "https://api.x.ai/v1/chat/completions";
         } else if (provider === 'googleai') {
             fetchUrl = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
         } else if (provider === 'lmstudio' || provider === 'openai') {
