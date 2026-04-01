@@ -60,5 +60,9 @@ start*.*
 test.js
 todo.md
 
+# Claude Code
+.claude/
+memory/
+
 # Keep these if you want initial presets in repo
 # !presets/cd_18.json
