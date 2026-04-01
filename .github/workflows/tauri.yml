@@ -56,3 +56,4 @@ jobs:
           releaseDraft: true
           prerelease: false
           projectPath: '.'
+          uploadWorkflowArtifacts: true
