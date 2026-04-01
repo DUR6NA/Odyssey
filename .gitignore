@@ -29,9 +29,14 @@ error_log.txt
 games/
 presets/
 
-# Dev & temp
+# Secrets / Environment
+# Copy .env.example to .env and add your keys
 .env
 .env.local
+.env.*.local
+!.env.example
+
+# Dev & temp
 .dist
 build/
 .grok/

@@ -1,6 +1,6 @@
 {
   "name": "odyssey",
-  "version": "0.1.0",
+  "version": "0.5.0",
   "description": "Odyssey - Desktop Tauri app for AI-driven text adventure game",
   "scripts": {
     "tauri": "tauri",

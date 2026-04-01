@@ -2052,16 +2052,21 @@ async function finishSetup(summaryText) {
     };
 
     try {
-        const res = await fetch('/api/save-new-game', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        if (!res.ok) throw new Error('Backend save failed. Are you running server.js?');
-
-        const saveResult = await res.json();
-        currentGameFolder = saveResult.folder;
+        let saveResult;
+        if (window.tauriBridge) {
+            saveResult = await window.tauriBridge.saveNewGame(payload);
+            if (!saveResult.success) throw new Error('Tauri save failed: ' + (saveResult.error || 'unknown'));
+            currentGameFolder = saveResult.folder;
+        } else {
+            const res = await fetch('/api/save-new-game', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) throw new Error('Backend save failed. Are you running server.js?');
+            saveResult = await res.json();
+            currentGameFolder = saveResult.folder;
+        }
 
         // Download and save the base player image locally (xAI URLs expire)
         if (playerImageBaseURL) {

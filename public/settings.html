@@ -46,6 +46,13 @@
                 <div id="tab-general" class="settings-tab">
                     <h2>General</h2>
                     <p>Configure general game settings here.</p>
+                    <div class="control-group mt-lg">
+                        <label>Menu Music Volume</label>
+                        <div class="attribute-slider-container" style="width: 280px; margin: 15px 0;">
+                            <input type="range" id="menu-music-volume" class="attribute-slider" min="0" max="100" step="5" value="35" oninput="updateMusicVolumeLabel(this.value); saveMusicVolume()">
+                            <div id="music-volume-value" class="attribute-current-label">35%</div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- API Tab -->
@@ -304,6 +311,7 @@
             loadApiSettings();
             loadPrompts();
             loadAppearanceSettings();
+            loadMusicVolume();
             // Initialize custom dropdowns and number inputs
             initCustomUIComponents(document.body, {
                 searchSelects: ['openrouter-model-select', 'openrouter-image-model-select', 'primary-font-select', 'secondary-font-select']
@@ -916,6 +924,27 @@
             const hideFocusRingEl = document.getElementById('appearance-hide-focus-ring');
             if (reduceMotionEl) reduceMotionEl.checked = localStorage.getItem('jsonAdventure_reduceMotion') === 'true';
             if (hideFocusRingEl) hideFocusRingEl.checked = localStorage.getItem('jsonAdventure_hideFocusRing') === 'true';
+        }
+
+        function loadMusicVolume() {
+            const saved = localStorage.getItem('jsonAdventure_menuMusicVolume') || '35';
+            const slider = document.getElementById('menu-music-volume');
+            if (slider) {
+                slider.value = saved;
+                updateMusicVolumeLabel(saved);
+            }
+        }
+
+        function updateMusicVolumeLabel(val) {
+            const label = document.getElementById('music-volume-value');
+            if (label) label.textContent = val + '%';
+        }
+
+        function saveMusicVolume() {
+            const slider = document.getElementById('menu-music-volume');
+            if (slider) {
+                localStorage.setItem('jsonAdventure_menuMusicVolume', slider.value);
+            }
         }
 
         function saveAppearanceSettings() {

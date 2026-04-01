@@ -12,12 +12,9 @@
         document.addEventListener('DOMContentLoaded', () => {
             const bgm = document.getElementById('bgm');
             if (bgm) {
-                bgm.volume = 0.35;
-                document.body.addEventListener('click', () => {
-                    if (bgm.paused) {
-                        bgm.play().catch(() => { });
-                    }
-                }, { once: true });
+                const vol = (parseFloat(localStorage.getItem('jsonAdventure_menuMusicVolume')) || 35) / 100;
+                bgm.volume = Math.max(0, Math.min(1, vol));
+                bgm.play().catch(() => { console.log('Music autoplay was prevented by browser'); });
             }
         });
 
@@ -478,50 +475,8 @@
             color: var(--menu-btn-hover);
             transform: translateX(5px);
         }
-
-        /* Enable Music floating button — theme-aware */
-        #enable-audio-btn {
-            position: fixed;
-            bottom: 24px;
-            right: 24px;
-            z-index: 9999;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 12px 22px;
-            font-family: var(--font-secondary, 'Merriweather', sans-serif);
-            font-size: 0.95rem;
-            font-weight: 600;
-            letter-spacing: 0.06em;
-            text-transform: uppercase;
-            color: var(--btn-text, #fff);
-            background: var(--accent-color, #ffffff);
-            border: none;
-            border-radius: var(--radius-md, 10px);
-            box-shadow: var(--shadow-md, 0 4px 16px rgba(0,0,0,0.25)),
-                        0 0 0 1px rgba(255,255,255,0.08);
-            cursor: pointer;
-            transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
-            animation: audio-btn-pulse 2.5s ease-in-out infinite;
-        }
-
-        #enable-audio-btn:hover {
-            transform: translateY(-2px) scale(1.03);
-            box-shadow: var(--shadow-lg, 0 8px 32px rgba(0,0,0,0.4)),
-                        0 0 0 1px rgba(255,255,255,0.12);
-        }
-
-        #enable-audio-btn:active {
-            transform: translateY(0) scale(0.98);
-        }
-
-        @keyframes audio-btn-pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.75; }
-        }
     </style>
     <script>
-        // Apply theme-driven wave colors via JS since SVG data URIs can't use CSS variables
         document.addEventListener('DOMContentLoaded', () => {
             const themeId = localStorage.getItem('jsonAdventure_activeThemeId') || 'dark';
             const theme = (typeof presetThemes !== 'undefined') ? presetThemes[themeId] : null;
@@ -563,8 +518,7 @@
 
 <body>
 
-    <audio id="bgm" src="assets/menu-music.mp3" autoplay loop preload="auto" onplay="var btn = document.getElementById('enable-audio-btn'); if(btn) btn.style.display='none';"></audio>
-    <button id="enable-audio-btn" onclick="document.getElementById('bgm').play()">🔊 Enable Music</button>
+    <audio id="bgm" src="assets/menu-music.mp3" autoplay loop preload="auto"></audio>
 
     <div class="background-container">
         <div class="stars"></div>
