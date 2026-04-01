@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings and Configure</title>
+    <link rel="icon" type="image/x-icon" href="assets/odyssey.ico">
+    <link rel="stylesheet" href="style.css">
+    <script src="theme.js"></script>
+    <script src="ui-components.js"></script>
+    <meta name="description" content="Odyssey - A text-based AI adventure game">
+    <meta property="og:title" content="Odyssey">
+    <meta property="og:description" content="A text-based AI adventure game">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="http://localhost:3000/">
+    <meta property="og:image" content="http://localhost:3000/assets/favicon.ico">
+    <meta name="theme-color" content="#121212">
+</head>
+
+<body>
+    <div class="settings-layout">
+        <!-- Sidebar on the left -->
+        <aside class="sidebar">
+            <nav class="sidebar-nav">
+                <button id="nav-btn-general" class="active" onclick="switchSettingsTab('general')">General</button>
+                <button id="nav-btn-api" onclick="switchSettingsTab('api')">API Settings</button>
+                <button id="nav-btn-appearance" onclick="switchSettingsTab('appearance')">Appearance</button>
+                <button id="nav-btn-prompts" onclick="switchSettingsTab('prompts')">Prompts</button>
+            </nav>
+        </aside>
+
+        <!-- Main settings area -->
+        <main class="settings-main">
+            <!-- Small controller button positioned at top right -->
+            <button onclick="backToGame()" class="btn-top-right" title="Back to Game">🎮</button>
+
+            <!-- Title at the top -->
+            <header class="settings-header">
+                <h1>Settings & Configure</h1>
+            </header>
+
+            <div class="content" style="max-width: 100%; box-shadow: none; background-color: transparent; padding: 0;">
+
+                <!-- General Tab -->
+                <div id="tab-general" class="settings-tab">
+                    <h2>General</h2>
+                    <p>Configure general game settings here.</p>
+                </div>
+
+                <!-- API Tab -->
+                <div id="tab-api" class="settings-tab" style="display: none;">
+                    <h2>API Configurations</h2>
+                    <p>Configure your OpenRouter API keys and model parameters here.</p>
+
+                    <div class="control-group mt-lg">
+                        <label>API Provider:</label>
+                        <select id="api-provider-select" onchange="handleProviderChange()"
+                            class="input-md">
+                            <option value="openrouter">OpenRouter</option>
+                            <option value="lmstudio">LM Studio (Local)</option>
+                            <option value="openai">OpenAI Compatible</option>
+                            <option value="xai">XAI</option>
+                            <option value="googleai">Google AI</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group mt-md" id="base-url-group" style="display: none;">
+                        <label>Base URL:</label>
+                        <input type="text" id="api-base-url" placeholder="https://api.openai.com/v1"
+                            class="input-md" onchange="saveApiSettings()">
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>API Key:</label>
+                        <input type="password" id="openrouter-api-key" placeholder="sk-..."
+                            class="input-md">
+                        <button onclick="saveApiSettings(true)" class="btn btn-compact">Save
+                            Settings</button>
+                        <button onclick="testConnection()" class="btn btn-compact">Test Connection</button>
+                        <span id="test-connection-status" class="hint-text"></span>
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <button onclick="fetchModels()" class="btn btn-compact">Fetch Models</button>
+                        <span id="model-fetch-status"
+                            class="hint-text"></span>
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Select Model:</label>
+                        <select id="openrouter-model-select" onchange="saveApiSettings()"
+                            class="input-lg">
+                            <option value="">-- Load models first --</option>
+                        </select>
+                    </div>
+
+                    <hr class="divider">
+                    <h3>Image Generation Settings</h3>
+
+                    <div class="control-group mt-md">
+                        <label>Enable Image Features:</label>
+                        <input type="checkbox" id="api-enable-image" onchange="saveApiSettings()">
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Enable Auto Image Gen on Game Turn:</label>
+                        <input type="checkbox" id="api-enable-auto-image" onchange="saveApiSettings()">
+                        <span class="hint-text">Requires Image
+                            Features enabled</span>
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Enable Real-World Web Search:</label>
+                        <input type="checkbox" id="api-enable-web-search" onchange="saveApiSettings()">
+                        <span class="hint-text">Enables Wikipedia
+                            API integration</span>
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Enable IP Fandom Lore Integration:</label>
+                        <input type="checkbox" id="api-enable-fandom-search" onchange="saveApiSettings()">
+                        <span class="hint-text">Enables Wiki
+                            (Wookieepedia, etc) lookups for presets</span>
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <button onclick="fetchModels('image')" class="btn btn-compact">Fetch Image
+                            Models</button>
+                        <span id="image-model-fetch-status"
+                            class="hint-text"></span>
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Select Image Model:</label>
+                        <select id="openrouter-image-model-select" onchange="saveApiSettings()"
+                            class="input-lg">
+                            <option value="">-- Load models first --</option>
+                        </select>
+                    </div>
+
+                    <hr class="divider">
+                    <h3>Model Settings</h3>
+
+                    <div class="control-group mt-md">
+                        <label>Temperature:</label>
+                        <input type="number" id="api-temperature" step="0.1" min="0" max="2" value="0.7"
+                            onchange="saveApiSettings()" class="input-sm">
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Max Tokens:</label>
+                        <input type="number" id="api-max-tokens" step="1" min="1" value="2048"
+                            onchange="saveApiSettings()" class="input-sm">
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Top P:</label>
+                        <input type="number" id="api-top-p" step="0.1" min="0" max="1" value="1.0"
+                            onchange="saveApiSettings()" class="input-sm">
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Presence Penalty:</label>
+                        <input type="number" id="api-presence-penalty" step="0.1" min="-2" max="2" value="0.0"
+                            onchange="saveApiSettings()" class="input-sm">
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Frequency Penalty:</label>
+                        <input type="number" id="api-frequency-penalty" step="0.1" min="-2" max="2" value="0.0"
+                            onchange="saveApiSettings()" class="input-sm">
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Enable Reasoning (if supported):</label>
+                        <input type="checkbox" id="api-enable-reasoning" onchange="saveApiSettings()">
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Reasoning Effort:</label>
+                        <select id="api-reasoning-effort" onchange="saveApiSettings()">
+                            <option value="low">Low</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="high">High</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Prompts Tab -->
+            <div id="tab-prompts" class="settings-tab" style="display: none;">
+                <h2>Prompts</h2>
+                <p>Customize the system prompts used by the AI during the game and setup.</p>
+
+                <div class="prompts-grid">
+                    <div class="prompt-card">
+                        <div class="prompt-card-header">
+                            <span class="prompt-card-icon">🌍</span>
+                            <span class="prompt-card-label">World Building Assistant</span>
+                        </div>
+                        <textarea id="prompt-world" rows="5"></textarea>
+                    </div>
+
+                    <div class="prompt-card">
+                        <div class="prompt-card-header">
+                            <span class="prompt-card-icon">🧑‍🎤</span>
+                            <span class="prompt-card-label">Player Creation Assistant</span>
+                        </div>
+                        <textarea id="prompt-player" rows="5"></textarea>
+                    </div>
+
+                    <div class="prompt-card">
+                        <div class="prompt-card-header">
+                            <span class="prompt-card-icon">🖼️</span>
+                            <span class="prompt-card-label">Image Generation Prompt</span>
+                        </div>
+                        <textarea id="prompt-image" rows="5"></textarea>
+                        <span class="prompt-card-hint">This prompt is sent to the text model to draft the final image
+                            generation prompt based on your character sheet.</span>
+                    </div>
+
+                    <div class="prompt-card">
+                        <div class="prompt-card-header">
+                            <span class="prompt-card-icon">📜</span>
+                            <span class="prompt-card-label">Summary Generation</span>
+                        </div>
+                        <textarea id="prompt-summary" rows="5"></textarea>
+                    </div>
+
+                    <div class="prompt-card">
+                        <div class="prompt-card-header">
+                            <span class="prompt-card-icon">🎯</span>
+                            <span class="prompt-card-label">Prompter Assistant</span>
+                        </div>
+                        <textarea id="prompt-prompter" rows="5"></textarea>
+                    </div>
+
+                    <div class="prompt-card">
+                        <div class="prompt-card-header">
+                            <span class="prompt-card-icon">⚔️</span>
+                            <span class="prompt-card-label">Game Master</span>
+                        </div>
+                        <textarea id="prompt-game" rows="5"></textarea>
+                    </div>
+                </div>
+
+                <div class="prompt-actions">
+                    <button onclick="savePrompts(true)" class="btn btn-normal">Save Prompts</button>
+                    <button onclick="resetPrompts()" class="btn btn-danger btn-normal">Reset to
+                        Default</button>
+                </div>
+            </div>
+
+            <!-- Appearance Tab -->
+            <div id="tab-appearance" class="settings-tab" style="display: none;">
+                <h2>Theme Settings</h2>
+                <div class="theme-grid" id="theme-grid-container">
+                    <!-- Cards injected by JS -->
+                </div>
+
+                <hr class="divider">
+                <h3>Typography</h3>
+                <div class="control-group">
+                    <label>Primary Font (Titles):</label>
+                    <select id="primary-font-select" onchange="previewAndApplyFonts()"
+                        style="width: 250px; padding: 6px; font-size: 1.1rem; max-height: 400px;"></select>
+                </div>
+                <div class="control-group">
+                    <label>Secondary Font (Body):</label>
+                    <select id="secondary-font-select" onchange="changeSecondaryFont()"
+                        style="width: 250px; padding: 6px; font-size: 1.1rem; max-height: 400px;"></select>
+                </div>
+
+                <div class="control-group" style="margin-top: 10px;">
+                    <label></label>
+                    <div id="font-preview"
+                        style="padding: 15px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; width: 100%; max-width: 500px; text-align: center;">
+                        <h4 style="margin-top: 0; margin-bottom: 10px; font-size: 1.4rem;">The Quick Brown Fox</h4>
+                        <div style="font-size: 1.1rem;">jumps over the lazy dog. 0123456789</div>
+                    </div>
+                </div>
+
+                <hr class="divider">
+                <h3>Accessibility</h3>
+                <div class="control-group mt-md">
+                    <label>Disable Animations (Reduced Motion):</label>
+                    <input type="checkbox" id="appearance-reduce-motion" onchange="saveAppearanceSettings()">
+                    <span class="hint-text">Disables canvas backgrounds and UI transitions</span>
+                </div>
+                <div class="control-group mt-md">
+                    <label>Hide Keyboard Focus Ring:</label>
+                    <input type="checkbox" id="appearance-hide-focus-ring" onchange="saveAppearanceSettings()">
+                    <span class="hint-text">Hides the outline around focused elements (not recommended for keyboard navigation)</span>
+                </div>
+            </div>
+
+    </div>
+    </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            loadApiSettings();
+            loadPrompts();
+            loadAppearanceSettings();
+            // Initialize custom dropdowns and number inputs
+            initCustomUIComponents(document.body, {
+                searchSelects: ['openrouter-model-select', 'openrouter-image-model-select', 'primary-font-select', 'secondary-font-select']
+            });
+
+            // Update back button icon and title if from main menu
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('from') === 'mainmenu') {
+                const backBtn = document.querySelector('.btn-top-right');
+                if (backBtn) {
+                    backBtn.title = 'Back to Main Menu';
+                    backBtn.textContent = '🏠';
+                }
+            }
+        });
+
+        function backToGame() {
+            const provider = document.getElementById('api-provider-select').value;
+            const apiKey = document.getElementById('openrouter-api-key').value.trim();
+            if (!apiKey && provider !== 'lmstudio' && provider !== 'openai') {
+                alert('Please enter and save your API Key before leaving settings.');
+                document.getElementById('openrouter-api-key').focus();
+                if (document.getElementById('tab-api').style.display === 'none') {
+                    switchSettingsTab('api');
+                }
+                return;
+            }
+
+            const params = new URLSearchParams(window.location.search);
+            const from = params.get('from');
+
+            if (from === 'mainmenu') {
+                window.location.href = 'mainmenu.html';
+            } else if (from === 'game') {
+                params.delete('from');
+                const queryString = params.toString();
+                window.location.href = 'game.html' + (queryString ? '?' + queryString : '');
+            } else {
+                window.location.href = "game.html";
+            }
+        }
+
+        async function testConnection() {
+            const provider = document.getElementById('api-provider-select').value;
+            const baseUrl = document.getElementById('api-base-url').value.trim();
+            const apiKey = document.getElementById('openrouter-api-key').value.trim();
+            const statusEl = document.getElementById('test-connection-status');
+            
+            if (!apiKey && provider !== 'openai' && provider !== 'lmstudio') {
+                statusEl.innerHTML = "❌ Please enter an API key.";
+                statusEl.style.color = "#dc3545";
+                return;
+            }
+
+            statusEl.innerHTML = "⏳ Testing...";
+            statusEl.style.color = "var(--text-muted)";
+
+            let testUrl = "";
+            let headers = { "Content-Type": "application/json" };
+            if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
+
+            if (provider === 'openrouter') {
+                testUrl = "https://openrouter.ai/api/v1/auth/key"; 
+            } else if (provider === 'xai') {
+                testUrl = "https://api.x.ai/v1/models";
+            } else if (provider === 'googleai') {
+                testUrl = "https://generativelanguage.googleapis.com/v1beta/openai/models";
+            } else if (provider === 'lmstudio' || provider === 'openai') {
+                if (!baseUrl) {
+                    statusEl.innerHTML = "❌ Please enter a Base URL.";
+                    statusEl.style.color = "#dc3545";
+                    return;
+                }
+                testUrl = baseUrl.endsWith('/') ? `${baseUrl}models` : `${baseUrl}/models`;
+            }
+
+            try {
+                const response = await fetch(testUrl, { method: "GET", headers: headers });
+                
+                let errorDetails = "";
+                if (!response.ok) {
+                    try {
+                        const errJson = await response.json();
+                        errorDetails = errJson.error?.message || JSON.stringify(errJson);
+                    } catch (e) {
+                        try {
+                            errorDetails = await response.text();
+                        } catch(e2) {}
+                    }
+                    throw new Error(`HTTP ${response.status}` + (errorDetails ? ` - ${errorDetails}` : ''));
+                }
+                
+                statusEl.innerHTML = "✅ Connection successful!";
+                statusEl.style.color = "#28a745";
+            } catch (error) {
+                console.error("Test connection error:", error);
+                statusEl.innerHTML = `❌ Connection failed: ${error.message}`;
+                statusEl.style.color = "#dc3545";
+            }
+        }
+
+        // Tabbing Logic
+        function switchSettingsTab(tabName) {
+            document.querySelectorAll('.settings-tab').forEach(el => el.style.display = 'none');
+            document.getElementById('tab-' + tabName).style.display = 'block';
+
+            document.querySelectorAll('.sidebar-nav button').forEach(el => el.classList.remove('active'));
+            document.getElementById('nav-btn-' + tabName).classList.add('active');
+
+            if (tabName === 'appearance') {
+                renderThemeCards();
+                initFontDropdowns();
+            }
+        }
+
+        // API & Model Selection Logic
+        function handleProviderChange() {
+            const provider = document.getElementById('api-provider-select').value;
+            const baseUrlGroup = document.getElementById('base-url-group');
+            if (provider === 'openai' || provider === 'lmstudio') {
+                baseUrlGroup.style.display = 'block';
+                // Auto-fill default LM Studio URL if empty
+                const baseUrlInput = document.getElementById('api-base-url');
+                if (provider === 'lmstudio' && !baseUrlInput.value) {
+                    baseUrlInput.value = 'http://localhost:1234/v1';
+                }
+            } else {
+                baseUrlGroup.style.display = 'none';
+            }
+
+            const apiKeyInput = document.getElementById('openrouter-api-key');
+            if (apiKeyInput) {
+                let specificKey = localStorage.getItem('jsonAdventure_apiKey_' + provider);
+                const activeProvider = localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter';
+                // Fallback for backward compatibility
+                if (!specificKey && provider === activeProvider) {
+                    specificKey = localStorage.getItem('jsonAdventure_openRouterApiKey') || '';
+                }
+                apiKeyInput.value = specificKey || '';
+            }
+
+            // Update models dropdown for this provider
+            const selectEl = document.getElementById('openrouter-model-select');
+            if (selectEl) {
+                let cachedModels = localStorage.getItem('jsonAdventure_modelsCache_' + provider);
+                let parsedModels = null;
+                if (cachedModels) {
+                    parsedModels = JSON.parse(cachedModels);
+                } else if (provider === 'openrouter') { // Fallback for legacy OpenRouter cache
+                    const legacy = localStorage.getItem('jsonAdventure_openRouterModelsCache');
+                    if (legacy) parsedModels = JSON.parse(legacy);
+                }
+
+                let specificModel = localStorage.getItem('jsonAdventure_savedModel_' + provider);
+                const activeProvider = localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter';
+                if (!specificModel && provider === activeProvider) {
+                    specificModel = localStorage.getItem('jsonAdventure_openRouterModel') || '';
+                }
+
+                if (parsedModels) {
+                    populateModelSelect(parsedModels, specificModel || '');
+                } else {
+                    selectEl.innerHTML = '<option value="">-- Load models first --</option>';
+                    if (typeof refreshCustomSelect === 'function') refreshCustomSelect('openrouter-model-select');
+                }
+            }
+
+            // Update image models dropdown for this provider
+            const imgSelectEl = document.getElementById('openrouter-image-model-select');
+            if (imgSelectEl) {
+                let cachedImgModels = localStorage.getItem('jsonAdventure_imageModelsCache_' + provider);
+                let parsedImgModels = null;
+                if (cachedImgModels) parsedImgModels = JSON.parse(cachedImgModels);
+
+                let specificImgModel = localStorage.getItem('jsonAdventure_imageModel_' + provider);
+
+                if (parsedImgModels) {
+                    populateModelSelect(parsedImgModels, specificImgModel || '', 'openrouter-image-model-select');
+                } else {
+                    imgSelectEl.innerHTML = '<option value="">-- Load models first --</option>';
+                    if (typeof refreshCustomSelect === 'function') refreshCustomSelect('openrouter-image-model-select');
+                }
+            }
+        }
+
+        function loadApiSettings() {
+            const provider = localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter';
+            const baseUrl = localStorage.getItem('jsonAdventure_apiBaseUrl') || '';
+
+            // Auto-migrate old generic key to specific provider key
+            const currentActiveKey = localStorage.getItem('jsonAdventure_openRouterApiKey');
+            if (currentActiveKey && !localStorage.getItem('jsonAdventure_apiKey_' + provider)) {
+                localStorage.setItem('jsonAdventure_apiKey_' + provider, currentActiveKey);
+            }
+
+            // Auto-migrate old generic model to specific provider model
+            const currentActiveModel = localStorage.getItem('jsonAdventure_openRouterModel');
+            if (currentActiveModel && !localStorage.getItem('jsonAdventure_savedModel_' + provider)) {
+                localStorage.setItem('jsonAdventure_savedModel_' + provider, currentActiveModel);
+            }
+
+            document.getElementById('api-provider-select').value = provider;
+            document.getElementById('api-base-url').value = baseUrl;
+            handleProviderChange();
+
+            // Load new model settings with defaults
+            document.getElementById('api-temperature').value = localStorage.getItem('jsonAdventure_apiTemperature') || '0.7';
+            document.getElementById('api-max-tokens').value = localStorage.getItem('jsonAdventure_apiMaxTokens') || '2048';
+            document.getElementById('api-top-p').value = localStorage.getItem('jsonAdventure_apiTopP') || '1.0';
+            document.getElementById('api-presence-penalty').value = localStorage.getItem('jsonAdventure_apiPresencePenalty') || '0.0';
+            document.getElementById('api-frequency-penalty').value = localStorage.getItem('jsonAdventure_apiFrequencyPenalty') || '0.0';
+            document.getElementById('api-enable-reasoning').checked = localStorage.getItem('jsonAdventure_apiEnableReasoning') === 'true';
+            document.getElementById('api-reasoning-effort').value = localStorage.getItem('jsonAdventure_apiReasoningEffort') || 'medium';
+
+            const imgCheck = document.getElementById('api-enable-image');
+            const autoImgCheck = document.getElementById('api-enable-auto-image');
+            const webSearchCheck = document.getElementById('api-enable-web-search');
+            const fandomSearchCheck = document.getElementById('api-enable-fandom-search');
+            imgCheck.checked = localStorage.getItem('jsonAdventure_enableImage') === 'true';
+            autoImgCheck.checked = localStorage.getItem('jsonAdventure_enableAutoImage') === 'true';
+            webSearchCheck.checked = localStorage.getItem('jsonAdventure_enableWebSearch') === 'true';
+            fandomSearchCheck.checked = localStorage.getItem('jsonAdventure_enableFandomSearch') === 'true';
+
+            imgCheck.addEventListener('change', () => {
+                autoImgCheck.disabled = !imgCheck.checked;
+                if (!imgCheck.checked) autoImgCheck.checked = false;
+            });
+            autoImgCheck.disabled = !imgCheck.checked;
+        }
+
+        function saveApiSettings(showAlert = false) {
+            const provider = document.getElementById('api-provider-select').value;
+            const baseUrl = document.getElementById('api-base-url').value.trim();
+            const apiKey = document.getElementById('openrouter-api-key').value.trim();
+            const selectedModel = document.getElementById('openrouter-model-select').value;
+
+            // Get model settings values
+            const temperature = document.getElementById('api-temperature').value;
+            const maxTokens = document.getElementById('api-max-tokens').value;
+            const topP = document.getElementById('api-top-p').value;
+            const presencePenalty = document.getElementById('api-presence-penalty').value;
+            const frequencyPenalty = document.getElementById('api-frequency-penalty').value;
+            const enableReasoning = document.getElementById('api-enable-reasoning').checked;
+            const reasoningEffort = document.getElementById('api-reasoning-effort').value;
+
+            const enableImage = document.getElementById('api-enable-image').checked;
+            const enableAutoImage = document.getElementById('api-enable-auto-image').checked;
+            const enableWebSearch = document.getElementById('api-enable-web-search').checked;
+            const enableFandomSearch = document.getElementById('api-enable-fandom-search').checked;
+            const selectedImageModel = document.getElementById('openrouter-image-model-select').value;
+
+            // Save basic API info
+            localStorage.setItem('jsonAdventure_apiProvider', provider);
+            localStorage.setItem('jsonAdventure_apiBaseUrl', baseUrl);
+            localStorage.setItem('jsonAdventure_openRouterApiKey', apiKey);
+            localStorage.setItem('jsonAdventure_apiKey_' + provider, apiKey);
+            if (selectedModel) {
+                localStorage.setItem('jsonAdventure_openRouterModel', selectedModel);
+                localStorage.setItem('jsonAdventure_savedModel_' + provider, selectedModel);
+            }
+
+            // Save model settings
+            localStorage.setItem('jsonAdventure_apiTemperature', temperature);
+            localStorage.setItem('jsonAdventure_apiMaxTokens', maxTokens);
+            localStorage.setItem('jsonAdventure_apiTopP', topP);
+            localStorage.setItem('jsonAdventure_apiPresencePenalty', presencePenalty);
+            localStorage.setItem('jsonAdventure_apiFrequencyPenalty', frequencyPenalty);
+            localStorage.setItem('jsonAdventure_apiEnableReasoning', enableReasoning);
+            localStorage.setItem('jsonAdventure_apiReasoningEffort', reasoningEffort);
+
+            localStorage.setItem('jsonAdventure_enableImage', enableImage);
+            localStorage.setItem('jsonAdventure_enableAutoImage', enableAutoImage);
+            localStorage.setItem('jsonAdventure_enableWebSearch', enableWebSearch);
+            localStorage.setItem('jsonAdventure_enableFandomSearch', enableFandomSearch);
+            if (selectedImageModel) {
+                localStorage.setItem('jsonAdventure_imageModel_' + provider, selectedImageModel);
+                localStorage.setItem('jsonAdventure_openRouterImageModel', selectedImageModel);
+            }
+
+            if (showAlert) {
+                alert('API Settings Saved!');
+            }
+        }
+
+        async function fetchModels(fetchType = 'text') {
+            const provider = document.getElementById('api-provider-select').value;
+            const baseUrl = document.getElementById('api-base-url').value.trim();
+            const apiKey = document.getElementById('openrouter-api-key').value.trim();
+            const statusEl = fetchType === 'image'
+                ? document.getElementById('image-model-fetch-status')
+                : document.getElementById('model-fetch-status');
+
+            if (!apiKey && provider !== 'openai' && provider !== 'lmstudio') {
+                statusEl.textContent = "Please enter and save an API key first.";
+                statusEl.style.color = "#dc3545";
+                return;
+            }
+
+            statusEl.textContent = "Fetching models...";
+            statusEl.style.color = "var(--text-muted)";
+
+            let fetchUrl = "";
+            let headers = {
+                "Content-Type": "application/json"
+            };
+            if (apiKey) {
+                headers["Authorization"] = `Bearer ${apiKey}`;
+            }
+
+            if (provider === 'openrouter') {
+                fetchUrl = "https://openrouter.ai/api/v1/models";
+            } else if (provider === 'xai') {
+                fetchUrl = "https://api.x.ai/v1/models";
+            } else if (provider === 'googleai') {
+                fetchUrl = "https://generativelanguage.googleapis.com/v1beta/openai/models";
+            } else if (provider === 'lmstudio') {
+                if (!baseUrl) {
+                    statusEl.textContent = "Please enter a Base URL (default: http://localhost:1234/v1).";
+                    statusEl.style.color = "#dc3545";
+                    return;
+                }
+                fetchUrl = baseUrl.endsWith('/') ? `${baseUrl}models` : `${baseUrl}/models`;
+            } else if (provider === 'openai') {
+                if (!baseUrl) {
+                    statusEl.textContent = "Please enter a Base URL.";
+                    statusEl.style.color = "#dc3545";
+                    return;
+                }
+                fetchUrl = baseUrl.endsWith('/') ? `${baseUrl}models` : `${baseUrl}/models`;
+            }
+
+            try {
+                // Fetching via HTTP request directly since we are on the client-side
+                const response = await fetch(fetchUrl, {
+                    method: "GET",
+                    headers: headers
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                // LM Studio uses { models: [...] } with key/display_name instead of { data: [...] } with id/name
+                let models;
+                if (provider === 'lmstudio' && data.models) {
+                    models = data.models
+                        .filter(m => m.type === 'llm') // exclude embedding models
+                        .map(m => ({
+                            id: m.key,
+                            name: m.display_name || m.key
+                        }));
+                } else {
+                    models = data.data;
+                }
+
+                // Filter models that do not support structured outputs to prevent crashes
+                let filteredModels = models;
+                if (fetchType === 'text') {
+                    if (provider === 'openrouter' && Array.isArray(models)) {
+                        filteredModels = models.filter(m => {
+                            return m.supported_parameters &&
+                                (m.supported_parameters.includes("structured_outputs") || m.supported_parameters.includes("response_format"));
+                        });
+                    } else if (Array.isArray(models)) {
+                        const blocklist = ['embedding', 'vision', 'bison', 'tts', 'audio', 'dall-e', 'moderation', 'whisper'];
+                        filteredModels = models.filter(m => {
+                            const id = (m.id || '').toLowerCase();
+                            return !blocklist.some(term => id.includes(term));
+                        });
+                    }
+                } else if (fetchType === 'image') {
+                    if (provider === 'openrouter' && Array.isArray(models)) {
+                        filteredModels = models.filter(m => 
+                            m.architecture && m.architecture.output_modalities && m.architecture.output_modalities.includes("image")
+                        );
+                    } else if (provider === 'googleai' && Array.isArray(models)) {
+                        filteredModels = models.filter(m => {
+                            const id = (m.id || '').toLowerCase();
+                            const hasPredict = m.supportedGenerationMethods && m.supportedGenerationMethods.includes("predict");
+                            return hasPredict || id.includes("image") || id.includes("imagen");
+                        });
+                    } else {
+                        filteredModels = models;
+                    }
+                }
+
+                // Sort and group models by provider depending on API type
+                const organizedModels = {};
+
+                if (Array.isArray(filteredModels)) {
+                    filteredModels.forEach(model => {
+                        let groupProvider = "Models";
+                        if (provider === 'openrouter') {
+                            const providerComponent = model.id.split('/')[0];
+                            groupProvider = providerComponent ? providerComponent : "Unknown";
+                        } else if (provider === 'lmstudio') {
+                            groupProvider = "LM Studio";
+                        } else {
+                            groupProvider = provider.charAt(0).toUpperCase() + provider.slice(1);
+                        }
+
+                        let dName = model.name || model.id;
+                        if (provider === 'googleai' && fetchType === 'image') {
+                            if (dName.includes('gemini-2.5-flash-image')) dName = 'Nano Banana (Gemini 2.5 Flash Image)';
+                            else if (dName.includes('gemini-3.1-flash-image-preview')) dName = 'Nano Banana 2 (Gemini 3.1 Flash Image Preview)';
+                            else if (dName.includes('gemini-3-pro-image-preview')) dName = 'Nano Banana Pro (Gemini 3 Pro Image Preview)';
+                        }
+
+                        if (!organizedModels[groupProvider]) {
+                            organizedModels[groupProvider] = [];
+                        }
+                        organizedModels[groupProvider].push({
+                            id: model.id,
+                            name: dName
+                        });
+                    });
+                } else {
+                    // Fallback for differently structured model list
+                    statusEl.textContent = "Models loaded successfully! (Unrecognized format)";
+                    return;
+                }
+
+                // Sort inside groups
+                for (const provider in organizedModels) {
+                    organizedModels[provider].sort((a, b) => a.name.localeCompare(b.name));
+                }
+
+                // Cache organized models per provider
+                if (fetchType === 'image') {
+                    localStorage.setItem('jsonAdventure_imageModelsCache_' + provider, JSON.stringify(organizedModels));
+                    let specificImgModel = localStorage.getItem('jsonAdventure_imageModel_' + provider);
+                    populateModelSelect(organizedModels, specificImgModel || '', 'openrouter-image-model-select');
+                } else {
+                    localStorage.setItem('jsonAdventure_modelsCache_' + provider, JSON.stringify(organizedModels));
+                    if (provider === 'openrouter') {
+                        // Also store logic fallback
+                        localStorage.setItem('jsonAdventure_openRouterModelsCache', JSON.stringify(organizedModels));
+                    }
+
+                    let specificModel = localStorage.getItem('jsonAdventure_savedModel_' + provider);
+                    const activeProvider = localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter';
+                    if (!specificModel && provider === activeProvider) {
+                        specificModel = localStorage.getItem('jsonAdventure_openRouterModel') || '';
+                    }
+
+                    populateModelSelect(organizedModels, specificModel || '');
+                }
+
+                statusEl.textContent = "Models loaded successfully!";
+                statusEl.style.color = "#28a745";
+
+            } catch (error) {
+                console.error("Error fetching models:", error);
+                statusEl.textContent = "Failed to fetch models.";
+                statusEl.style.color = "#dc3545";
+            }
+        }
+
+        function populateModelSelect(organizedModels, savedModel, selectId = 'openrouter-model-select') {
+            const select = document.getElementById(selectId);
+            select.innerHTML = '<option value="">-- Select a model --</option>';
+
+            const providers = Object.keys(organizedModels).sort();
+
+            providers.forEach(provider => {
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = provider.charAt(0).toUpperCase() + provider.slice(1);
+
+                organizedModels[provider].forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model.id;
+                    option.textContent = model.name;
+                    if (model.id === savedModel) {
+                        option.selected = true;
+                    }
+                    optgroup.appendChild(option);
+                });
+                select.appendChild(optgroup);
+            });
+
+            if (savedModel) {
+                select.value = savedModel;
+            }
+
+            // Refresh the custom dropdown to show new options
+            if (typeof refreshCustomSelect === 'function') {
+                refreshCustomSelect(selectId);
+            }
+        }
+
+        // Themes & Appearance Logic
+        function renderThemeCards() {
+            const container = document.getElementById('theme-grid-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const activeId = localStorage.getItem('jsonAdventure_activeThemeId') || 'dark';
+
+            for (const [id, theme] of Object.entries(presetThemes)) {
+                const card = document.createElement('div');
+                card.className = 'theme-card' + (id === activeId ? ' active' : '');
+
+                const title = document.createElement('h4');
+                title.textContent = theme.name;
+                card.appendChild(title);
+
+                card.onclick = () => {
+                    document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('active'));
+                    card.classList.add('active');
+                    if (typeof applyTheme === 'function') {
+                        applyTheme(id);
+                    }
+                };
+
+                container.appendChild(card);
+            }
+        }
+
+        // Font Selection Logic
+        const PREDEFINED_FONTS = [
+            "Amatic SC", "Anton", "Barlow", "Bebas Neue", "Caveat", "Cinzel", "Dancing Script",
+            "Dosis", "Exo 2", "Fira Sans", "Inconsolata", "Indie Flower", "Inter", "Josefin Sans",
+            "Lato", "Lobster", "Lora", "Merriweather", "Montserrat", "Mukta", "Noto Sans",
+            "Noto Serif", "Nunito", "Open Sans", "Oswald", "Pacifico", "Permanent Marker",
+            "Playfair Display", "Poppins", "PT Sans", "PT Serif", "Quicksand", "Raleway",
+            "Righteous", "Roboto", "Rubik", "Shadows Into Light", "Titillium Web", "Ubuntu", "Work Sans"
+        ];
+
+        function initFontDropdowns() {
+            let primarySelect = document.getElementById('primary-font-select');
+            let secondarySelect = document.getElementById('secondary-font-select');
+            if (!primarySelect || !secondarySelect) return;
+            primarySelect.innerHTML = '';
+            secondarySelect.innerHTML = '';
+
+            const fontFamilies = PREDEFINED_FONTS.map(f => f.replace(/\s+/g, '+') + ':wght@400;600;700').join('&family=');
+            if (!document.getElementById('font-batch-link')) {
+                const link = document.createElement('link');
+                link.id = 'font-batch-link';
+                link.rel = 'stylesheet';
+                link.href = `https://fonts.googleapis.com/css2?family=${fontFamilies}&display=swap`;
+                document.head.appendChild(link);
+            }
+
+            PREDEFINED_FONTS.forEach(font => {
+                let opt1 = document.createElement('option');
+                opt1.value = font;
+                opt1.textContent = font;
+                opt1.style.fontFamily = `"${font}", sans-serif`;
+                primarySelect.appendChild(opt1);
+
+                let opt2 = document.createElement('option');
+                opt2.value = font;
+                opt2.textContent = font;
+                opt2.style.fontFamily = `"${font}", sans-serif`;
+                secondarySelect.appendChild(opt2);
+            });
+
+            let savedPrimary = localStorage.getItem('jsonAdventure_primaryFont') || 'Cinzel';
+            let savedSecondary = localStorage.getItem('jsonAdventure_secondaryFont') || 'Merriweather';
+
+            primarySelect.value = savedPrimary;
+            secondarySelect.value = savedSecondary;
+
+            previewAndApplyFonts(true);
+
+            // Refresh custom dropdowns for font selects
+            if (typeof refreshCustomSelect === 'function') {
+                refreshCustomSelect('primary-font-select');
+                refreshCustomSelect('secondary-font-select');
+            }
+        }
+
+        function changeSecondaryFont() {
+            previewAndApplyFonts(false);
+        }
+
+        function previewAndApplyFonts(isInit = false) {
+            let primarySelect = document.getElementById('primary-font-select');
+            let secondarySelect = document.getElementById('secondary-font-select');
+            if (!primarySelect || !secondarySelect) return;
+
+            let pFont = primarySelect.value || 'Cinzel';
+            let sFont = secondarySelect.value || 'Merriweather';
+
+            if (typeof loadGoogleFont === 'function') {
+                loadGoogleFont(pFont, true);
+                loadGoogleFont(sFont, false);
+            }
+
+            let preview = document.getElementById('font-preview');
+            if (preview) {
+                const h4 = preview.querySelector('h4');
+                const div = preview.querySelector('div');
+                if (h4) h4.style.fontFamily = `"${pFont}", serif`;
+                if (div) div.style.fontFamily = `"${sFont}", sans-serif`;
+            }
+
+            if (!isInit) {
+                localStorage.setItem('jsonAdventure_primaryFont', pFont);
+                localStorage.setItem('jsonAdventure_secondaryFont', sFont);
+            }
+        }
+
+        // Appearance Logic
+        function loadAppearanceSettings() {
+            const reduceMotionEl = document.getElementById('appearance-reduce-motion');
+            const hideFocusRingEl = document.getElementById('appearance-hide-focus-ring');
+            if (reduceMotionEl) reduceMotionEl.checked = localStorage.getItem('jsonAdventure_reduceMotion') === 'true';
+            if (hideFocusRingEl) hideFocusRingEl.checked = localStorage.getItem('jsonAdventure_hideFocusRing') === 'true';
+        }
+
+        function saveAppearanceSettings() {
+            const reduceMotion = document.getElementById('appearance-reduce-motion').checked;
+            const hideFocusRing = document.getElementById('appearance-hide-focus-ring').checked;
+            
+            localStorage.setItem('jsonAdventure_reduceMotion', reduceMotion);
+            localStorage.setItem('jsonAdventure_hideFocusRing', hideFocusRing);
+            
+            if (reduceMotion) {
+                document.documentElement.setAttribute('data-reduce-motion', 'true');
+            } else {
+                document.documentElement.removeAttribute('data-reduce-motion');
+            }
+            
+            if (hideFocusRing) {
+                document.documentElement.setAttribute('data-hide-focus-ring', 'true');
+            } else {
+                document.documentElement.removeAttribute('data-hide-focus-ring');
+            }
+            
+            const activeTheme = localStorage.getItem('jsonAdventure_activeThemeId') || 'dark';
+            applyTheme(activeTheme);
+        }
+
+        // Prompts Logic
+        const defaultWorldPrompt = 'You are a world-building assistant for a text-based RPG.';
+        const defaultPlayerPrompt = 'You are a game character creation assistant for a text-based RPG.';
+        const defaultSummaryPrompt = `You are the narrator and game master for a text-based RPG called "Odyssey".
+The player has just finished creating their character and world. Read ALL the following information carefully and write a compelling, immersive narrative summary that weaves together:
+- The world setting and tone
+- The player character's background, personality, and appearance
+- The starting scenario
+
+Write it as a 2-3 paragraph narrative introduction — dramatic, atmospheric, and engaging. Write in second person ("You wake up...").`;
+        const defaultPrompterPrompt = `You are the Prompter. You sit between the user and the Game Master.
+Your job is to read the user's input and determine if they mentioned any known Locations or NPCs in the game state. 
+If they did, you must extract those details and provide them so the Game Master remembers them correctly.`;
+        const defaultGamePrompt = `You are now a seasoned novelist acting as the Game Master. Write a dynamic, immersive, and grounded text-based adventure. 
+
+CRITICAL NARRATIVE RULES:
+1. Grounded & Natural Prose: Write like a high-quality, traditionally published novel. The prose should flow naturally. Put the player inside a breathing world. The world exists on its own; the player is simply the protagonist navigating it. 
+2. Realistic Dialogue: ALL dialogue MUST be enclosed in proper double quotation marks (e.g., "Hello there," she said.). Characters must speak like normal, grounded humans. Absolutely NO hammy, hyper-stylized slang, forced era-specific jargon, or excessive "quippy" banter. Dialogue should sound like a real conversation, placed on its own line when a new character speaks.
+3. No Meta-References: Do not constantly remind the player of the setting or throw out random historical/world facts unless it makes strict narrative sense.
+4. Clean Readability: Break your response into several short paragraphs (2-4 sentences max). Use standard Markdown formatting (bolding, italics).
+5. No Stats or Lists in Text: NEVER output numbers for stat changes, and NEVER output a numbered list of options at the end. Describe the consequences naturally in the prose, and end the narrative by presenting an open-ended situation or a subtle hook for the player to react to. Let them decide what to do next without dictating a menu of choices.
+6. Player Agency: NEVER speak for the player character or take actions for them.
+
+Rely on the background JSON systems to handle stats, inventory, and time. Your ONLY job in the text output is to write a beautiful, grounded, and engaging story.`;
+
+        const defaultImagePrompt = `You are an expert AI prompt engineer specializing in character visualization.\nYour job is to write a highly detailed image generation prompt that depicts ONLY the player character.\n\nCRITICAL RULES:\n- The image must focus EXCLUSIVELY on the player character — do NOT depict other characters, narrative scenes, or story events.\n- Show the character as a high-fidelity 3D rendered model with detailed textures, realistic materials, and cinematic lighting.\n- The character should be shown in a 2:3 portrait composition, facing or slightly angled toward the camera.\n- Show them in their current environment as a backdrop, but the player is the clear subject.\n- Accurately depict what they are currently WEARING and CARRYING based on their inventory.\n- If the current situation suggests physical effects (mud, blood, bruises, sweat, rain-soaked, torn clothing, burns, etc.), show those on the character.\n- Write ONLY the final image prompt text. No preamble, no explanations.`;
+
+        function loadPrompts() {
+            document.getElementById('prompt-world').value = localStorage.getItem('jsonAdventure_promptWorld') || defaultWorldPrompt;
+            document.getElementById('prompt-player').value = localStorage.getItem('jsonAdventure_promptPlayer') || defaultPlayerPrompt;
+            document.getElementById('prompt-image').value = localStorage.getItem('jsonAdventure_promptImage') || defaultImagePrompt;
+            document.getElementById('prompt-summary').value = localStorage.getItem('jsonAdventure_promptSummary') || defaultSummaryPrompt;
+            document.getElementById('prompt-prompter').value = localStorage.getItem('jsonAdventure_promptPrompter') || defaultPrompterPrompt;
+            document.getElementById('prompt-game').value = localStorage.getItem('jsonAdventure_promptGame') || defaultGamePrompt;
+        }
+
+        function savePrompts(showAlert = false) {
+            localStorage.setItem('jsonAdventure_promptWorld', document.getElementById('prompt-world').value);
+            localStorage.setItem('jsonAdventure_promptPlayer', document.getElementById('prompt-player').value);
+            localStorage.setItem('jsonAdventure_promptImage', document.getElementById('prompt-image').value);
+            localStorage.setItem('jsonAdventure_promptSummary', document.getElementById('prompt-summary').value);
+            localStorage.setItem('jsonAdventure_promptPrompter', document.getElementById('prompt-prompter').value);
+            localStorage.setItem('jsonAdventure_promptGame', document.getElementById('prompt-game').value);
+
+            if (showAlert) {
+                alert('Prompts Saved!');
+            }
+        }
+
+        function resetPrompts() {
+            if (confirm("Are you sure you want to restore the default prompts?")) {
+                document.getElementById('prompt-world').value = defaultWorldPrompt;
+                document.getElementById('prompt-player').value = defaultPlayerPrompt;
+                document.getElementById('prompt-image').value = defaultImagePrompt;
+                document.getElementById('prompt-summary').value = defaultSummaryPrompt;
+                document.getElementById('prompt-prompter').value = defaultPrompterPrompt;
+                document.getElementById('prompt-game').value = defaultGamePrompt;
+                savePrompts(true);
+            }
+        }
+    </script>
+</body>
+
+</html>

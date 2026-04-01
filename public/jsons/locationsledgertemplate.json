@@ -1,0 +1,16 @@
+{
+    "locations": [
+        {
+            "name": "Starting Location",
+            "description": "A detailed description of the location.",
+            "items": [],
+            "subrooms": [
+                {
+                    "name": "Subroom Name",
+                    "description": "Description of the subroom.",
+                    "items": []
+                }
+            ]
+        }
+    ]
+}
