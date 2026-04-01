@@ -1,13 +1,9 @@
-name: 'Tauri Build'
+name: 'Tauri Build & Release'
 
 on:
   push:
-    branches:
-      - main
-    paths:
-      - 'src-tauri/**'
-      - 'public/**'
-      - 'package.json'
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 jobs:
@@ -17,7 +13,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [macos-latest, ubuntu-22.04, windows-latest]
+        include:
+          - platform: macos-latest
+            args: '--target aarch64-apple-darwin'
+          - platform: macos-latest
+            args: '--target x86_64-apple-darwin'
+          - platform: ubuntu-22.04
+            args: ''
+          - platform: windows-latest
+            args: ''
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -30,6 +34,8 @@ jobs:
 
       - name: install Rust stable
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ contains(matrix.platform, 'macos') && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: install dependencies (ubuntu only)
         if: matrix.platform == 'ubuntu-22.04'
@@ -44,8 +50,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: v0.5.0
-          releaseName: 'Odyssey v0.5.0'
-          releaseBody: 'See the assets to download this version.'
+          tagName: v__VERSION__
+          releaseName: 'Odyssey v__VERSION__'
+          releaseBody: 'Download the installer for your platform below.'
           releaseDraft: true
           prerelease: false
+          args: ${{ matrix.args }}
