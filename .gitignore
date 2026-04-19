@@ -63,6 +63,10 @@ todo.md
 # Always include readme assets (overrides start*.* above)
 !readme images/**
 
+# Exclude large demo videos from the repo (README links to YouTube instead)
+readme images/theme demo video.mp4
+readme images/theme demo video.webm
+
 # Claude Code
 .claude/
 memory/
