@@ -16,6 +16,7 @@
 - [Features](#features)
 - [Screenshots](#screenshots)
 - [Themes](#themes)
+- [Voice Narration (TTS)](#voice-narration-tts)
 - [How It Works](#how-it-works)
 - [Connecting an AI Model](#connecting-an-ai-model)
 - [Building from Source](#building-from-source)
@@ -51,6 +52,7 @@ After installing, launch Odyssey and follow the in-app welcome screen to configu
 - **Live game state** — Health, Money, Hunger, Thirst, and Energy are tracked every turn and surfaced in the sidebar.
 - **Automatic Game Codex** — An NPC Ledger and Location Ledger populate themselves as your story unfolds, giving you a durable reference for every person and place you encounter.
 - **Multiple themes** — Dark Mode, Light Mode, Frutiger Aero, Starry Night, and Matrix, plus configurable typography and accessibility options.
+- **Voice narration (TTS)** — Listen to every turn of narration. Plug in any of four providers — a self-hosted [Kokoro-FastAPI](https://github.com/remsky/Kokoro-FastAPI) server, OpenAI, Google Cloud TTS, or xAI Grok — with a shared control for playback speed (0.5x–2.0x) and per-provider voice selection. Kokoro additionally supports **weighted voice blending**, letting you mix multiple voices into a single custom narrator.
 - **Save management** — Named saves, plus one-click Import and Export for sharing or backing up campaigns.
 - **Native desktop app** — Built on Tauri. Small footprint, fast startup, and no web server or browser required.
 
@@ -137,6 +139,31 @@ Odyssey ships with five visual themes selectable from **Settings &rarr; Appearan
 A short demo of switching between themes live:
 
 [![Watch the theme demo on YouTube](https://img.youtube.com/vi/NH4qloYArQw/maxresdefault.jpg)](https://youtu.be/NH4qloYArQw)
+
+---
+
+## Voice Narration (TTS)
+
+Odyssey can read every turn of narration aloud through a dedicated **Settings &rarr; Voice / TTS** panel. Pick a provider, paste credentials if needed, choose a voice, and the in-game play button will stream audio for the current turn.
+
+### Supported providers
+
+| Provider | Type | Notes |
+| --- | --- | --- |
+| **Kokoro-FastAPI** | Self-hosted, free | Point Odyssey at a local [Kokoro-FastAPI](https://github.com/remsky/Kokoro-FastAPI) server (default `http://127.0.0.1:8880`). The available voice list is fetched live from the server. |
+| **OpenAI (or compatible)** | Cloud | Works with OpenAI's `tts-1` / `tts-1-hd` and any OpenAI-compatible audio endpoint. Configurable base URL, API key, model, and voice. |
+| **Google Cloud TTS** | Cloud | Uses Google's `texttospeech.googleapis.com/v1/text:synthesize` with a selectable Neural2 voice. |
+| **xAI Grok TTS** | Cloud | Choose a Grok voice and language (or auto-detect). |
+
+### Voice blending (Kokoro)
+
+The Kokoro provider includes a **voice mixer**: add multiple voices, drag weights, and Odyssey builds a blended voice string (e.g. `af_bella(70)+am_adam(30)`) using Kokoro-FastAPI's blend format. Weights are normalized automatically and visualized as a colored bar so you can fine-tune the mix at a glance.
+
+### Playback
+
+- Adjustable playback speed from **0.5x to 2.0x** (except xAI, which does not support variable speed).
+- Clean-text extraction strips UI markup before sending audio requests.
+- All credentials are stored locally; audio is requested directly from the provider you configured.
 
 ---
 
