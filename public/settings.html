@@ -8,13 +8,10 @@
     <link rel="icon" type="image/x-icon" href="assets/odyssey.ico">
     <link rel="stylesheet" href="style.css">
     <script src="theme.js"></script>
+    <script src="titlebar.js"></script>
     <script src="ui-components.js"></script>
+    <script src="menu-music.js"></script>
     <meta name="description" content="Odyssey - A text-based AI adventure game">
-    <meta property="og:title" content="Odyssey">
-    <meta property="og:description" content="A text-based AI adventure game">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="http://localhost:3000/">
-    <meta property="og:image" content="http://localhost:3000/assets/favicon.ico">
     <meta name="theme-color" content="#121212">
 </head>
 
@@ -25,6 +22,7 @@
             <nav class="sidebar-nav">
                 <button id="nav-btn-general" class="active" onclick="switchSettingsTab('general')">General</button>
                 <button id="nav-btn-api" onclick="switchSettingsTab('api')">API Settings</button>
+                <button id="nav-btn-tts" onclick="switchSettingsTab('tts')">Voice / TTS</button>
                 <button id="nav-btn-appearance" onclick="switchSettingsTab('appearance')">Appearance</button>
                 <button id="nav-btn-prompts" onclick="switchSettingsTab('prompts')">Prompts</button>
             </nav>
@@ -49,7 +47,7 @@
                     <div class="control-group mt-lg">
                         <label>Menu Music Volume</label>
                         <div class="attribute-slider-container" style="width: 280px; margin: 15px 0;">
-                            <input type="range" id="menu-music-volume" class="attribute-slider" min="0" max="100" step="5" value="35" oninput="updateMusicVolumeLabel(this.value); saveMusicVolume()">
+                            <input type="range" id="menu-music-volume" class="attribute-slider" min="0" max="100" step="5" value="35" oninput="updateMusicVolumeLabel(this.value); saveMusicVolume(); if (window.setMenuMusicVolume) window.setMenuMusicVolume(this.value);">
                             <div id="music-volume-value" class="attribute-current-label">35%</div>
                         </div>
                     </div>
@@ -132,6 +130,39 @@
                     </div>
 
                     <div class="control-group mt-md">
+                        <label>Use Separate Image API:</label>
+                        <input type="checkbox" id="api-image-separate" onchange="handleImageProviderToggle(); saveApiSettings()">
+                        <span class="hint-text">Use a different provider for image generation (e.g. local chat + xAI images)</span>
+                    </div>
+
+                    <div id="image-api-group" style="display: none;">
+                        <div class="control-group mt-md">
+                            <label>Image API Provider:</label>
+                            <select id="image-api-provider-select" onchange="handleImageProviderChange(); saveApiSettings()" class="input-md">
+                                <option value="openrouter">OpenRouter</option>
+                                <option value="xai">XAI</option>
+                                <option value="googleai">Google AI</option>
+                                <option value="lmstudio">LM Studio (Local)</option>
+                                <option value="openai">OpenAI Compatible</option>
+                            </select>
+                        </div>
+
+                        <div class="control-group mt-md" id="image-base-url-group" style="display: none;">
+                            <label>Image Base URL:</label>
+                            <input type="text" id="image-api-base-url" placeholder="https://api.openai.com/v1"
+                                class="input-md" onchange="saveApiSettings()">
+                        </div>
+
+                        <div class="control-group mt-md">
+                            <label>Image API Key:</label>
+                            <input type="password" id="image-api-key" placeholder="sk-..."
+                                class="input-md" onchange="saveApiSettings()">
+                            <button onclick="testImageConnection()" class="btn btn-compact">Test Connection</button>
+                            <span id="image-test-connection-status" class="hint-text"></span>
+                        </div>
+                    </div>
+
+                    <div class="control-group mt-md">
                         <button onclick="fetchModels('image')" class="btn btn-compact">Fetch Image
                             Models</button>
                         <span id="image-model-fetch-status"
@@ -191,6 +222,179 @@
                             <option value="medium" selected>Medium</option>
                             <option value="high">High</option>
                         </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TTS Tab -->
+            <div id="tab-tts" class="settings-tab" style="display: none;">
+                <h2>Voice / Text-to-Speech</h2>
+                <p>Configure AI narration audio. Kokoro runs locally; Google and OpenAI are cloud services.</p>
+
+                <div class="control-group mt-lg">
+                    <label>TTS Provider:</label>
+                    <select id="tts-provider-select" onchange="handleTtsProviderChange()" class="input-md">
+                        <option value="none">Disabled</option>
+                        <option value="kokoro">Kokoro FastAPI (Local)</option>
+                        <option value="openai">OpenAI / Compatible</option>
+                        <option value="google">Google Cloud TTS</option>
+                        <option value="xai">xAI Grok TTS</option>
+                    </select>
+                </div>
+
+                <!-- Kokoro group -->
+                <div id="tts-kokoro-group" style="display: none;">
+                    <div class="control-group mt-md">
+                        <label>Kokoro Server URL:</label>
+                        <input type="text" id="tts-kokoro-url" placeholder="http://127.0.0.1:8880" class="input-md" oninput="saveTtsSettings()">
+                        <button onclick="fetchKokoroVoices()" class="btn btn-compact">Fetch Voices</button>
+                        <span id="tts-voice-fetch-status" class="hint-text"></span>
+                    </div>
+
+                    <hr class="divider">
+                    <h3>VOICE MIXER</h3>
+                    <p class="hint-text" style="margin-bottom: 12px;">Blend multiple voices by adjusting weights. Weights are normalized automatically.</p>
+
+                    <div id="tts-voice-mixer-bars"></div>
+                    <div id="tts-voice-mixer-list"></div>
+
+                    <div class="control-group mt-md" style="position: relative;">
+                        <div class="tts-voice-search-wrap">
+                            <input type="text" id="tts-voice-search" placeholder="Search and select voices..." class="input-md"
+                                oninput="filterVoiceOptions(this.value)"
+                                onfocus="showVoiceDropdown()"
+                                onblur="hideVoiceDropdown()">
+                            <div id="tts-voice-dropdown" class="tts-voice-dropdown" style="display: none;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- OpenAI group -->
+                <div id="tts-openai-group" style="display: none;">
+                    <div class="control-group mt-md">
+                        <label>Base URL:</label>
+                        <input type="text" id="tts-openai-url" placeholder="https://api.openai.com/v1" class="input-md" oninput="saveTtsSettings()">
+                        <span class="hint-text">Use http://localhost:1234/v1 for LM Studio</span>
+                    </div>
+                    <div class="control-group mt-md">
+                        <label>API Key:</label>
+                        <input type="password" id="tts-openai-key" placeholder="sk-..." class="input-md" oninput="saveTtsSettings()">
+                    </div>
+                    <div class="control-group mt-md">
+                        <label>Model:</label>
+                        <select id="tts-openai-model" onchange="saveTtsSettings()" class="input-md">
+                            <option value="tts-1">tts-1</option>
+                            <option value="tts-1-hd">tts-1-hd</option>
+                        </select>
+                    </div>
+                    <div class="control-group mt-md">
+                        <label>Voice:</label>
+                        <select id="tts-openai-voice" onchange="saveTtsSettings()" class="input-md">
+                            <option value="alloy">Alloy</option>
+                            <option value="echo">Echo</option>
+                            <option value="fable">Fable</option>
+                            <option value="onyx">Onyx</option>
+                            <option value="nova">Nova</option>
+                            <option value="shimmer">Shimmer</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Google group -->
+                <div id="tts-google-group" style="display: none;">
+                    <div class="control-group mt-md">
+                        <label>Google API Key:</label>
+                        <input type="password" id="tts-google-key" placeholder="AIza..." class="input-md" oninput="saveTtsSettings()">
+                        <span class="hint-text">Enable "Cloud Text-to-Speech API" in Google Cloud Console</span>
+                    </div>
+                    <div class="control-group mt-md">
+                        <label>Voice:</label>
+                        <select id="tts-google-voice" onchange="saveTtsSettings()" class="input-md">
+                            <optgroup label="Neural2 (Best Quality)">
+                                <option value="en-US-Neural2-F">Neural2-F · Female</option>
+                                <option value="en-US-Neural2-D">Neural2-D · Male</option>
+                                <option value="en-US-Neural2-A">Neural2-A · Male</option>
+                                <option value="en-US-Neural2-C">Neural2-C · Female</option>
+                                <option value="en-US-Neural2-E">Neural2-E · Female</option>
+                                <option value="en-US-Neural2-G">Neural2-G · Female</option>
+                                <option value="en-US-Neural2-H">Neural2-H · Female</option>
+                                <option value="en-US-Neural2-I">Neural2-I · Male</option>
+                                <option value="en-US-Neural2-J">Neural2-J · Male</option>
+                            </optgroup>
+                            <optgroup label="Studio (Most Natural)">
+                                <option value="en-US-Studio-M">Studio-M · Male</option>
+                                <option value="en-US-Studio-O">Studio-O · Female</option>
+                                <option value="en-US-Studio-Q">Studio-Q · Male</option>
+                            </optgroup>
+                            <optgroup label="WaveNet">
+                                <option value="en-US-Wavenet-A">WaveNet-A · Male</option>
+                                <option value="en-US-Wavenet-B">WaveNet-B · Male</option>
+                                <option value="en-US-Wavenet-C">WaveNet-C · Female</option>
+                                <option value="en-US-Wavenet-D">WaveNet-D · Male</option>
+                                <option value="en-US-Wavenet-E">WaveNet-E · Female</option>
+                                <option value="en-US-Wavenet-F">WaveNet-F · Female</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- xAI group -->
+                <div id="tts-xai-group" style="display: none;">
+                    <div class="control-group mt-md">
+                        <label>xAI API Key:</label>
+                        <input type="password" id="tts-xai-key" placeholder="xai-..." class="input-md" oninput="saveTtsSettings()">
+                    </div>
+                    <div class="control-group mt-md">
+                        <label>Voice:</label>
+                        <select id="tts-xai-voice" onchange="saveTtsSettings()" class="input-md">
+                            <option value="eve">Eve — Energetic, upbeat</option>
+                            <option value="ara">Ara — Warm, friendly</option>
+                            <option value="rex">Rex — Confident, clear</option>
+                            <option value="sal">Sal — Smooth, balanced</option>
+                            <option value="leo">Leo — Authoritative, strong</option>
+                        </select>
+                    </div>
+                    <div class="control-group mt-md">
+                        <label>Language:</label>
+                        <select id="tts-xai-language" onchange="saveTtsSettings()" class="input-md">
+                            <option value="auto">Auto-detect</option>
+                            <option value="en">English</option>
+                            <option value="es-ES">Spanish (Spain)</option>
+                            <option value="es-MX">Spanish (Mexico)</option>
+                            <option value="fr">French</option>
+                            <option value="de">German</option>
+                            <option value="zh">Chinese</option>
+                            <option value="ja">Japanese</option>
+                            <option value="ko">Korean</option>
+                            <option value="pt-BR">Portuguese (Brazil)</option>
+                            <option value="pt-PT">Portuguese (Portugal)</option>
+                            <option value="ar">Arabic</option>
+                            <option value="hi">Hindi</option>
+                            <option value="it">Italian</option>
+                            <option value="nl">Dutch</option>
+                            <option value="pl">Polish</option>
+                            <option value="ru">Russian</option>
+                            <option value="sv">Swedish</option>
+                            <option value="tr">Turkish</option>
+                        </select>
+                    </div>
+                    <span class="hint-text">Note: xAI TTS does not support variable speed.</span>
+                </div>
+
+                <!-- Speed & Test (all active providers) -->
+                <div id="tts-speed-group" style="display: none;">
+                    <hr class="divider">
+                    <div class="control-group mt-md" id="tts-speed-row">
+                        <label>Speed:</label>
+                        <div class="attribute-slider-container" style="width: 280px; margin: 15px 0;">
+                            <input type="range" id="tts-speed" class="attribute-slider" min="0.5" max="2.0" step="0.1" value="1.0"
+                                oninput="updateTtsSpeedLabel(this.value); saveTtsSettings()">
+                            <div id="tts-speed-value" class="attribute-current-label">1.0x</div>
+                        </div>
+                    </div>
+                    <div class="control-group mt-md">
+                        <button onclick="testTts()" class="btn btn-compact">▶ Test Voice</button>
+                        <span id="tts-test-status" class="hint-text"></span>
                     </div>
                 </div>
             </div>
@@ -312,6 +516,7 @@
             loadPrompts();
             loadAppearanceSettings();
             loadMusicVolume();
+            loadTtsSettings();
             // Initialize custom dropdowns and number inputs
             initCustomUIComponents(document.body, {
                 searchSelects: ['openrouter-model-select', 'openrouter-image-model-select', 'primary-font-select', 'secondary-font-select']
@@ -427,16 +632,108 @@
             }
         }
 
+        // Image API Provider Logic
+        function handleImageProviderToggle() {
+            const checked = document.getElementById('api-image-separate').checked;
+            document.getElementById('image-api-group').style.display = checked ? 'block' : 'none';
+            if (checked) handleImageProviderChange();
+        }
+
+        function handleImageProviderChange() {
+            const imgProvider = document.getElementById('image-api-provider-select').value;
+            const imgBaseUrlGroup = document.getElementById('image-base-url-group');
+            if (imgProvider === 'openai' || imgProvider === 'lmstudio') {
+                imgBaseUrlGroup.style.display = 'block';
+                const imgBaseUrlInput = document.getElementById('image-api-base-url');
+                if (imgProvider === 'lmstudio' && !imgBaseUrlInput.value) {
+                    imgBaseUrlInput.value = 'http://localhost:1234/v1';
+                }
+            } else {
+                imgBaseUrlGroup.style.display = 'none';
+            }
+
+            // Load saved key for this image provider
+            const imgKeyInput = document.getElementById('image-api-key');
+            if (imgKeyInput) {
+                imgKeyInput.value = localStorage.getItem('jsonAdventure_imageApiKey_' + imgProvider) || '';
+            }
+
+            // Load cached image models for this provider
+            const imgSelectEl = document.getElementById('openrouter-image-model-select');
+            if (imgSelectEl) {
+                let cachedImgModels = localStorage.getItem('jsonAdventure_imageModelsCache_' + imgProvider);
+                let parsedImgModels = cachedImgModels ? JSON.parse(cachedImgModels) : null;
+                let specificImgModel = localStorage.getItem('jsonAdventure_imageModel_' + imgProvider);
+                if (parsedImgModels) {
+                    populateModelSelect(parsedImgModels, specificImgModel || '', 'openrouter-image-model-select');
+                } else {
+                    imgSelectEl.innerHTML = '<option value="">-- Load models first --</option>';
+                    if (typeof refreshCustomSelect === 'function') refreshCustomSelect('openrouter-image-model-select');
+                }
+            }
+        }
+
+        async function testImageConnection() {
+            const imgProvider = document.getElementById('image-api-provider-select').value;
+            const imgBaseUrl = document.getElementById('image-api-base-url').value.trim();
+            const imgApiKey = document.getElementById('image-api-key').value.trim();
+            const statusEl = document.getElementById('image-test-connection-status');
+
+            if (!imgApiKey && imgProvider !== 'openai' && imgProvider !== 'lmstudio') {
+                statusEl.innerHTML = "❌ Please enter an Image API key.";
+                statusEl.style.color = "#dc3545";
+                return;
+            }
+
+            statusEl.innerHTML = "⏳ Testing...";
+            statusEl.style.color = "var(--text-muted)";
+
+            let testUrl = "";
+            let headers = { "Content-Type": "application/json" };
+            if (imgApiKey) headers["Authorization"] = `Bearer ${imgApiKey}`;
+
+            if (imgProvider === 'openrouter') {
+                testUrl = "https://openrouter.ai/api/v1/auth/key";
+            } else if (imgProvider === 'xai') {
+                testUrl = "https://api.x.ai/v1/models";
+            } else if (imgProvider === 'googleai') {
+                testUrl = "https://generativelanguage.googleapis.com/v1beta/openai/models";
+            } else if (imgProvider === 'lmstudio' || imgProvider === 'openai') {
+                if (!imgBaseUrl) {
+                    statusEl.innerHTML = "❌ Please enter a Base URL.";
+                    statusEl.style.color = "#dc3545";
+                    return;
+                }
+                testUrl = imgBaseUrl.endsWith('/') ? `${imgBaseUrl}models` : `${imgBaseUrl}/models`;
+            }
+
+            try {
+                const response = await fetch(testUrl, { method: "GET", headers: headers });
+                if (!response.ok) {
+                    let errorDetails = "";
+                    try { errorDetails = (await response.json()).error?.message || ''; } catch(e) {}
+                    throw new Error(`HTTP ${response.status}` + (errorDetails ? ` - ${errorDetails}` : ''));
+                }
+                statusEl.innerHTML = "✅ Connection successful!";
+                statusEl.style.color = "#28a745";
+            } catch (error) {
+                statusEl.innerHTML = `❌ Connection failed: ${error.message}`;
+                statusEl.style.color = "#dc3545";
+            }
+        }
+
         // API & Model Selection Logic
         function handleProviderChange() {
             const provider = document.getElementById('api-provider-select').value;
             const baseUrlGroup = document.getElementById('base-url-group');
             if (provider === 'openai' || provider === 'lmstudio') {
                 baseUrlGroup.style.display = 'block';
-                // Auto-fill default LM Studio URL if empty
+                // Auto-fill default LM Studio URL if empty, and persist it so game calls work immediately
                 const baseUrlInput = document.getElementById('api-base-url');
                 if (provider === 'lmstudio' && !baseUrlInput.value) {
                     baseUrlInput.value = 'http://localhost:1234/v1';
+                    localStorage.setItem('jsonAdventure_apiBaseUrl', 'http://localhost:1234/v1');
+                    localStorage.setItem('jsonAdventure_apiProvider', 'lmstudio');
                 }
             } else {
                 baseUrlGroup.style.display = 'none';
@@ -479,20 +776,23 @@
                 }
             }
 
-            // Update image models dropdown for this provider
-            const imgSelectEl = document.getElementById('openrouter-image-model-select');
-            if (imgSelectEl) {
-                let cachedImgModels = localStorage.getItem('jsonAdventure_imageModelsCache_' + provider);
-                let parsedImgModels = null;
-                if (cachedImgModels) parsedImgModels = JSON.parse(cachedImgModels);
+            // Update image models dropdown for this provider (only if not using separate image API)
+            const useSeparateImage = document.getElementById('api-image-separate').checked;
+            if (!useSeparateImage) {
+                const imgSelectEl = document.getElementById('openrouter-image-model-select');
+                if (imgSelectEl) {
+                    let cachedImgModels = localStorage.getItem('jsonAdventure_imageModelsCache_' + provider);
+                    let parsedImgModels = null;
+                    if (cachedImgModels) parsedImgModels = JSON.parse(cachedImgModels);
 
-                let specificImgModel = localStorage.getItem('jsonAdventure_imageModel_' + provider);
+                    let specificImgModel = localStorage.getItem('jsonAdventure_imageModel_' + provider);
 
-                if (parsedImgModels) {
-                    populateModelSelect(parsedImgModels, specificImgModel || '', 'openrouter-image-model-select');
-                } else {
-                    imgSelectEl.innerHTML = '<option value="">-- Load models first --</option>';
-                    if (typeof refreshCustomSelect === 'function') refreshCustomSelect('openrouter-image-model-select');
+                    if (parsedImgModels) {
+                        populateModelSelect(parsedImgModels, specificImgModel || '', 'openrouter-image-model-select');
+                    } else {
+                        imgSelectEl.innerHTML = '<option value="">-- Load models first --</option>';
+                        if (typeof refreshCustomSelect === 'function') refreshCustomSelect('openrouter-image-model-select');
+                    }
                 }
             }
         }
@@ -540,6 +840,17 @@
                 if (!imgCheck.checked) autoImgCheck.checked = false;
             });
             autoImgCheck.disabled = !imgCheck.checked;
+
+            // Load separate image API settings
+            const useSeparateImage = localStorage.getItem('jsonAdventure_imageUseSeparateApi') === 'true';
+            document.getElementById('api-image-separate').checked = useSeparateImage;
+            if (useSeparateImage) {
+                const imgProvider = localStorage.getItem('jsonAdventure_imageApiProvider') || 'openrouter';
+                const imgBaseUrl = localStorage.getItem('jsonAdventure_imageApiBaseUrl') || '';
+                document.getElementById('image-api-provider-select').value = imgProvider;
+                document.getElementById('image-api-base-url').value = imgBaseUrl;
+                handleImageProviderToggle();
+            }
         }
 
         function saveApiSettings(showAlert = false) {
@@ -563,9 +874,12 @@
             const enableFandomSearch = document.getElementById('api-enable-fandom-search').checked;
             const selectedImageModel = document.getElementById('openrouter-image-model-select').value;
 
+            // Normalize base URL: strip accidental endpoint suffixes (e.g. /chat/completions)
+            const normalizedBaseUrl = baseUrl.replace(/\/chat\/completions\/?$/, '').replace(/\/completions\/?$/, '').replace(/\/$/, '');
+
             // Save basic API info
             localStorage.setItem('jsonAdventure_apiProvider', provider);
-            localStorage.setItem('jsonAdventure_apiBaseUrl', baseUrl);
+            localStorage.setItem('jsonAdventure_apiBaseUrl', normalizedBaseUrl);
             localStorage.setItem('jsonAdventure_openRouterApiKey', apiKey);
             localStorage.setItem('jsonAdventure_apiKey_' + provider, apiKey);
             if (selectedModel) {
@@ -586,9 +900,25 @@
             localStorage.setItem('jsonAdventure_enableAutoImage', enableAutoImage);
             localStorage.setItem('jsonAdventure_enableWebSearch', enableWebSearch);
             localStorage.setItem('jsonAdventure_enableFandomSearch', enableFandomSearch);
-            if (selectedImageModel) {
-                localStorage.setItem('jsonAdventure_imageModel_' + provider, selectedImageModel);
-                localStorage.setItem('jsonAdventure_openRouterImageModel', selectedImageModel);
+            // Save separate image API settings
+            const useSeparateImage = document.getElementById('api-image-separate').checked;
+            localStorage.setItem('jsonAdventure_imageUseSeparateApi', useSeparateImage);
+            if (useSeparateImage) {
+                const imgProvider = document.getElementById('image-api-provider-select').value;
+                const imgBaseUrl = document.getElementById('image-api-base-url').value.trim();
+                const imgApiKey = document.getElementById('image-api-key').value.trim();
+                const normalizedImgBaseUrl = imgBaseUrl.replace(/\/chat\/completions\/?$/, '').replace(/\/completions\/?$/, '').replace(/\/$/, '');
+                localStorage.setItem('jsonAdventure_imageApiProvider', imgProvider);
+                localStorage.setItem('jsonAdventure_imageApiBaseUrl', normalizedImgBaseUrl);
+                if (imgApiKey) localStorage.setItem('jsonAdventure_imageApiKey_' + imgProvider, imgApiKey);
+                if (selectedImageModel) {
+                    localStorage.setItem('jsonAdventure_imageModel_' + imgProvider, selectedImageModel);
+                }
+            } else {
+                if (selectedImageModel) {
+                    localStorage.setItem('jsonAdventure_imageModel_' + provider, selectedImageModel);
+                    localStorage.setItem('jsonAdventure_openRouterImageModel', selectedImageModel);
+                }
             }
 
             if (showAlert) {
@@ -597,9 +927,16 @@
         }
 
         async function fetchModels(fetchType = 'text') {
-            const provider = document.getElementById('api-provider-select').value;
-            const baseUrl = document.getElementById('api-base-url').value.trim();
-            const apiKey = document.getElementById('openrouter-api-key').value.trim();
+            const useSeparateImage = fetchType === 'image' && document.getElementById('api-image-separate').checked;
+            const provider = useSeparateImage
+                ? document.getElementById('image-api-provider-select').value
+                : document.getElementById('api-provider-select').value;
+            const baseUrl = useSeparateImage
+                ? document.getElementById('image-api-base-url').value.trim()
+                : document.getElementById('api-base-url').value.trim();
+            const apiKey = useSeparateImage
+                ? document.getElementById('image-api-key').value.trim()
+                : document.getElementById('openrouter-api-key').value.trim();
             const statusEl = fetchType === 'image'
                 ? document.getElementById('image-model-fetch-status')
                 : document.getElementById('model-fetch-status');
@@ -1029,6 +1366,320 @@ Rely on the background JSON systems to handle stats, inventory, and time. Your O
                 document.getElementById('prompt-game').value = defaultGamePrompt;
                 savePrompts(true);
             }
+        }
+
+        // ============================================================
+        // TTS SETTINGS
+        // ============================================================
+
+        const TTS_VOICE_COLORS = ['#2979ff','#ff6d00','#00bcd4','#8bc34a','#e91e63','#9c27b0','#ff5722','#607d8b'];
+
+        // Default Kokoro voice list — replaced by fetchKokoroVoices() if server is reachable
+        let ttsKokoroVoices = [
+            'af_alloy','af_aoede','af_bella','af_heart','af_jessica','af_kore','af_nicole',
+            'af_nova','af_river','af_sarah','af_sky',
+            'am_adam','am_echo','am_eric','am_fenrir','am_liam','am_michael','am_onyx','am_puck',
+            'am_v0gurney',
+            'bf_alice','bf_emma','bf_isabella','bf_lily',
+            'bm_daniel','bm_fable','bm_george','bm_lewis'
+        ];
+
+        function handleTtsProviderChange() {
+            const provider = document.getElementById('tts-provider-select').value;
+            document.getElementById('tts-kokoro-group').style.display  = provider === 'kokoro' ? 'block' : 'none';
+            document.getElementById('tts-openai-group').style.display  = provider === 'openai' ? 'block' : 'none';
+            document.getElementById('tts-google-group').style.display  = provider === 'google' ? 'block' : 'none';
+            document.getElementById('tts-xai-group').style.display     = provider === 'xai'    ? 'block' : 'none';
+            document.getElementById('tts-speed-group').style.display   = provider !== 'none'   ? 'block' : 'none';
+            // xAI doesn't support speed control — hide slider for it
+            if (document.getElementById('tts-speed-row')) {
+                document.getElementById('tts-speed-row').style.display = provider === 'xai' ? 'none' : 'flex';
+            }
+            saveTtsSettings();
+        }
+
+        function loadTtsSettings() {
+            const provider = localStorage.getItem('jsonAdventure_ttsProvider') || 'none';
+            document.getElementById('tts-provider-select').value = provider;
+
+            document.getElementById('tts-kokoro-url').value    = localStorage.getItem('jsonAdventure_ttsBaseUrl')     || 'http://127.0.0.1:8880';
+            document.getElementById('tts-openai-url').value    = localStorage.getItem('jsonAdventure_ttsOpenAiUrl')   || 'https://api.openai.com/v1';
+            document.getElementById('tts-openai-key').value    = localStorage.getItem('jsonAdventure_ttsApiKey')      || '';
+            document.getElementById('tts-openai-model').value  = localStorage.getItem('jsonAdventure_ttsModel')       || 'tts-1';
+            document.getElementById('tts-openai-voice').value  = localStorage.getItem('jsonAdventure_ttsVoice')       || 'alloy';
+            document.getElementById('tts-google-key').value    = localStorage.getItem('jsonAdventure_ttsGoogleKey')   || '';
+            document.getElementById('tts-google-voice').value  = localStorage.getItem('jsonAdventure_ttsGoogleVoice') || 'en-US-Neural2-F';
+            document.getElementById('tts-xai-key').value       = localStorage.getItem('jsonAdventure_ttsXaiKey')      || '';
+            document.getElementById('tts-xai-voice').value     = localStorage.getItem('jsonAdventure_ttsXaiVoice')    || 'eve';
+            document.getElementById('tts-xai-language').value  = localStorage.getItem('jsonAdventure_ttsXaiLang')     || 'auto';
+
+            const speed = localStorage.getItem('jsonAdventure_ttsSpeed') || '1.0';
+            document.getElementById('tts-speed').value = speed;
+            updateTtsSpeedLabel(speed);
+
+            try {
+                const saved = JSON.parse(localStorage.getItem('jsonAdventure_ttsVoiceMix') || '[]');
+                window.ttsVoiceMix = saved.length > 0 ? saved : [{voice: 'af_bella', weight: 100}];
+            } catch(e) {
+                window.ttsVoiceMix = [{voice: 'af_bella', weight: 100}];
+            }
+
+            handleTtsProviderChange();
+            renderVoiceMixer();
+        }
+
+        function saveTtsSettings() {
+            localStorage.setItem('jsonAdventure_ttsProvider',    document.getElementById('tts-provider-select').value);
+            localStorage.setItem('jsonAdventure_ttsBaseUrl',     document.getElementById('tts-kokoro-url').value.trim());
+            localStorage.setItem('jsonAdventure_ttsOpenAiUrl',   document.getElementById('tts-openai-url').value.trim());
+            localStorage.setItem('jsonAdventure_ttsApiKey',      document.getElementById('tts-openai-key').value.trim());
+            localStorage.setItem('jsonAdventure_ttsModel',       document.getElementById('tts-openai-model').value);
+            localStorage.setItem('jsonAdventure_ttsVoice',       document.getElementById('tts-openai-voice').value);
+            localStorage.setItem('jsonAdventure_ttsGoogleKey',   document.getElementById('tts-google-key').value.trim());
+            localStorage.setItem('jsonAdventure_ttsGoogleVoice', document.getElementById('tts-google-voice').value);
+            localStorage.setItem('jsonAdventure_ttsXaiKey',      document.getElementById('tts-xai-key').value.trim());
+            localStorage.setItem('jsonAdventure_ttsXaiVoice',    document.getElementById('tts-xai-voice').value);
+            localStorage.setItem('jsonAdventure_ttsXaiLang',     document.getElementById('tts-xai-language').value);
+            localStorage.setItem('jsonAdventure_ttsSpeed',       document.getElementById('tts-speed').value);
+            if (window.ttsVoiceMix) {
+                localStorage.setItem('jsonAdventure_ttsVoiceMix', JSON.stringify(window.ttsVoiceMix));
+            }
+        }
+
+        function updateTtsSpeedLabel(val) {
+            document.getElementById('tts-speed-value').textContent = parseFloat(val).toFixed(1) + 'x';
+        }
+
+        async function fetchKokoroVoices() {
+            const rawUrl = document.getElementById('tts-kokoro-url').value.trim() || 'http://127.0.0.1:8880';
+            const base   = rawUrl.replace(/\/$/, '');
+            const statusEl = document.getElementById('tts-voice-fetch-status');
+            statusEl.textContent = '⏳ Fetching...';
+            statusEl.style.color = 'var(--text-muted)';
+            try {
+                const res = await fetch(`${base}/v1/audio/voices`);
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const data = await res.json();
+                let voices = [];
+                if (Array.isArray(data))        voices = data;
+                else if (Array.isArray(data.voices)) voices = data.voices;
+                ttsKokoroVoices = voices.map(v => (typeof v === 'string' ? v : (v.name || v.id || String(v)))).filter(Boolean);
+                if (ttsKokoroVoices.length === 0) throw new Error('Empty voice list');
+                statusEl.textContent = `✅ ${ttsKokoroVoices.length} voices loaded`;
+                statusEl.style.color = '#28a745';
+            } catch(e) {
+                statusEl.textContent = '❌ Cannot reach server — using built-in list';
+                statusEl.style.color = '#dc3545';
+            }
+        }
+
+        function renderVoiceMixer() {
+            if (!window.ttsVoiceMix || window.ttsVoiceMix.length === 0) {
+                window.ttsVoiceMix = [{voice: 'af_bella', weight: 100}];
+            }
+            const mix   = window.ttsVoiceMix;
+            const total = mix.reduce((s, v) => s + (parseFloat(v.weight) || 0), 0) || 1;
+
+            // Colored bar
+            const barsEl = document.getElementById('tts-voice-mixer-bars');
+            barsEl.innerHTML = '';
+            const bar = document.createElement('div');
+            bar.className = 'tts-mixer-bar';
+            mix.forEach((entry, i) => {
+                const pct = (parseFloat(entry.weight) || 0) / total * 100;
+                const seg = document.createElement('div');
+                seg.className = 'tts-mixer-bar-seg';
+                seg.style.width     = pct.toFixed(1) + '%';
+                seg.style.background = TTS_VOICE_COLORS[i % TTS_VOICE_COLORS.length];
+                seg.title = `${entry.voice}: ${pct.toFixed(0)}%`;
+                const lbl = document.createElement('span');
+                lbl.textContent = entry.voice.length > 10 ? entry.voice.slice(0, 9) + '…' : entry.voice;
+                seg.appendChild(lbl);
+                bar.appendChild(seg);
+            });
+            barsEl.appendChild(bar);
+
+            // Row list
+            const listEl = document.getElementById('tts-voice-mixer-list');
+            listEl.innerHTML = '';
+            mix.forEach((entry, i) => {
+                const row = document.createElement('div');
+                row.className = 'tts-mixer-row';
+
+                const dot = document.createElement('div');
+                dot.className = 'tts-mixer-dot';
+                dot.style.background = TTS_VOICE_COLORS[i % TTS_VOICE_COLORS.length];
+
+                const name = document.createElement('span');
+                name.className = 'tts-mixer-name';
+                name.textContent = entry.voice;
+
+                const weightIn = document.createElement('input');
+                weightIn.type      = 'number';
+                weightIn.className = 'tts-mixer-weight input-sm';
+                weightIn.min       = 1;
+                weightIn.max       = 100;
+                weightIn.value     = entry.weight;
+                weightIn.oninput   = () => {
+                    mix[i].weight = Math.max(1, parseInt(weightIn.value) || 1);
+                    renderVoiceMixer();
+                    saveTtsSettings();
+                };
+
+                const pctLbl = document.createElement('span');
+                pctLbl.className   = 'tts-mixer-pct hint-text';
+                pctLbl.textContent = '%';
+
+                const removeBtn = document.createElement('button');
+                removeBtn.className   = 'tts-mixer-remove';
+                removeBtn.textContent = '×';
+                removeBtn.title       = 'Remove voice';
+                removeBtn.onclick     = () => {
+                    if (mix.length > 1) { mix.splice(i, 1); renderVoiceMixer(); saveTtsSettings(); }
+                };
+
+                row.append(dot, name, weightIn, pctLbl, removeBtn);
+                listEl.appendChild(row);
+            });
+        }
+
+        function filterVoiceOptions(query) {
+            const q = (query || '').toLowerCase();
+            const already = new Set((window.ttsVoiceMix || []).map(v => v.voice));
+            const filtered = ttsKokoroVoices.filter(v => !already.has(v) && v.toLowerCase().includes(q));
+            const dropdown = document.getElementById('tts-voice-dropdown');
+            dropdown.innerHTML = '';
+            filtered.slice(0, 25).forEach(voice => {
+                const item = document.createElement('div');
+                item.className    = 'tts-voice-option';
+                item.textContent  = voice;
+                item.onmousedown  = (e) => {
+                    e.preventDefault();
+                    addVoiceToMix(voice);
+                    document.getElementById('tts-voice-search').value = '';
+                    dropdown.style.display = 'none';
+                };
+                dropdown.appendChild(item);
+            });
+            dropdown.style.display = filtered.length > 0 ? 'block' : 'none';
+        }
+
+        function showVoiceDropdown() {
+            filterVoiceOptions(document.getElementById('tts-voice-search').value);
+        }
+
+        function hideVoiceDropdown() {
+            setTimeout(() => { document.getElementById('tts-voice-dropdown').style.display = 'none'; }, 160);
+        }
+
+        function addVoiceToMix(voiceName) {
+            if (!window.ttsVoiceMix) window.ttsVoiceMix = [];
+            if (!window.ttsVoiceMix.find(v => v.voice === voiceName)) {
+                window.ttsVoiceMix.push({voice: voiceName, weight: 33});
+                renderVoiceMixer();
+                saveTtsSettings();
+            }
+        }
+
+        function buildKokoroVoiceString(voiceMix) {
+            if (!voiceMix || voiceMix.length === 0) return 'af_bella';
+            if (voiceMix.length === 1) return voiceMix[0].voice;
+            return voiceMix
+                .filter(v => v.voice && (parseFloat(v.weight) || 0) > 0)
+                .map(v => `${v.voice}(${Math.round(parseFloat(v.weight) || 1)})`)
+                .join('+');
+        }
+
+        async function testTts() {
+            const statusEl = document.getElementById('tts-test-status');
+            statusEl.textContent = '⏳ Generating...';
+            statusEl.style.color = 'var(--text-muted)';
+            saveTtsSettings();
+            try {
+                await _ttsPlayText("Hello, this is a test of the text to speech system.");
+                statusEl.textContent = '✅ Playing!';
+                statusEl.style.color = '#28a745';
+            } catch(e) {
+                statusEl.textContent = '❌ ' + e.message;
+                statusEl.style.color = '#dc3545';
+            }
+        }
+
+        async function _ttsPlayText(text) {
+            const provider = localStorage.getItem('jsonAdventure_ttsProvider') || 'none';
+            if (provider === 'none') throw new Error('TTS disabled. Select a provider first.');
+
+            if (provider === 'xai') {
+                const apiKey  = localStorage.getItem('jsonAdventure_ttsXaiKey') || '';
+                if (!apiKey) throw new Error('No xAI API key configured.');
+                const voiceId = localStorage.getItem('jsonAdventure_ttsXaiVoice')    || 'eve';
+                const lang    = localStorage.getItem('jsonAdventure_ttsXaiLang')     || 'auto';
+                const res = await fetch('https://api.x.ai/v1/tts', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        text,
+                        voice_id: voiceId,
+                        language: lang,
+                        output_format: {codec: 'mp3', sample_rate: 24000, bit_rate: 128000}
+                    })
+                });
+                if (!res.ok) throw new Error(`xAI TTS ${res.status}: ${await res.text()}`);
+                const blob = await res.blob();
+                await new Audio(URL.createObjectURL(blob)).play();
+                return;
+            }
+
+            if (provider === 'google') {
+                const apiKey    = localStorage.getItem('jsonAdventure_ttsGoogleKey') || '';
+                if (!apiKey) throw new Error('No Google API key configured.');
+                const voiceName = localStorage.getItem('jsonAdventure_ttsGoogleVoice') || 'en-US-Neural2-F';
+                const rate      = parseFloat(localStorage.getItem('jsonAdventure_ttsSpeed')) || 1.0;
+                const res = await fetch(
+                    `https://texttospeech.googleapis.com/v1/text:synthesize?key=${encodeURIComponent(apiKey)}`,
+                    {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            input: {text},
+                            voice: {languageCode: voiceName.slice(0, 5), name: voiceName},
+                            audioConfig: {audioEncoding: 'MP3', speakingRate: rate}
+                        })
+                    }
+                );
+                if (!res.ok) throw new Error(`Google TTS ${res.status}: ${await res.text()}`);
+                const data = await res.json();
+                await new Audio('data:audio/mp3;base64,' + data.audioContent).play();
+                return;
+            }
+
+            // OpenAI-compatible (OpenAI or Kokoro)
+            let baseUrl, apiKey, model, voice, speed;
+            if (provider === 'kokoro') {
+                baseUrl = (localStorage.getItem('jsonAdventure_ttsBaseUrl') || 'http://127.0.0.1:8880').replace(/\/$/, '') + '/v1/audio/speech';
+                apiKey  = 'dummy';
+                model   = 'kokoro';
+                const mix = JSON.parse(localStorage.getItem('jsonAdventure_ttsVoiceMix') || '[{"voice":"af_bella","weight":100}]');
+                voice   = buildKokoroVoiceString(mix);
+            } else {
+                baseUrl = (localStorage.getItem('jsonAdventure_ttsOpenAiUrl') || 'https://api.openai.com/v1').replace(/\/$/, '') + '/audio/speech';
+                apiKey  = localStorage.getItem('jsonAdventure_ttsApiKey') || '';
+                model   = localStorage.getItem('jsonAdventure_ttsModel')  || 'tts-1';
+                voice   = localStorage.getItem('jsonAdventure_ttsVoice')  || 'alloy';
+            }
+            speed = parseFloat(localStorage.getItem('jsonAdventure_ttsSpeed')) || 1.0;
+
+            const res = await fetch(baseUrl, {
+                method: 'POST',
+                headers: {'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json'},
+                body: JSON.stringify({model, input: text, voice, speed, response_format: 'mp3'})
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+            const blob = await res.blob();
+            await new Audio(URL.createObjectURL(blob)).play();
         }
     </script>
 </body>

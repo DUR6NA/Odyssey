@@ -8,11 +8,29 @@
   "permissions": [
     "core:default",
     "core:window:allow-set-title",
+    "core:window:allow-minimize",
+    "core:window:allow-unminimize",
+    "core:window:allow-maximize",
+    "core:window:allow-unmaximize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-close",
+    "core:window:allow-start-dragging",
+    "core:window:allow-is-maximized",
+    "core:window:allow-is-minimized",
+    "core:event:default",
     "fs:default",
     "fs:read-all",
     "fs:write-all",
-    "fs:scope",
+    {
+      "identifier": "fs:scope",
+      "allow": [
+        { "path": "$APPDATA/**" },
+        { "path": "$APPLOCALDATA/**" }
+      ]
+    },
     "dialog:default",
+    "dialog:allow-save",
+    "dialog:allow-open",
     "shell:default",
     "shell:allow-open"
   ]

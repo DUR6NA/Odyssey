@@ -30,17 +30,33 @@ jobs:
 
       - name: Create draft release
         id: create-release
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
+            const version = process.env.APP_VERSION;
+            const body = [
+              `## Odyssey v${version}`,
+              '',
+              'Download the installer for your platform from the assets below.',
+              '',
+              '| Platform | Recommended asset |',
+              '| --- | --- |',
+              '| Windows | `Odyssey_' + version + '_x64-setup.exe` or `Odyssey_' + version + '_x64_en-US.msi` |',
+              '| macOS (Apple Silicon) | `Odyssey_' + version + '_aarch64.dmg` |',
+              '| macOS (Intel) | `Odyssey_' + version + '_x64.dmg` |',
+              '| Linux | `odyssey_' + version + '_amd64.deb` or `odyssey_' + version + '_amd64.AppImage` |',
+              '',
+              'See the [README](https://github.com/' + context.repo.owner + '/' + context.repo.repo + '#readme) for setup and usage.',
+            ].join('\n');
             const { data } = await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              tag_name:   `v${process.env.APP_VERSION}`,
-              name:       `Odyssey v${process.env.APP_VERSION}`,
-              body:       'Download the installer for your platform below.',
-              draft:      true,
-              prerelease: false,
+              tag_name:              `v${version}`,
+              name:                  `Odyssey v${version}`,
+              body,
+              draft:                 true,
+              prerelease:            false,
+              generate_release_notes: true,
             })
             return data.id
 
@@ -110,7 +126,7 @@ jobs:
 
     steps:
       - name: Publish release
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
             await github.rest.repos.updateRelease({
@@ -119,4 +135,5 @@ jobs:
               release_id: ${{ needs.create-release.outputs.release_id }},
               draft:      false,
               prerelease: false,
+              make_latest: 'true',
             })

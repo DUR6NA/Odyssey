@@ -11,14 +11,11 @@
     <script src="assets/dompurify.min.js"></script>
     <script src="theme.js?v=2"></script>
     <script src="tauri-bridge.js"></script>
+    <script src="titlebar.js"></script>
     <script src="ui-components.js?v=2"></script>
     <script src="setup.js?v=2"></script>
+    <script src="menu-music.js"></script>
     <meta name="description" content="Odyssey - A text-based AI adventure game">
-    <meta property="og:title" content="Odyssey">
-    <meta property="og:description" content="A text-based AI adventure game">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="http://localhost:3000/">
-    <meta property="og:image" content="http://localhost:3000/assets/favicon.ico">
     <meta name="theme-color" content="#121212">
 </head>
 
@@ -199,9 +196,18 @@
             const loader = document.getElementById('loading-overlay');
             if (loader) loader.style.display = 'flex';
             try {
-                const res = await fetch(`/api/load-game?id=${gameId}`);
-                if (!res.ok) throw new Error("Load failed");
-                const data = await res.json();
+                // Wait for Tauri bridge to finish its async initialization
+                await (window.tauriBridgeReady || Promise.resolve());
+
+                let data;
+                if (window.tauriBridge) {
+                    data = await window.tauriBridge.loadGame(gameId);
+                    if (!data || Object.keys(data).length === 0) throw new Error("Game save not found.");
+                } else {
+                    const res = await fetch(`/api/load-game?id=${gameId}`);
+                    if (!res.ok) throw new Error("Load failed");
+                    data = await res.json();
+                }
 
                 // Show game layout
                 document.querySelector('.layout').style.display = 'grid';
@@ -223,10 +229,12 @@
                 const enableImage = localStorage.getItem('jsonAdventure_enableImage') === 'true';
                 if (enableImage) {
                     document.getElementById('player-image-widget').style.display = 'block';
-                    if (data['player_image.json'] && data['player_image.json'].url) {
+                    const imgData = data['current_image.json'] || data['base_image.json'];
+                    const imgUrl = imgData?.url || imgData?.dataUri;
+                    if (imgUrl) {
                         const imgEl = document.getElementById('player-dynamic-image');
                         const placeholder = document.getElementById('player-dynamic-image-placeholder');
-                        imgEl.src = data['player_image.json'].url;
+                        imgEl.src = imgUrl;
                         imgEl.style.display = 'block';
                         placeholder.style.display = 'none';
                     }

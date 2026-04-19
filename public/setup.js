@@ -34,16 +34,21 @@ function buildFetchPayload(model, messages, temp, maxTokens, topP, presPen, freq
     if (freqPen !== 0 && provider !== 'xai') payload.frequency_penalty = freqPen;
 
     if (jsonSchema && typeof jsonSchema === 'object') {
-        // Determine schema name based on content
         const schemaName = jsonSchema.properties && jsonSchema.properties.textoutput ? "game_turn" : "structured_response";
-        payload.response_format = {
-            type: 'json_schema',
-            json_schema: {
-                name: schemaName,
-                strict: true,
-                schema: jsonSchema
-            }
-        };
+        if (provider === 'openai') {
+            // Generic OpenAI-compatible servers often don't support json_schema — use json_object for broad compatibility
+            payload.response_format = { type: 'json_object' };
+        } else {
+            payload.response_format = {
+                type: 'json_schema',
+                json_schema: {
+                    name: schemaName,
+                    // strict: true is only reliable on actual OpenAI API; local servers (LM Studio etc) work better without it
+                    strict: provider !== 'lmstudio',
+                    schema: jsonSchema
+                }
+            };
+        }
     } else if (jsonSchema !== false) {
         if (provider === 'lmstudio') {
             // LM Studio rejects json_object — use json_schema with a simple string result fallback
@@ -311,6 +316,9 @@ async function initSetupMode() {
     const setupContainer = document.getElementById('setup-screen');
     if (setupContainer) setupContainer.classList.remove('hidden');
 
+    // Wait for the async Tauri bridge initialization to complete before checking
+    await (window.tauriBridgeReady || Promise.resolve());
+
     try {
         if (window.tauriBridge && typeof window.tauriBridge.listPresets === 'function') {
             PLAYER_PRESETS = await window.tauriBridge.listPresets();
@@ -318,7 +326,6 @@ async function initSetupMode() {
             const res = await fetch('/api/list-presets');
             PLAYER_PRESETS = await res.json();
         }
-        PLAYER_PRESETS = await res.json();
     } catch (e) {
         console.error("Failed to load player presets", e);
     }
@@ -1063,6 +1070,7 @@ The value of "result" must be ${expectedFormatStr}.`;
 
         const data = await response.json();
         let content = data.choices && data.choices[0] && data.choices[0].message.content;
+        if (!content) throw new Error('No content in API response. Check your Base URL and model settings.');
         content = content.trim();
         if (content.startsWith('```json')) content = content.replace(/^```json/, '').replace(/```$/, '').trim();
         if (content.startsWith('```')) content = content.replace(/^```/, '').replace(/```$/, '').trim();
@@ -1355,7 +1363,7 @@ The JSON object must have exactly one key named "result", and its value must be 
 
         const data = await response.json();
         let content = data.choices && data.choices[0] && data.choices[0].message.content;
-
+        if (!content) throw new Error('No content in API response. Check your Base URL and model settings.');
         content = content.trim();
         if (content.startsWith('```json')) {
             content = content.replace(/^```json/, '').replace(/```$/, '').trim();
@@ -1595,9 +1603,16 @@ CRITICAL RULES:
 }
 
 async function performImageGeneration(promptText, aspect_ratio = "2:3", baseImageUrl = null) {
-    const provider = localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter';
-    const baseUrl = localStorage.getItem('jsonAdventure_apiBaseUrl') || '';
-    const apiKey = localStorage.getItem('jsonAdventure_openRouterApiKey');
+    const useSeparateImage = localStorage.getItem('jsonAdventure_imageUseSeparateApi') === 'true';
+    const provider = useSeparateImage
+        ? (localStorage.getItem('jsonAdventure_imageApiProvider') || 'openrouter')
+        : (localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter');
+    const baseUrl = useSeparateImage
+        ? (localStorage.getItem('jsonAdventure_imageApiBaseUrl') || '')
+        : (localStorage.getItem('jsonAdventure_apiBaseUrl') || '');
+    const apiKey = useSeparateImage
+        ? (localStorage.getItem('jsonAdventure_imageApiKey_' + provider) || '')
+        : (localStorage.getItem('jsonAdventure_openRouterApiKey') || '');
     const imageModel = localStorage.getItem('jsonAdventure_imageModel_' + provider) || localStorage.getItem('jsonAdventure_openRouterImageModel') || 'google/gemini-2.5-flash';
 
     let fetchUrl = "https://openrouter.ai/api/v1/chat/completions";
@@ -2069,13 +2084,9 @@ async function finishSetup(summaryText) {
         }
 
         // Download and save the base player image locally (xAI URLs expire)
-        if (playerImageBaseURL) {
+        if (playerImageBaseURL && window.tauriBridge) {
             try {
-                await fetch('/api/download-image', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id: currentGameFolder, url: playerImageBaseURL })
-                });
+                await window.tauriBridge.downloadImage(currentGameFolder, playerImageBaseURL);
                 console.log('Base player image saved locally.');
             } catch (imgErr) {
                 console.warn('Failed to save base image locally:', imgErr);
@@ -2142,17 +2153,17 @@ async function launchGame(summaryText, allData) {
     const chatMessages = document.getElementById('chat-messages');
     chatMessages.innerHTML = '';
 
-    // Build the game system prompt
-    const gamePrompt = buildGameSystemPrompt(allData, summaryText);
+    // Send the initial message to AI
+    const provider = localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter';
+
+    // Build the game system prompt (pass provider so openai-compatible gets JSON format instructions)
+    const gamePrompt = buildGameSystemPrompt(allData, summaryText, '', '', '', provider);
 
     // Store game prompt for future messages
     window.gameSystemPrompt = gamePrompt;
     window.chatHistory = [
         { role: 'system', content: gamePrompt }
     ];
-
-    // Send the initial message to AI
-    const provider = localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter';
     const baseUrl = localStorage.getItem('jsonAdventure_apiBaseUrl') || '';
     const apiKey = localStorage.getItem('jsonAdventure_openRouterApiKey');
     const model = localStorage.getItem('jsonAdventure_openRouterModel') || 'openai/gpt-3.5-turbo';
@@ -2219,7 +2230,7 @@ async function launchGame(summaryText, allData) {
     saveCurrentGame();
 }
 
-function buildGameSystemPrompt(allData, summaryText, relevantLore = '', wikipediaData = '', fandomData = '') {
+function buildGameSystemPrompt(allData, summaryText, relevantLore = '', wikipediaData = '', fandomData = '', provider = '') {
     const defaultGamePrompt = `You are now a seasoned novelist acting as the Game Master. Write a dynamic, immersive, and grounded text-based adventure. 
 
 CRITICAL NARRATIVE RULES:
@@ -2238,7 +2249,7 @@ Rely on the background JSON systems to handle stats, inventory, and time. Your O
 
     const customBase = localStorage.getItem('jsonAdventure_promptGame') || defaultGamePrompt;
 
-    return `${customBase}
+    const baseParts = `${customBase}
 
 === WORLD INFO ===
 ${JSON.stringify(allData.worldInfo, null, 2)}
@@ -2260,6 +2271,19 @@ ${wikipediaData}
 
 === FANDOM LORE ===
 ${fandomData}`;
+
+    // For openai-compatible providers that use json_object mode, include explicit JSON format
+    // instructions so the model knows the required output structure without json_schema enforcement.
+    if (provider === 'openai') {
+        return baseParts + `
+
+=== REQUIRED OUTPUT FORMAT ===
+CRITICAL: Your ENTIRE response must be valid JSON only — no markdown, no prose outside the JSON object. Use this exact structure:
+{"time":{"hour":0,"minute":0,"period":"AM","dayOfWeek":"Monday","day":1,"month":1,"year":1,"era":"CE","calendarType":"gregorian"},"textoutput":"Your full narrative here.","inventory_changes":[],"location_changes":[],"npc_changes":[],"stats":{"health":100,"money":0,"hunger":100,"thirst":100,"energy":100}}
+Replace all values with the actual current game state. The "textoutput" field is where your narrative goes. All six top-level keys are required.`;
+    }
+
+    return baseParts;
 }
 
 // ============================================================
@@ -2793,7 +2817,7 @@ async function sendChatMessage() {
             playerInfo: window.playerInfo || {},
             gameState: window.gamestate || {}
         };
-        window.chatHistory[0].content = buildGameSystemPrompt(allData, window.gameSummaryText || '', internalLore, wikiData, fandomData);
+        window.chatHistory[0].content = buildGameSystemPrompt(allData, window.gameSummaryText || '', internalLore, wikiData, fandomData, localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter');
     }
 
     const provider = localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter';
@@ -2916,7 +2940,7 @@ async function regenerateLastAI() {
             playerInfo: window.playerInfo || {},
             gameState: window.gamestate || {}
         };
-        window.chatHistory[0].content = buildGameSystemPrompt(allData, window.gameSummaryText || '', internalLore, wikiData, fandomData);
+        window.chatHistory[0].content = buildGameSystemPrompt(allData, window.gameSummaryText || '', internalLore, wikiData, fandomData, localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter');
     }
 
     const provider = localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter';
@@ -2985,18 +3009,16 @@ async function saveCurrentGame() {
     const id = typeof currentGameFolder !== 'undefined' && currentGameFolder ? currentGameFolder : window.currentGameFolder;
     if (!id) return;
     try {
-        await fetch('/api/update-game', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+        if (window.tauriBridge) {
+            await window.tauriBridge.updateGame({
                 id: id,
                 gameState: window.gamestate || {},
                 chatHistory: window.chatHistory || [],
                 summary: window.gameSummaryText || '',
                 npcLedger: { npcs: window.gamestate?.npcs || [] },
                 locationsLedger: { locations: window.gamestate?.locations || [] }
-            })
-        });
+            });
+        }
     } catch (e) { console.error("Auto-save failed:", e); }
 }
 
@@ -3105,14 +3127,11 @@ async function triggerImageGeneration() {
         // 4. Get the base image for the xAI edit endpoint
         let baseImageUrl = null;
         const gameId = typeof currentGameFolder !== 'undefined' && currentGameFolder ? currentGameFolder : window.currentGameFolder;
-        if (gameId) {
+        if (gameId && window.tauriBridge) {
             try {
-                const baseImgRes = await fetch(`/api/get-base-image?id=${gameId}`);
-                if (baseImgRes.ok) {
-                    const baseImgData = await baseImgRes.json();
-                    if (baseImgData.dataUri) {
-                        baseImageUrl = baseImgData.dataUri;
-                    }
+                const baseImgData = await window.tauriBridge.getBaseImage(gameId);
+                if (baseImgData.dataUri) {
+                    baseImageUrl = baseImgData.dataUri;
                 }
             } catch (e) {
                 console.warn('Could not load base image for edit, will generate from scratch:', e);
@@ -3139,12 +3158,8 @@ async function triggerImageGeneration() {
                 if (placeholder) placeholder.style.display = 'none';
             }
 
-            if (gameId) {
-                await fetch('/api/update-image', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id: gameId, url: url })
-                });
+            if (gameId && window.tauriBridge) {
+                await window.tauriBridge.updateImage(gameId, url);
             }
         }
     } catch (e) {
@@ -3158,85 +3173,129 @@ async function triggerImageGeneration() {
 // ============================================================
 // TEXT TO SPEECH (TTS)
 // ============================================================
+
+// Plays audio from a URL or data-URI, returns a Promise so callers can catch play() errors
+async function _playAudioUrl(url) {
+    const audio = new Audio(url);
+    // Warm up AudioContext with a silent buffer to keep the user-gesture token alive
+    // across async fetch calls (prevents autoplay-policy silent failures)
+    try {
+        await audio.play();
+    } catch (e) {
+        throw new Error('Audio playback blocked: ' + e.message + '. Try clicking the button again.');
+    }
+}
+
+function _buildKokoroVoiceString(voiceMix) {
+    if (!voiceMix || voiceMix.length === 0) return 'af_bella';
+    if (voiceMix.length === 1) return voiceMix[0].voice;
+    // Kokoro-FastAPI blend format: "voice1(weight1)+voice2(weight2)"
+    // Weights are relative integers — Kokoro normalizes them automatically
+    return voiceMix
+        .filter(v => v.voice && (parseFloat(v.weight) || 0) > 0)
+        .map(v => `${v.voice}(${Math.round(parseFloat(v.weight) || 1)})`)
+        .join('+');
+}
+
 async function playTTS(text) {
     const provider = localStorage.getItem('jsonAdventure_ttsProvider') || 'none';
     if (provider === 'none') {
-        alert("TTS is disabled in settings.");
+        alert("TTS is disabled. Enable it in Settings → Voice / TTS.");
         return;
     }
 
-    let baseUrl = '';
-    let apiKey = '';
-    let model = '';
-    let voice = '';
-    let speed = 1.0;
-
-    if (provider === 'connected') {
-        const connectedProv = localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter';
-        baseUrl = localStorage.getItem('jsonAdventure_apiBaseUrl') || '';
-        if (connectedProv === 'openai' || connectedProv === 'lmstudio') {
-            baseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-            baseUrl += '/audio/speech';
-        } else if (connectedProv === 'kokoro') {
-            baseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-            baseUrl += '/audio/speech';
-        } else if (connectedProv === 'openrouter' || connectedProv === 'xai' || connectedProv === 'googleai') {
-            alert(connectedProv + " does not support standard TTS endpoint directly through this UI yet. Use Separate OpenAI logic.");
-            return;
-        } else {
-            baseUrl = "https://api.openai.com/v1/audio/speech";
-        }
-        apiKey = localStorage.getItem('jsonAdventure_apiKey_' + connectedProv) || '';
-        model = localStorage.getItem('jsonAdventure_ttsModel') || 'tts-1';
-        voice = localStorage.getItem('jsonAdventure_ttsVoice') || 'alloy';
-        speed = parseFloat(localStorage.getItem('jsonAdventure_ttsSpeed')) || 1.0;
-    } else if (provider === 'lmstudio' || provider === 'openai') {
-        baseUrl = localStorage.getItem('jsonAdventure_ttsBaseUrl') || '';
-        baseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-        baseUrl += '/audio/speech';
-        apiKey = localStorage.getItem('jsonAdventure_ttsApiKey') || '';
-        model = localStorage.getItem('jsonAdventure_ttsModel') || 'tts-1';
-        voice = localStorage.getItem('jsonAdventure_ttsVoice') || 'alloy';
-        speed = parseFloat(localStorage.getItem('jsonAdventure_ttsSpeed')) || 1.0;
-    } else if (provider === 'kokoro') {
-        baseUrl = localStorage.getItem('jsonAdventure_ttsBaseUrl') || 'http://127.0.0.1:8880/v1';
-        baseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-        baseUrl += '/audio/speech';
-        apiKey = 'dummy';
-        model = localStorage.getItem('jsonAdventure_ttsModel') || 'kokoro';
-        voice = localStorage.getItem('jsonAdventure_ttsVoice') || 'af_bella';
-        speed = parseFloat(localStorage.getItem('jsonAdventure_ttsSpeed')) || 1.0;
-    }
-
-    // Strip out markdown formatting that TTS might pronounce
-    let pureText = text.replace(/[*_#`~]/g, '');
+    // Strip markdown symbols that TTS might pronounce literally
+    const pureText = text.replace(/[*_#`~>]/g, '').trim();
+    if (!pureText) return;
 
     try {
+        if (provider === 'xai') {
+            const apiKey  = localStorage.getItem('jsonAdventure_ttsXaiKey') || '';
+            if (!apiKey) { alert("No xAI API key. Configure it in Settings → Voice / TTS."); return; }
+            const voiceId = localStorage.getItem('jsonAdventure_ttsXaiVoice') || 'eve';
+            const lang    = localStorage.getItem('jsonAdventure_ttsXaiLang')  || 'auto';
+
+            const res = await fetch('https://api.x.ai/v1/tts', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    text: pureText,
+                    voice_id: voiceId,
+                    language: lang,
+                    output_format: {codec: 'mp3', sample_rate: 24000, bit_rate: 128000}
+                })
+            });
+            if (!res.ok) throw new Error(`xAI TTS ${res.status}: ${await res.text()}`);
+            const blob = await res.blob();
+            await _playAudioUrl(URL.createObjectURL(blob));
+            return;
+        }
+
+        if (provider === 'google') {
+            const apiKey = localStorage.getItem('jsonAdventure_ttsGoogleKey') || '';
+            if (!apiKey) { alert("No Google API key. Configure it in Settings → Voice / TTS."); return; }
+            const voiceName = localStorage.getItem('jsonAdventure_ttsGoogleVoice') || 'en-US-Neural2-F';
+            const rate      = parseFloat(localStorage.getItem('jsonAdventure_ttsSpeed')) || 1.0;
+
+            const res = await fetch(
+                `https://texttospeech.googleapis.com/v1/text:synthesize?key=${encodeURIComponent(apiKey)}`,
+                {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        input: {text: pureText},
+                        voice: {languageCode: voiceName.slice(0, 5), name: voiceName},
+                        audioConfig: {audioEncoding: 'MP3', speakingRate: rate}
+                    })
+                }
+            );
+            if (!res.ok) throw new Error(`Google TTS ${res.status}: ${await res.text()}`);
+            const data = await res.json();
+            await _playAudioUrl('data:audio/mp3;base64,' + data.audioContent);
+            return;
+        }
+
+        // OpenAI-compatible path (covers 'openai' and 'kokoro')
+        let baseUrl, apiKey, model, voice;
+        const speed = parseFloat(localStorage.getItem('jsonAdventure_ttsSpeed')) || 1.0;
+
+        if (provider === 'kokoro') {
+            baseUrl = (localStorage.getItem('jsonAdventure_ttsBaseUrl') || 'http://127.0.0.1:8880').replace(/\/+$/, '') + '/v1/audio/speech';
+            apiKey  = 'dummy';
+            model   = 'kokoro';
+            const mix = (() => {
+                try { return JSON.parse(localStorage.getItem('jsonAdventure_ttsVoiceMix') || '[]'); } catch(e) { return []; }
+            })();
+            voice = _buildKokoroVoiceString(mix.length > 0 ? mix : [{voice: 'af_bella', weight: 100}]);
+        } else {
+            // openai / lmstudio-compatible
+            baseUrl = (localStorage.getItem('jsonAdventure_ttsOpenAiUrl') || 'https://api.openai.com/v1').replace(/\/+$/, '') + '/audio/speech';
+            apiKey  = localStorage.getItem('jsonAdventure_ttsApiKey')  || '';
+            model   = localStorage.getItem('jsonAdventure_ttsModel')   || 'tts-1';
+            voice   = localStorage.getItem('jsonAdventure_ttsVoice')   || 'alloy';
+        }
+
         const response = await fetch(baseUrl, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${apiKey}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                model: model,
-                input: pureText,
-                voice: voice,
-                speed: speed,
-                response_format: 'mp3'
-            })
+            body: JSON.stringify({model, input: pureText, voice, speed, response_format: 'mp3'})
         });
 
         if (!response.ok) {
-            throw new Error(`TTS API error: ${response.status} - ${await response.text()}`);
+            throw new Error(`HTTP ${response.status}: ${await response.text()}`);
         }
 
         const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        audio.play();
+        await _playAudioUrl(URL.createObjectURL(blob));
+
     } catch (err) {
         console.error("TTS Error:", err);
-        alert("Failed to play TTS: " + err.message);
+        alert("TTS failed: " + err.message);
     }
 }

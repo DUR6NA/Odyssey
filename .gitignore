@@ -60,6 +60,9 @@ start*.*
 test.js
 todo.md
 
+# Always include readme assets (overrides start*.* above)
+!readme images/**
+
 # Claude Code
 .claude/
 memory/

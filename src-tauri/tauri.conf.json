@@ -1,18 +1,25 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Odyssey",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "identifier": "com.dur6na.odyssey",
   "build": {
     "frontendDist": "../public"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [{
       "title": "Odyssey",
       "width": 1400,
       "height": 900,
+      "minWidth": 900,
+      "minHeight": 600,
       "resizable": true,
+      "maximized": true,
       "fullscreen": false,
+      "visible": false,
+      "decorations": false,
+      "transparent": false,
       "url": "Welcome.html",
       "devtools": true
     }],

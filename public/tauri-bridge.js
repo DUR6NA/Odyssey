@@ -1,34 +1,53 @@
-// Tauri Bridge for Classic Scripts - Replaces /api/ calls
-// Exposes window.tauriBridge with the same functions as before
+// Tauri Bridge - Uses window.__TAURI__ injected by withGlobalTauri: true
+// No dynamic imports needed — APIs are available synchronously on page load.
 
-(async function() {
-  if (typeof window === 'undefined' || !window.__TAURI__) {
+// Normalize any error to a string. Tauri invoke errors are often plain strings,
+// not Error objects, so e.message would be undefined without this.
+function errMsg(e) {
+  if (typeof e === 'string') return e;
+  if (e instanceof Error) return e.message;
+  try { return JSON.stringify(e); } catch (_) { return String(e); }
+}
+
+(function () {
+  if (!window.__TAURI__) {
     console.log('Not in Tauri - bridge disabled');
+    window.tauriBridgeReady = Promise.resolve();
     return;
   }
 
-  console.log('Initializing Tauri Bridge...');
+  // Log what Tauri exposed so we can diagnose missing modules
+  console.log('window.__TAURI__ keys:', Object.keys(window.__TAURI__));
 
-  const { readDir, readTextFile, writeTextFile, remove, createDir, exists } = await import('@tauri-apps/plugin-fs');
-  const { appDataDir, join } = await import('@tauri-apps/api/path');
-  const { open } = await import('@tauri-apps/plugin-dialog');
+  const fs     = window.__TAURI__.fs;
+  const path   = window.__TAURI__.path;
+  const dialog = window.__TAURI__.dialog;
+
+  if (!fs || !path) {
+    console.error(
+      'Tauri fs or path module missing from window.__TAURI__.',
+      'Available keys:', Object.keys(window.__TAURI__)
+    );
+    window.tauriBridgeReady = Promise.resolve();
+    return;
+  }
 
   let baseDir = null;
 
   async function getBaseDir() {
     if (!baseDir) {
-      const appDir = await appDataDir();
-      baseDir = await join(appDir, 'odyssey');
-      if (!(await exists(baseDir))) {
-        await createDir(baseDir, { recursive: true });
+      const appDir = await path.appDataDir();
+      baseDir = await path.join(appDir, 'odyssey');
+      if (!(await fs.exists(baseDir))) {
+        await fs.mkdir(baseDir, { recursive: true });
       }
     }
     return baseDir;
   }
 
-  async function ensureDir(path) {
-    if (!(await exists(path))) {
-      await createDir(path, { recursive: true });
+  async function ensureDir(p) {
+    if (!(await fs.exists(p))) {
+      await fs.mkdir(p, { recursive: true });
     }
   }
 
@@ -36,138 +55,243 @@
     async listPresets() {
       try {
         const base = await getBaseDir();
-        const presetsDir = await join(base, 'presets');
+        const presetsDir = await path.join(base, 'presets');
         await ensureDir(presetsDir);
-        const entries = await readDir(presetsDir);
+        const entries = await fs.readDir(presetsDir);
         const presets = [];
         for (const entry of entries) {
           if (entry.isFile && entry.name.endsWith('.json')) {
             try {
-              const content = await readTextFile(await join(presetsDir, entry.name));
+              const content = await fs.readTextFile(await path.join(presetsDir, entry.name));
               presets.push(JSON.parse(content));
-            } catch (e) {}
+            } catch (e) { console.warn('Failed to parse preset:', entry.name, e); }
           }
         }
         return presets;
-      } catch (e) { return []; }
+      } catch (e) { console.error('listPresets error:', e); return []; }
     },
 
     async savePreset(data) {
       try {
         const base = await getBaseDir();
-        const presetsDir = await join(base, 'presets');
+        const presetsDir = await path.join(base, 'presets');
         await ensureDir(presetsDir);
         const safeName = (data.presetName || 'unnamed').replace(/[^a-z0-9]/gi, '_').toLowerCase();
-        const filePath = await join(presetsDir, `${safeName}.json`);
-        await writeTextFile(filePath, JSON.stringify(data, null, 2));
+        const filePath = await path.join(presetsDir, `${safeName}.json`);
+        await fs.writeTextFile(filePath, JSON.stringify(data, null, 2));
         return { success: true, preset: safeName };
       } catch (e) {
-        return { success: false, error: e.message };
+        console.error('savePreset error:', e);
+        return { success: false, error: errMsg(e) };
       }
     },
 
     async deletePreset(name) {
       try {
         const base = await getBaseDir();
-        const presetsDir = await join(base, 'presets');
+        const presetsDir = await path.join(base, 'presets');
         const safeName = name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-        const filePath = await join(presetsDir, `${safeName}.json`);
-        if (await exists(filePath)) {
-          await remove(filePath);
+        const filePath = await path.join(presetsDir, `${safeName}.json`);
+        if (await fs.exists(filePath)) {
+          await fs.remove(filePath);
           return { success: true };
         }
         return { success: false, error: 'Not found' };
       } catch (e) {
-        return { success: false, error: e.message };
+        console.error('deletePreset error:', e);
+        return { success: false, error: errMsg(e) };
       }
     },
 
     async listGames() {
       try {
         const base = await getBaseDir();
-        const gamesDir = await join(base, 'games');
+        const gamesDir = await path.join(base, 'games');
         await ensureDir(gamesDir);
-        const entries = await readDir(gamesDir);
-        return entries.filter(e => e.isDir).map(e => e.name);
-      } catch (e) { return []; }
+        const entries = await fs.readDir(gamesDir);
+        return entries.filter(e => e.isDirectory).map(e => e.name);
+      } catch (e) { console.error('listGames error:', e); return []; }
     },
 
     async loadGame(id) {
       try {
         const base = await getBaseDir();
-        const gameDir = await join(base, 'games', String(id));
-        if (!(await exists(gameDir))) return {};
-        const files = await readDir(gameDir);
+        const gameDir = await path.join(base, 'games', String(id));
+        if (!(await fs.exists(gameDir))) return {};
+        const files = await fs.readDir(gameDir);
         const result = {};
         for (const file of files) {
           if (file.isFile && file.name.endsWith('.json')) {
-            const content = await readTextFile(await join(gameDir, file.name));
-            result[file.name] = JSON.parse(content);
+            try {
+              const content = await fs.readTextFile(await path.join(gameDir, file.name));
+              result[file.name] = JSON.parse(content);
+            } catch (e) { console.warn('Failed to read game file:', file.name, e); }
           }
         }
         return result;
-      } catch (e) { return {}; }
+      } catch (e) { console.error('loadGame error:', e); return {}; }
     },
 
     async saveNewGame(data) {
       try {
         const base = await getBaseDir();
-        const gamesDir = await join(base, 'games');
+        const gamesDir = await path.join(base, 'games');
         await ensureDir(gamesDir);
         let i = 1;
         let newGameDir;
         while (true) {
-          newGameDir = await join(gamesDir, String(i));
-          if (!(await exists(newGameDir))) break;
+          newGameDir = await path.join(gamesDir, String(i));
+          if (!(await fs.exists(newGameDir))) break;
           i++;
         }
-        await createDir(newGameDir);
-        if (data.worldInfo) await writeTextFile(await join(newGameDir, 'worldinfo.json'), JSON.stringify(data.worldInfo, null, 2));
-        if (data.playerInfo) await writeTextFile(await join(newGameDir, 'player.json'), JSON.stringify(data.playerInfo, null, 2));
-        if (data.gameState) await writeTextFile(await join(newGameDir, 'gamestate.json'), JSON.stringify(data.gameState, null, 2));
+        await fs.mkdir(newGameDir);
+        if (data.worldInfo)  await fs.writeTextFile(await path.join(newGameDir, 'worldinfo.json'),       JSON.stringify(data.worldInfo, null, 2));
+        if (data.playerInfo) await fs.writeTextFile(await path.join(newGameDir, 'player.json'),          JSON.stringify(data.playerInfo, null, 2));
+        if (data.gameState)  await fs.writeTextFile(await path.join(newGameDir, 'gamestate.json'),       JSON.stringify(data.gameState, null, 2));
         const scenario = { startingScenario: data.startingScenario || '', summary: data.summary || '' };
-        await writeTextFile(await join(newGameDir, 'scenario.json'), JSON.stringify(scenario, null, 2));
-        await writeTextFile(await join(newGameDir, 'locationsledger.json'), JSON.stringify({ locations: [] }, null, 2));
-        await writeTextFile(await join(newGameDir, 'npc-ledger.json'), JSON.stringify({ npcs: [] }, null, 2));
-        await writeTextFile(await join(newGameDir, 'mainoutput.json'), JSON.stringify({ time: {}, textoutput: "", inventory_changes: [], location_changes: [], npc_changes: [], stats: {} }, null, 2));
-        await writeTextFile(await join(newGameDir, 'chat_history.json'), JSON.stringify([], null, 2));
+        await fs.writeTextFile(await path.join(newGameDir, 'scenario.json'),        JSON.stringify(scenario, null, 2));
+        await fs.writeTextFile(await path.join(newGameDir, 'locationsledger.json'), JSON.stringify({ locations: [] }, null, 2));
+        await fs.writeTextFile(await path.join(newGameDir, 'npc-ledger.json'),      JSON.stringify({ npcs: [] }, null, 2));
+        await fs.writeTextFile(await path.join(newGameDir, 'mainoutput.json'),      JSON.stringify({ time: {}, textoutput: '', inventory_changes: [], location_changes: [], npc_changes: [], stats: {} }, null, 2));
+        await fs.writeTextFile(await path.join(newGameDir, 'chat_history.json'),    JSON.stringify([], null, 2));
         return { success: true, folder: i };
       } catch (e) {
-        return { success: false, error: e.message };
+        console.error('saveNewGame error:', e);
+        return { success: false, error: errMsg(e) };
       }
     },
 
     async deleteGame(id) {
       try {
         const base = await getBaseDir();
-        const gameDir = await join(base, 'games', String(id));
-        if (await exists(gameDir)) {
-          await remove(gameDir);
+        const gameDir = await path.join(base, 'games', String(id));
+        if (await fs.exists(gameDir)) {
+          await fs.remove(gameDir, { recursive: true });
           return { success: true };
         }
         return { success: false, error: 'Not found' };
       } catch (e) {
-        return { success: false, error: e.message };
+        console.error('deleteGame error:', e);
+        return { success: false, error: errMsg(e) };
+      }
+    },
+
+    async updateGame(data) {
+      try {
+        const base = await getBaseDir();
+        const gameDir = await path.join(base, 'games', String(data.id));
+        await ensureDir(gameDir);
+        if (data.gameState)   await fs.writeTextFile(await path.join(gameDir, 'gamestate.json'),    JSON.stringify(data.gameState, null, 2));
+        if (data.chatHistory) await fs.writeTextFile(await path.join(gameDir, 'chat_history.json'), JSON.stringify(data.chatHistory, null, 2));
+        if (data.summary !== undefined) {
+          const scenarioPath = await path.join(gameDir, 'scenario.json');
+          let scenario = {};
+          try { scenario = JSON.parse(await fs.readTextFile(scenarioPath)); } catch (e) {}
+          scenario.summary = data.summary;
+          await fs.writeTextFile(scenarioPath, JSON.stringify(scenario, null, 2));
+        }
+        if (data.npcLedger)       await fs.writeTextFile(await path.join(gameDir, 'npc-ledger.json'),      JSON.stringify(data.npcLedger, null, 2));
+        if (data.locationsLedger) await fs.writeTextFile(await path.join(gameDir, 'locationsledger.json'), JSON.stringify(data.locationsLedger, null, 2));
+        return { success: true };
+      } catch (e) {
+        console.error('updateGame error:', e);
+        return { success: false, error: errMsg(e) };
+      }
+    },
+
+    async downloadImage(id, url) {
+      try {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        const dataUri = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        const base = await getBaseDir();
+        const gameDir = await path.join(base, 'games', String(id));
+        await ensureDir(gameDir);
+        await fs.writeTextFile(await path.join(gameDir, 'base_image.json'), JSON.stringify({ dataUri }));
+        return { success: true };
+      } catch (e) {
+        console.error('downloadImage error:', e);
+        return { success: false, error: errMsg(e) };
+      }
+    },
+
+    async getBaseImage(id) {
+      try {
+        const base = await getBaseDir();
+        const filePath = await path.join(base, 'games', String(id), 'base_image.json');
+        if (!(await fs.exists(filePath))) return { dataUri: null };
+        const content = JSON.parse(await fs.readTextFile(filePath));
+        return { dataUri: content.dataUri || null };
+      } catch (e) { console.error('getBaseImage error:', e); return { dataUri: null }; }
+    },
+
+    async updateImage(id, url) {
+      try {
+        const base = await getBaseDir();
+        const gameDir = await path.join(base, 'games', String(id));
+        await ensureDir(gameDir);
+        await fs.writeTextFile(await path.join(gameDir, 'current_image.json'), JSON.stringify({ url }));
+        return { success: true };
+      } catch (e) {
+        console.error('updateImage error:', e);
+        return { success: false, error: errMsg(e) };
       }
     },
 
     async exportGame(id) {
       const data = await this.loadGame(id);
-      if (!data || Object.keys(data).length === 0) return { success: false };
+      if (!data || Object.keys(data).length === 0) return { success: false, error: 'No game data found' };
       try {
-        const savePath = await open({
+        if (!dialog) throw new Error('Dialog plugin not available');
+        const savePath = await dialog.save({
           title: 'Export Odyssey Save',
           defaultPath: `odyssey_save_${id}.json`,
           filters: [{ name: 'JSON', extensions: ['json'] }]
         });
         if (savePath) {
-          await writeTextFile(savePath, JSON.stringify({ ...data, _backupVersion: 1, id: String(id) }, null, 2));
+          await fs.writeTextFile(savePath, JSON.stringify({ ...data, _backupVersion: 1, id: String(id) }, null, 2));
           return { success: true };
         }
-      } catch (e) {}
-      return { success: false };
+        return { success: false, error: 'Cancelled' };
+      } catch (e) {
+        console.error('exportGame error:', e);
+        return { success: false, error: errMsg(e) };
+      }
+    },
+
+    // importGameData: caller reads the file via browser FileReader, passes parsed JSON here.
+    async importGameData(importData) {
+      try {
+        const base = await getBaseDir();
+        const gamesDir = await path.join(base, 'games');
+        await ensureDir(gamesDir);
+        let i = 1;
+        let newGameDir;
+        while (true) {
+          newGameDir = await path.join(gamesDir, String(i));
+          if (!(await fs.exists(newGameDir))) break;
+          i++;
+        }
+        await fs.mkdir(newGameDir);
+        const skipKeys = new Set(['_backupVersion', 'id']);
+        for (const [filename, fileData] of Object.entries(importData)) {
+          if (skipKeys.has(filename) || !filename.endsWith('.json')) continue;
+          await fs.writeTextFile(await path.join(newGameDir, filename), JSON.stringify(fileData, null, 2));
+        }
+        return { success: true, folder: i };
+      } catch (e) {
+        console.error('importGameData error:', e);
+        return { success: false, error: errMsg(e) };
+      }
     }
   };
 
+  // Synchronous init — resolve immediately.
+  window.tauriBridgeReady = Promise.resolve(window.tauriBridge);
   console.log('✅ Tauri Bridge ready - window.tauriBridge available');
-})().catch(console.error);
+}());

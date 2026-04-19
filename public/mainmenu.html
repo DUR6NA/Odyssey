@@ -8,16 +8,9 @@
     <link rel="icon" type="image/x-icon" href="assets/odyssey.ico">
     <script src="theme.js"></script>
     <script src="tauri-bridge.js"></script>
+    <script src="titlebar.js"></script>
+    <script src="menu-music.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const bgm = document.getElementById('bgm');
-            if (bgm) {
-                const vol = (parseFloat(localStorage.getItem('jsonAdventure_menuMusicVolume')) || 35) / 100;
-                bgm.volume = Math.max(0, Math.min(1, vol));
-                bgm.play().catch(() => { console.log('Music autoplay was prevented by browser'); });
-            }
-        });
-
         function startNewGame() {
             window.location.href = 'game.html?action=new';
         }
@@ -31,6 +24,9 @@
             list.innerHTML = '<p style="color:var(--text-muted);">Loading saves...</p>';
 
             try {
+                // Wait for the async Tauri bridge initialization to complete
+                await (window.tauriBridgeReady || Promise.resolve());
+
                 let games = [];
                 if (window.tauriBridge) {
                     games = await window.tauriBridge.listGames();
@@ -130,8 +126,11 @@
             }
         }
 
-        
-        function triggerImport() {
+
+        async function triggerImport() {
+            await (window.tauriBridgeReady || Promise.resolve());
+            // Use the browser's FileReader to read the file — no fs scope issues.
+            // Only the write step goes through the Tauri bridge (writing to app data dir).
             const input = document.createElement('input');
             input.type = 'file';
             input.accept = '.json';
@@ -141,20 +140,30 @@
                 const reader = new FileReader();
                 reader.onload = async (event) => {
                     try {
-                        const content = event.target.result;
-                        const res = await fetch('/api/import-game', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: content
-                        });
-                        if (res.ok) {
-                            loadGameMenu();
-                            alert('Save imported successfully!');
+                        const importData = JSON.parse(event.target.result);
+                        if (window.tauriBridge) {
+                            const result = await window.tauriBridge.importGameData(importData);
+                            if (result.success) {
+                                loadGameMenu();
+                                alert('Save imported successfully!');
+                            } else {
+                                alert('Failed to import save: ' + (result.error || 'unknown error'));
+                            }
                         } else {
-                            alert('Failed to import save.');
+                            const res = await fetch('/api/import-game', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(importData)
+                            });
+                            if (res.ok) {
+                                loadGameMenu();
+                                alert('Save imported successfully!');
+                            } else {
+                                alert('Failed to import save.');
+                            }
                         }
                     } catch (err) {
-                        alert('Error importing save.');
+                        alert('Error importing save: ' + err.message);
                     }
                 };
                 reader.readAsText(file);
@@ -462,9 +471,7 @@
             width: 100%;
         }
 
-        .save-list::-webkit-scrollbar { width: 4px; }
-        .save-list::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 2px; }
-        .save-list::-webkit-scrollbar-track { background: transparent; }
+        /* .save-list scrollbar inherits from global scrollbar in style.css */
 
         .back-btn {
             font-size: 1.2rem;
@@ -508,17 +515,10 @@
         });
     </script>
     <meta name="description" content="Odyssey - A text-based AI adventure game">
-    <meta property="og:title" content="Odyssey">
-    <meta property="og:description" content="A text-based AI adventure game">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="http://localhost:3000/">
-    <meta property="og:image" content="http://localhost:3000/assets/favicon.ico">
     <meta name="theme-color" content="#121212">
 </head>
 
 <body>
-
-    <audio id="bgm" src="assets/menu-music.mp3" autoplay loop preload="auto"></audio>
 
     <div class="background-container">
         <div class="stars"></div>

@@ -1,6 +1,6 @@
 [package]
 name = "odyssey"
-version = "0.1.0"
+version = "0.5.1"
 description = "Odyssey Tauri App"
 authors = ["Dur6na"]
 license = "AGPL-3.0"
@@ -23,3 +23,4 @@ tauri-plugin-log = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-shell = "2"
+rodio = { version = "0.20", default-features = false, features = ["symphonia-mp3"] }

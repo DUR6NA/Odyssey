@@ -212,47 +212,63 @@ body {
 }
 
 /* ================================== */
-/* GLOBAL CUSTOM SCROLLBAR            */
+/* GLOBAL SCROLLBAR                   */
+/* Minimalist, theme-aware pill thumb */
 /* ================================== */
-*::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+
+/* Firefox */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--text-muted, #888) 45%, transparent) transparent;
 }
 
-*::-webkit-scrollbar-track {
+/* WebKit / Blink (Chromium, Safari, Tauri WebView) */
+*::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
     background: transparent;
-    border-radius: 10px;
+}
+
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-track-piece {
+    background: transparent;
+    border: none;
 }
 
 *::-webkit-scrollbar-thumb {
-    background: var(--border-color);
-    border-radius: 10px;
+    background-color: color-mix(in srgb, var(--text-muted, #888) 40%, transparent);
     border: 2px solid transparent;
+    border-radius: 999px;
     background-clip: content-box;
-    transition: background 0.2s;
+    min-height: 40px;
+    transition: background-color 0.2s ease;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-    background: var(--text-muted);
-    border: 2px solid transparent;
+    background-color: color-mix(in srgb, var(--text-muted, #888) 70%, transparent);
     background-clip: content-box;
 }
 
-*::-webkit-scrollbar-corner {
-    background: transparent;
+*::-webkit-scrollbar-thumb:active {
+    background-color: var(--text-muted, #888);
+    background-clip: content-box;
 }
 
-/* Firefox scrollbar */
-* {
-    scrollbar-width: thin;
-    scrollbar-color: var(--border-color) transparent;
+*::-webkit-scrollbar-corner,
+*::-webkit-scrollbar-button {
+    background: transparent;
+    display: none;
+    width: 0;
+    height: 0;
 }
 
 /* Update Layout for 3 columns */
 .app-container {
     display: flex;
     flex-direction: column;
-    height: 100vh;
+    /* Subtract the custom titlebar height (falls back to 0 when titlebar.js
+       isn't loaded, e.g. in a plain web preview). */
+    height: calc(100vh - var(--odyssey-titlebar-height, 0px));
 }
 
 .compact-title {
@@ -597,7 +613,7 @@ p {
 /* Settings Page Layout */
 .settings-layout {
     display: flex;
-    min-height: 100vh;
+    min-height: calc(100vh - var(--odyssey-titlebar-height, 0px));
 }
 
 .sidebar {
@@ -818,12 +834,13 @@ textarea:focus {
     top: calc(100% + 4px);
     left: 0;
     right: 0;
-    background-color: var(--input-bg, var(--bg-main));
+    background-color: var(--bg-main, #1a1a1a);
+    background-image: linear-gradient(var(--bg-main, #1a1a1a), var(--bg-main, #1a1a1a));
     border: 1px solid var(--border-color);
     border-radius: 10px;
-    max-height: 280px;
+    max-height: 380px;
     z-index: 9999;
-    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.04);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(0, 0, 0, 0.4), 0 0 0 2px rgba(255, 255, 255, 0.04);
     opacity: 0;
     transform: translateY(-6px) scale(0.98);
     pointer-events: none;
@@ -832,6 +849,7 @@ textarea:focus {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    backdrop-filter: blur(0);
 }
 
 .custom-select-wrapper.open .custom-select-dropdown {
@@ -843,7 +861,7 @@ textarea:focus {
 .custom-select-search {
     flex-shrink: 0;
     padding: 6px;
-    background-color: var(--input-bg, var(--bg-main));
+    background-color: var(--bg-main, #1a1a1a);
     z-index: 1;
 }
 
@@ -891,9 +909,10 @@ textarea:focus {
     font-size: 0.95em;
     color: var(--input-text, var(--text-main));
     transition: background-color 0.12s ease, color 0.12s ease;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    line-height: 1.35;
 }
 
 .custom-select-option:hover {
@@ -2119,4 +2138,128 @@ html[data-theme="bliss"] .custom-select-trigger {
 
 html[data-theme="bliss"] .main-title {
     text-shadow: 0 4px 15px rgba(255, 255, 255, 0.6), 0 2px 5px rgba(0, 100, 200, 0.4);
+}
+/* ================================== */
+/* TTS Voice Mixer                    */
+/* ================================== */
+
+.tts-mixer-bar {
+    display: flex;
+    height: 40px;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    margin-bottom: 16px;
+    border: 1px solid var(--border-color);
+}
+
+.tts-mixer-bar-seg {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    transition: width 0.2s ease;
+    min-width: 0;
+}
+
+.tts-mixer-bar-seg span {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+    white-space: nowrap;
+    overflow: hidden;
+    padding: 0 4px;
+}
+
+.tts-mixer-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.tts-mixer-row:last-child {
+    border-bottom: none;
+}
+
+.tts-mixer-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.tts-mixer-name {
+    flex: 1;
+    font-size: 0.95rem;
+    color: var(--text-heading);
+    font-family: monospace;
+}
+
+.tts-mixer-weight {
+    width: 64px !important;
+    padding: 4px 6px !important;
+    text-align: center;
+}
+
+.tts-mixer-pct {
+    font-size: 0.85rem;
+    width: 12px;
+}
+
+.tts-mixer-remove {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    border-radius: var(--radius-sm);
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: background 0.15s, color 0.15s;
+}
+
+.tts-mixer-remove:hover {
+    background: #dc3545;
+    border-color: #dc3545;
+    color: #fff;
+}
+
+.tts-voice-search-wrap {
+    position: relative;
+    display: inline-block;
+}
+
+.tts-voice-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 999;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    max-height: 220px;
+    overflow-y: auto;
+    width: 300px;
+}
+
+.tts-voice-option {
+    padding: 8px 14px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-family: monospace;
+    color: var(--text-body);
+    transition: background 0.1s;
+}
+
+.tts-voice-option:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-heading);
 }
