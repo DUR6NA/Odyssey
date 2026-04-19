@@ -136,7 +136,7 @@ Odyssey ships with five visual themes selectable from **Settings &rarr; Appearan
 
 A short demo of switching between themes live:
 
-https://github.com/DUR6NA/Odyssey/raw/main/readme%20images/theme%20demo%20video.mp4
+<video src="https://github.com/DUR6NA/Odyssey/raw/main/readme%20images/theme%20demo%20video.mp4" controls muted width="700"></video>
 
 ---
 
