@@ -45,8 +45,7 @@ After installing, launch Odyssey and follow the in-app welcome screen to configu
 
 - **Universal AI backend** — Works with any OpenAI-compatible API: OpenAI, Google Gemini (via compatibility endpoint), xAI, OpenRouter, Ollama, LM Studio, or any self-hosted endpoint. Requests go directly from the app to the provider; nothing is routed through a middleman.
 - **Guided setup wizard** — A five-step flow (World &rarr; Player &rarr; Scenario &rarr; Player Image &rarr; Summary) gets you into a new campaign in minutes.
-- **Real or custom universes** — Start your adventure in the real world with any date you choose, or build a fully custom universe with its own settings, magic systems, and factions.
-- **Built-in universe presets with Fandom RAG** — Harry Potter, Star Wars, Narnia, Lord of the Rings, and A Song of Ice and Fire. The engine retrieves passages from the corresponding Fandom wiki to keep the AI's output canon-accurate.
+- **Real or custom universes** — Start your adventure in the real world with any date you choose, or choose from a list of pre-made universes.
 - **Character presets** — Save reusable characters (stats, appearance, personality, gear) and load them into any new campaign.
 - **AI-generated portraits** — Character and scene artwork generated on demand from detailed, editable prompts.
 - **Live game state** — Health, Money, Hunger, Thirst, and Energy are tracked every turn and surfaced in the sidebar.
