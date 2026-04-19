@@ -19,50 +19,74 @@ let PLAYER_PRESETS = [];
 function formatErrorForUser(err) {
     if (!err || !err.message) return "An unknown error occurred.";
     const msg = err.message;
+    if (msg.includes('status 400')) {
+        // Most common cause for local OpenAI-compatible / LM Studio backends is a model that
+        // does not support structured outputs (response_format). Surface a helpful hint.
+        if (msg.toLowerCase().includes('response_format') || msg.toLowerCase().includes('json_schema') || msg.toLowerCase().includes('grammar') || msg.toLowerCase().includes('structured')) {
+            return "The selected local model does not support structured JSON outputs. Try a different model in LM Studio (e.g. a recent Llama/Qwen/Mistral instruct model), or verify your LM Studio version is up to date. Full error: " + msg;
+        }
+        return "The AI provider rejected the request (400). This usually means the model does not support structured outputs or one of the parameters is not allowed. Full error: " + msg;
+    }
     if (msg.includes('status 401')) return "It looks like your API key is missing or invalid. Please check your Settings.";
+    if (msg.includes('status 404')) return "Endpoint not found (404). For LM Studio use base http://localhost:1234/v1 (calls /v1/chat/completions). Native REST uses /api/v1/chat.";
     if (msg.includes('status 429')) return "You've hit a rate limit. Please wait a moment and try again.";
     if (msg.includes('status 500')) return "The AI provider is currently experiencing issues. Please try again later.";
     if (msg.includes('status 502') || msg.includes('status 503')) return "The AI service is unavailable right now.";
-    if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) return "Network error: Unable to reach the AI provider. Are you offline?";
+    if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('Unexpected endpoint')) return "Network/endpoint error. LM Studio: set Base URL to http://localhost:1234/v1 for OpenAI compat (/v1/chat/completions). Check server is running.";
     return msg;
 }
 
+
+// Build request headers; omit Authorization entirely when no API key is set.
+// Some OpenAI-compatible local servers (llama.cpp-server, LiteLLM proxies, LM Studio
+// with auth enabled, etc.) return 401 when they see a malformed empty Bearer token,
+// so an empty header is worse than no header.
+function buildAuthHeaders(apiKey) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (apiKey && String(apiKey).trim()) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+    }
+    return headers;
+}
 
 function buildFetchPayload(model, messages, temp, maxTokens, topP, presPen, freqPen, provider, jsonSchema = null) {
     const payload = { model: model, messages: messages, temperature: temp, max_tokens: maxTokens, top_p: topP };
     if (presPen !== 0 && provider !== 'xai') payload.presence_penalty = presPen;
     if (freqPen !== 0 && provider !== 'xai') payload.frequency_penalty = freqPen;
 
-    if (jsonSchema && typeof jsonSchema === 'object') {
+    // LM Studio specific vs generic OpenAI-compatible (separate branches)
+    if (provider === 'lmstudio') {
+        // LM Studio specific: always uses json_schema on OpenAI compat endpoint
+        const schema = jsonSchema && typeof jsonSchema === 'object' ? jsonSchema : {
+            type: "object",
+            properties: { content: { type: "string" } },
+            required: ["content"],
+            additionalProperties: false
+        };
+        payload.response_format = {
+            type: 'json_schema',
+            json_schema: {
+                name: "response",
+                schema: schema
+            }
+        };
+    } else if (provider === 'openai') {
+        // Generic OpenAI-compatible servers
+        if (jsonSchema && typeof jsonSchema === 'object') {
+            payload.response_format = { type: 'json_object' };
+        }
+        // otherwise no response_format (relies on prompt)
+    } else if (jsonSchema && typeof jsonSchema === 'object') {
+        // Other providers (e.g. OpenRouter)
         const schemaName = jsonSchema.properties && jsonSchema.properties.textoutput ? "game_turn" : "structured_response";
-        if (provider === 'openai') {
-            // Generic OpenAI-compatible servers often don't support json_schema — use json_object for broad compatibility
-            payload.response_format = { type: 'json_object' };
-        } else {
-            payload.response_format = {
-                type: 'json_schema',
-                json_schema: {
-                    name: schemaName,
-                    // strict: true is only reliable on actual OpenAI API; local servers (LM Studio etc) work better without it
-                    strict: provider !== 'lmstudio',
-                    schema: jsonSchema
-                }
-            };
-        }
-    } else if (jsonSchema !== false) {
-        if (provider === 'lmstudio') {
-            // LM Studio rejects json_object — use json_schema with a simple string result fallback
-            payload.response_format = {
-                type: 'json_schema',
-                json_schema: {
-                    name: "json_response",
-                    strict: true,
-                    schema: { type: "object", properties: { result: { type: "string" } }, required: ["result"], additionalProperties: false }
-                }
-            };
-        } else {
-            payload.response_format = { type: 'json_object' };
-        }
+        payload.response_format = {
+            type: 'json_schema',
+            json_schema: {
+                name: schemaName,
+                strict: true,
+                schema: jsonSchema
+            }
+        };
     }
 
     return JSON.stringify(payload);
@@ -1059,7 +1083,7 @@ The value of "result" must be ${expectedFormatStr}.`;
 
         const response = await fetch(fetchUrl, {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${apiKey || ''}`, 'Content-Type': 'application/json' },
+            headers: buildAuthHeaders(apiKey),
             body: buildFetchPayload(model, [
                 { role: 'system', content: instructions },
                 { role: 'user', content: `Please auto-generate the '${fieldInfo.id}' field.` }
@@ -1341,10 +1365,7 @@ The JSON object must have exactly one key named "result", and its value must be 
 
         const response = await fetch(fetchUrl, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${apiKey || ''}`,
-                'Content-Type': 'application/json'
-            },
+            headers: buildAuthHeaders(apiKey),
             body: buildFetchPayload(model, [
                 { role: 'system', content: promptInstructions },
                 { role: 'user', content: `User input: ${userInputValue}` }
@@ -1583,15 +1604,12 @@ CRITICAL RULES:
     } else if (provider === 'googleai') {
         fetchUrl = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
     } else if (provider === 'lmstudio' || provider === 'openai') {
-        fetchUrl = baseUrl.endsWith('/') ? `${baseUrl}chat/completions` : `${baseUrl}/chat/completions`;
+        fetchUrl = getChatCompletionsUrl(provider, baseUrl);
     }
 
     const res = await fetch(fetchUrl, {
         method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${apiKey || ''}`,
-            'Content-Type': 'application/json'
-        },
+        headers: buildAuthHeaders(apiKey),
         body: buildFetchPayload(model, [{ role: 'user', content: promptText }], 0.8, 600, 1.0, 0, 0, provider, false)
     });
     if (!res.ok) {
@@ -1660,15 +1678,21 @@ async function performImageGeneration(promptText, aspect_ratio = "2:3", baseImag
             prompt: promptText
         };
 
-        if (provider === 'lmstudio' || provider === 'openai') {
+        if (provider === 'lmstudio') {
+            // LM Studio does not currently serve /v1/images/generations for any model.
+            // Fail fast with a clear message so the user can switch to a separate image provider.
+            throw new Error("LM Studio does not support image generation. Enable 'Use a separate provider for images' in Settings and pick an image-capable provider (OpenRouter, xAI, Google AI).");
+        }
+
+        if (provider === 'openai') {
             payload.size = "1024x1024";
             fetchUrl = baseUrl.endsWith('/') ? `${baseUrl}images/generations` : `${baseUrl}/images/generations`;
         }
     }
 
     let reqHeaders = { 'Content-Type': 'application/json' };
-    if (provider !== 'googleai') {
-        reqHeaders['Authorization'] = `Bearer ${apiKey || ''}`;
+    if (provider !== 'googleai' && apiKey && String(apiKey).trim()) {
+        reqHeaders['Authorization'] = `Bearer ${apiKey}`;
     }
 
     const res = await fetch(fetchUrl, {
@@ -1863,10 +1887,7 @@ CRITICAL: Output ONLY a valid JSON object with one key "summary" containing the 
 
         const response = await fetch(fetchUrl, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${apiKey || ''}`,
-                'Content-Type': 'application/json'
-            },
+            headers: buildAuthHeaders(apiKey),
             body: buildFetchPayload(model, [
                 { role: 'system', content: summaryPrompt },
                 { role: 'user', content: 'Generate the adventure summary now.' }
@@ -2190,10 +2211,7 @@ async function launchGame(summaryText, allData) {
 
         const response = await fetch(fetchUrl, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${apiKey || ''}`,
-                'Content-Type': 'application/json'
-            },
+            headers: buildAuthHeaders(apiKey),
             body: buildFetchPayload(model, [
                 { role: 'system', content: gamePrompt },
                 { role: 'user', content: `Begin the adventure. Here is the opening scenario:\n\n${allData.startingScenario}\n\nNarrate this opening scene immersively and then present the player with their first choice or opportunity to act.` }
@@ -2526,10 +2544,7 @@ CRITICAL: Output ONLY a JSON object:
 
         const response = await fetch(fetchUrl, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${apiKey || ''}`,
-                'Content-Type': 'application/json'
-            },
+            headers: buildAuthHeaders(apiKey),
             body: buildFetchPayload(model, [
                 { role: 'system', content: promptInstructions }
             ], 0.1, 512, 1.0, 0, 0, provider,
@@ -2636,7 +2651,7 @@ CRITICAL: Output ONLY valid JSON:
 
         const response = await fetch(fetchUrl, {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${apiKey || ''}`, 'Content-Type': 'application/json' },
+            headers: buildAuthHeaders(apiKey),
             body: buildFetchPayload(model, [{ role: 'system', content: promptInstructions }], 0.1, 150, 1.0, 0, 0, provider,
                 provider === 'lmstudio' || provider === 'openai'
                     ? { type: "object", properties: { needs_search: { type: "boolean" }, search_query: { type: "string" } }, required: ["needs_search", "search_query"], additionalProperties: false }
@@ -2704,7 +2719,7 @@ CRITICAL: Output ONLY valid JSON:
 
         const response = await fetch(fetchUrl, {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${apiKey || ''}`, 'Content-Type': 'application/json' },
+            headers: buildAuthHeaders(apiKey),
             body: buildFetchPayload(model, [{ role: 'system', content: promptInstructions }], 0.1, 150, 1.0, 0, 0, provider,
                 provider === 'lmstudio' || provider === 'openai'
                     ? { type: "object", properties: { needs_search: { type: "boolean" }, search_query: { type: "string" } }, required: ["needs_search", "search_query"], additionalProperties: false }
@@ -2843,10 +2858,7 @@ async function sendChatMessage() {
 
         const response = await fetch(fetchUrl, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${apiKey || ''}`,
-                'Content-Type': 'application/json'
-            },
+            headers: buildAuthHeaders(apiKey),
             body: buildFetchPayload(model, window.chatHistory, temp, maxTokens, topP, presPen, freqPen, provider, gameOutputSchema)
         });
 
@@ -2966,10 +2978,7 @@ async function regenerateLastAI() {
 
         const response = await fetch(fetchUrl, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${apiKey || ''}`,
-                'Content-Type': 'application/json'
-            },
+            headers: buildAuthHeaders(apiKey),
             body: buildFetchPayload(model, window.chatHistory, temp, maxTokens, topP, presPen, freqPen, provider, gameOutputSchema)
         });
 
@@ -3064,10 +3073,7 @@ Output ONLY the new merged narrative summary. Do not include introductory text l
 
         const response = await fetch(fetchUrl, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${apiKey || ''}`,
-                'Content-Type': 'application/json'
-            },
+            headers: buildAuthHeaders(apiKey),
             body: buildFetchPayload(model, [
                 { role: 'user', content: summarizePrompt }
             ], 0.3, 1000, 1.0, 0, 0, provider, null)

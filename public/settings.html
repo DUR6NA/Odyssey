@@ -72,8 +72,9 @@
 
                     <div class="control-group mt-md" id="base-url-group" style="display: none;">
                         <label>Base URL:</label>
-                        <input type="text" id="api-base-url" placeholder="https://api.openai.com/v1"
+                        <input type="text" id="api-base-url" placeholder="http://localhost:1234/v1"
                             class="input-md" onchange="saveApiSettings()">
+                        <span class="hint-text">LM Studio: use http://localhost:1234/v1 (OpenAI compat: /v1/chat/completions). Native REST is /api/v1/chat (different payload).</span>
                     </div>
 
                     <div class="control-group mt-md">
@@ -149,8 +150,9 @@
 
                         <div class="control-group mt-md" id="image-base-url-group" style="display: none;">
                             <label>Image Base URL:</label>
-                            <input type="text" id="image-api-base-url" placeholder="https://api.openai.com/v1"
+                            <input type="text" id="image-api-base-url" placeholder="http://localhost:1234/v1"
                                 class="input-md" onchange="saveApiSettings()">
+                            <span class="hint-text">LM Studio: http://localhost:1234/v1 (OpenAI compat endpoint /v1/chat/completions). Note: image gen not supported by LM Studio.</span>
                         </div>
 
                         <div class="control-group mt-md">

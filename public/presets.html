@@ -1063,16 +1063,37 @@
         }
 
         // --- AI Fetching Logic ---
+        function buildAuthHeaders(apiKey) {
+            const headers = { 'Content-Type': 'application/json' };
+            if (apiKey && String(apiKey).trim()) headers['Authorization'] = `Bearer ${apiKey}`;
+            return headers;
+        }
+
         function buildFetchPayload(model, messages, temp, maxTokens, topP, presPen, freqPen, provider, jsonSchema = null) {
             const payload = { model: model, messages: messages, temperature: temp, max_tokens: maxTokens, top_p: topP };
             if (provider !== 'anthropic' && provider !== 'xai') {
                 payload.presence_penalty = presPen;
                 payload.frequency_penalty = freqPen;
             }
-            if (provider === 'lmstudio' && jsonSchema) {
-                payload.response_format = { type: "json_schema", json_schema: { name: "structured_output", strict: true, schema: jsonSchema } };
+            // Separate handling: LM Studio vs generic OpenAI-compatible
+            if (provider === 'lmstudio') {
+                // LM Studio specific: always json_schema on OpenAI compat endpoint
+                const schema = jsonSchema || {
+                    type: "object",
+                    properties: { content: { type: "string" } },
+                    required: ["content"],
+                    additionalProperties: false
+                };
+                payload.response_format = {
+                    type: 'json_schema',
+                    json_schema: { name: "response", schema: schema }
+                };
+            } else if (provider === 'openai') {
+                if (jsonSchema) {
+                    payload.response_format = { type: 'json_object' };
+                }
             } else if (provider !== 'anthropic' && provider !== 'xai') {
-                payload.response_format = { type: "json_object" };
+                payload.response_format = { type: 'json_object' };
             }
             return JSON.stringify(payload);
         }
@@ -1098,10 +1119,7 @@
 
             const response = await fetch(fetchUrl, {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${apiKey || 'dummy'}`,
-                    'Content-Type': 'application/json'
-                },
+                headers: buildAuthHeaders(apiKey),
                 body: buildFetchPayload(model, messages, 0.7, 2048, 1.0, 0, 0, provider, provider === 'lmstudio' ? schema : null)
             });
 
