@@ -101,6 +101,13 @@
                         </select>
                     </div>
 
+                    <div class="control-group mt-md">
+                        <label>Manual Model ID:</label>
+                        <input type="text" id="manual-model-id" placeholder="e.g. openai/gpt-oss-20b"
+                            class="input-md" oninput="saveApiSettings()">
+                        <span class="hint-text">Optional. Use this when your provider requires a model ID but does not expose a compatible <code>/models</code> endpoint.</span>
+                    </div>
+
                     <hr class="divider">
                     <h3>Image Generation Settings</h3>
 
@@ -561,10 +568,19 @@
             }
         }
 
+        function usesChatProbeConnectionTest(provider, baseUrl) {
+            try {
+                return provider === 'openai' && new URL(baseUrl).hostname === 'integrate.api.nvidia.com';
+            } catch (e) {
+                return false;
+            }
+        }
+
         async function testConnection() {
             const provider = document.getElementById('api-provider-select').value;
             const baseUrl = document.getElementById('api-base-url').value.trim();
             const apiKey = document.getElementById('openrouter-api-key').value.trim();
+            const manualModel = document.getElementById('manual-model-id').value.trim();
             const statusEl = document.getElementById('test-connection-status');
             
             if (!apiKey && provider !== 'openai' && provider !== 'lmstudio') {
@@ -590,6 +606,37 @@
                 if (!baseUrl) {
                     statusEl.innerHTML = "❌ Please enter a Base URL.";
                     statusEl.style.color = "#dc3545";
+                    return;
+                }
+                if (usesChatProbeConnectionTest(provider, baseUrl)) {
+                    if (!manualModel) {
+                        statusEl.innerHTML = "âŒ Enter a manual model ID first.";
+                        statusEl.style.color = "#dc3545";
+                        return;
+                    }
+
+                    const probeUrl = baseUrl.endsWith('/') ? `${baseUrl}chat/completions` : `${baseUrl}/chat/completions`;
+                    const probeResponse = await fetch(probeUrl, {
+                        method: "POST",
+                        headers: headers,
+                        body: JSON.stringify({
+                            model: manualModel,
+                            messages: [{ role: "user", content: "Reply with OK" }],
+                            max_tokens: 8,
+                            temperature: 0
+                        })
+                    });
+
+                    let probeErrorDetails = "";
+                    if (!probeResponse.ok) {
+                        try {
+                            probeErrorDetails = await probeResponse.text();
+                        } catch (e) {}
+                        throw new Error(`HTTP ${probeResponse.status}` + (probeErrorDetails ? ` - ${probeErrorDetails}` : ''));
+                    }
+
+                    statusEl.innerHTML = "âœ… Connection successful!";
+                    statusEl.style.color = "#28a745";
                     return;
                 }
                 testUrl = baseUrl.endsWith('/') ? `${baseUrl}models` : `${baseUrl}/models`;
@@ -752,6 +799,11 @@
                 apiKeyInput.value = specificKey || '';
             }
 
+            const manualModelInput = document.getElementById('manual-model-id');
+            if (manualModelInput) {
+                manualModelInput.value = localStorage.getItem('jsonAdventure_manualModel_' + provider) || '';
+            }
+
             // Update models dropdown for this provider
             const selectEl = document.getElementById('openrouter-model-select');
             if (selectEl) {
@@ -860,6 +912,8 @@
             const baseUrl = document.getElementById('api-base-url').value.trim();
             const apiKey = document.getElementById('openrouter-api-key').value.trim();
             const selectedModel = document.getElementById('openrouter-model-select').value;
+            const manualModel = document.getElementById('manual-model-id').value.trim();
+            const effectiveModel = manualModel || selectedModel;
 
             // Get model settings values
             const temperature = document.getElementById('api-temperature').value;
@@ -884,9 +938,10 @@
             localStorage.setItem('jsonAdventure_apiBaseUrl', normalizedBaseUrl);
             localStorage.setItem('jsonAdventure_openRouterApiKey', apiKey);
             localStorage.setItem('jsonAdventure_apiKey_' + provider, apiKey);
-            if (selectedModel) {
-                localStorage.setItem('jsonAdventure_openRouterModel', selectedModel);
-                localStorage.setItem('jsonAdventure_savedModel_' + provider, selectedModel);
+            localStorage.setItem('jsonAdventure_manualModel_' + provider, manualModel);
+            if (effectiveModel) {
+                localStorage.setItem('jsonAdventure_openRouterModel', effectiveModel);
+                localStorage.setItem('jsonAdventure_savedModel_' + provider, effectiveModel);
             }
 
             // Save model settings
@@ -939,6 +994,9 @@
             const apiKey = useSeparateImage
                 ? document.getElementById('image-api-key').value.trim()
                 : document.getElementById('openrouter-api-key').value.trim();
+            const manualModel = !useSeparateImage && fetchType === 'text'
+                ? document.getElementById('manual-model-id').value.trim()
+                : '';
             const statusEl = fetchType === 'image'
                 ? document.getElementById('image-model-fetch-status')
                 : document.getElementById('model-fetch-status');
@@ -977,6 +1035,20 @@
                 if (!baseUrl) {
                     statusEl.textContent = "Please enter a Base URL.";
                     statusEl.style.color = "#dc3545";
+                    return;
+                }
+                if (fetchType === 'text' && usesChatProbeConnectionTest(provider, baseUrl)) {
+                    const fallbackModels = {};
+                    const savedModel = manualModel || localStorage.getItem('jsonAdventure_savedModel_' + provider) || '';
+                    if (savedModel) {
+                        fallbackModels["Manual"] = [{ id: savedModel, name: savedModel }];
+                        populateModelSelect(fallbackModels, savedModel);
+                        statusEl.textContent = "Using the manual model ID.";
+                        statusEl.style.color = "#28a745";
+                    } else {
+                        statusEl.textContent = "This endpoint does not provide a compatible /models list. Enter a manual model ID and save.";
+                        statusEl.style.color = "#dc3545";
+                    }
                     return;
                 }
                 fetchUrl = baseUrl.endsWith('/') ? `${baseUrl}models` : `${baseUrl}/models`;

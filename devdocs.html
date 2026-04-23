@@ -3,830 +3,978 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Odyssey — Developer Documentation</title>
-        <link rel="icon" type="image/x-icon" href="public/assets/odyssey.ico">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <title>Odyssey - Developer Documentation</title>
+    <meta name="description" content="Developer documentation for Odyssey's Tauri-based desktop architecture.">
+    <link rel="icon" type="image/x-icon" href="public/assets/odyssey.ico">
+    <link rel="stylesheet" href="public/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Merriweather:wght@300;400;700&display=swap" rel="stylesheet">
     <style>
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
         :root {
-            --bg-base: #0a0a0f;
-            --bg-surface: #12121a;
-            --bg-elevated: #1a1a26;
-            --bg-code: #0d0d14;
-            --text-primary: #e4e4ed;
-            --text-secondary: #8b8ba0;
-            --text-muted: #5c5c72;
-            --accent: #6366f1;
-            --accent-glow: rgba(99, 102, 241, 0.15);
-            --accent-hover: #818cf8;
-            --border: rgba(255, 255, 255, 0.06);
-            --border-accent: rgba(99, 102, 241, 0.3);
-            --green: #34d399;
-            --yellow: #fbbf24;
-            --red: #f87171;
-            --blue: #60a5fa;
-            --purple: #a78bfa;
-            --radius: 12px;
-            --sidebar-width: 280px;
+            color-scheme: dark;
+            --bg-main: #000000;
+            --bg-secondary: rgba(15, 15, 15, 0.6);
+            --bg-tertiary: rgba(10, 10, 10, 0.7);
+            --text-main: #a1a1aa;
+            --text-heading: #ffffff;
+            --text-muted: #71717a;
+            --accent-color: #ffffff;
+            --accent-hover: #e2e8f0;
+            --accent-active: #d1d5db;
+            --border-color: rgba(255, 255, 255, 0.08);
+            --font-primary: "Cinzel", serif;
+            --font-secondary: "Merriweather", serif;
+            --docs-sidebar-width: 290px;
+            --docs-content-width: 980px;
+            --docs-surface-strong: rgba(8, 8, 10, 0.92);
+            --docs-surface: rgba(17, 24, 44, 0.58);
+            --docs-surface-soft: rgba(0, 0, 0, 0.34);
+            --docs-border: rgba(255, 255, 255, 0.08);
+            --docs-border-strong: rgba(255, 255, 255, 0.14);
+            --docs-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+            --docs-code-bg: rgba(0, 0, 0, 0.42);
+            --docs-accent-soft: rgba(255, 255, 255, 0.08);
+            --docs-success: #7ddc87;
+            --docs-warning: #f2c66b;
+            --docs-danger: #ff8d8d;
+            --docs-info: #9dc4ff;
         }
 
-        html { scroll-behavior: smooth; }
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
 
         body {
-            font-family: 'Inter', -apple-system, sans-serif;
-            background: var(--bg-base);
-            color: var(--text-primary);
-            line-height: 1.7;
+            margin: 0;
+            min-height: 100vh;
+            overflow-x: hidden;
+            background:
+                radial-gradient(circle at top, rgba(255, 255, 255, 0.06), transparent 30%),
+                linear-gradient(180deg, rgba(2, 4, 10, 0.96), rgba(0, 0, 0, 1));
+            color: var(--text-main, #a1a1aa);
+            font-family: var(--font-secondary, "Merriweather", serif);
+        }
+
+        a {
+            color: var(--text-heading, #ffffff);
+        }
+
+        .docs-layout {
+            display: flex;
             min-height: 100vh;
         }
 
-        /* Scrollbar — minimalist pill, theme-aware */
-        * { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--text-secondary) 50%, transparent) transparent; }
-        ::-webkit-scrollbar { width: 10px; height: 10px; background: transparent; }
-        ::-webkit-scrollbar-track, ::-webkit-scrollbar-track-piece { background: transparent; }
-        ::-webkit-scrollbar-thumb {
-            background-color: color-mix(in srgb, var(--text-secondary) 40%, transparent);
-            border: 2px solid transparent;
-            border-radius: 999px;
-            background-clip: content-box;
-            min-height: 40px;
-            transition: background-color 0.2s ease;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background-color: color-mix(in srgb, var(--text-secondary) 75%, transparent);
-            background-clip: content-box;
-        }
-        ::-webkit-scrollbar-thumb:active { background-color: var(--text-secondary); background-clip: content-box; }
-        ::-webkit-scrollbar-corner, ::-webkit-scrollbar-button { background: transparent; display: none; width: 0; height: 0; }
-
-        /* Layout */
-        .docs-layout { display: flex; min-height: 100vh; }
-
-        /* Sidebar */
-        .sidebar {
-            position: fixed; top: 0; left: 0;
-            width: var(--sidebar-width); height: 100vh;
-            background: var(--bg-surface);
-            border-right: 1px solid var(--border);
-            padding: 0;
-            display: flex; flex-direction: column;
-            z-index: 100;
+        .docs-sidebar {
+            position: fixed;
+            inset: 0 auto 0 0;
+            width: var(--docs-sidebar-width);
+            height: 100vh;
+            padding: 24px 18px;
+            background: linear-gradient(180deg, rgba(2, 4, 10, 0.94), rgba(6, 8, 14, 0.92));
+            border-right: 1px solid var(--docs-border);
+            backdrop-filter: blur(20px);
             overflow-y: auto;
+            z-index: 2;
         }
 
-        .sidebar-header {
-            padding: 28px 24px 20px;
-            border-bottom: 1px solid var(--border);
+        .brand-block {
+            padding: 18px;
+            margin-bottom: 18px;
+            border: 1px solid var(--docs-border);
+            border-radius: var(--radius-xl);
+            background: var(--docs-surface);
+            box-shadow: var(--docs-shadow);
         }
 
-        .sidebar-logo {
-            font-size: 1.4rem;
-            font-weight: 800;
-            letter-spacing: -0.02em;
-            background: linear-gradient(135deg, var(--accent), var(--purple));
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .sidebar-version {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            margin-top: 4px;
-        }
-
-        .sidebar-nav { padding: 16px 12px; flex: 1; }
-
-        .nav-section-title {
-            font-size: 0.65rem;
-            font-weight: 700;
-            text-transform: uppercase;
+        .eyebrow {
+            margin: 0 0 6px;
+            color: var(--text-muted, #71717a);
+            font-size: 0.74rem;
             letter-spacing: 0.12em;
-            color: var(--text-muted);
-            padding: 16px 12px 8px;
+            text-transform: uppercase;
+        }
+
+        .brand-title {
+            margin: 0;
+            color: var(--text-heading, #ffffff);
+            font-family: var(--font-primary, "Cinzel", serif);
+            font-size: 1.9rem;
+            line-height: 1.05;
+        }
+
+        .brand-copy {
+            margin: 12px 0 0;
+            font-size: 0.92rem;
+            line-height: 1.65;
+        }
+
+        .nav-group {
+            margin-bottom: 18px;
+            padding: 16px;
+            border: 1px solid var(--docs-border);
+            border-radius: var(--radius-lg);
+            background: var(--docs-surface-soft);
+        }
+
+        .nav-group-title {
+            margin: 0 0 10px;
+            color: var(--text-heading, #ffffff);
+            font-family: var(--font-primary, "Cinzel", serif);
+            font-size: 0.95rem;
         }
 
         .nav-link {
             display: block;
-            padding: 8px 12px;
-            color: var(--text-secondary);
+            padding: 9px 12px;
+            margin-bottom: 4px;
+            border-radius: var(--radius-md);
+            color: var(--text-main, #a1a1aa);
             text-decoration: none;
-            font-size: 0.85rem;
-            font-weight: 500;
-            border-radius: 8px;
-            transition: all 0.15s;
-            margin-bottom: 2px;
+            transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+            border: 1px solid transparent;
         }
 
-        .nav-link:hover { color: var(--text-primary); background: var(--accent-glow); }
-        .nav-link.active { color: var(--accent); background: var(--accent-glow); }
-
-        .sidebar-back {
-            padding: 16px 24px;
-            border-top: 1px solid var(--border);
+        .nav-link:hover,
+        .nav-link.active {
+            background: var(--docs-accent-soft);
+            color: var(--text-heading, #ffffff);
+            border-color: var(--docs-border);
         }
 
-        .sidebar-back a {
-            display: flex; align-items: center; gap: 8px;
-            color: var(--text-muted); text-decoration: none;
-            font-size: 0.85rem; transition: color 0.15s;
-        }
-        .sidebar-back a:hover { color: var(--text-primary); }
-
-        /* Main Content */
-        .main-content {
-            margin-left: var(--sidebar-width);
-            flex: 1;
-            max-width: 860px;
-            padding: 60px 64px 120px;
+        .nav-footer {
+            padding: 14px 16px;
+            border: 1px solid var(--docs-border);
+            border-radius: var(--radius-lg);
+            background: var(--docs-surface-soft);
+            font-size: 0.88rem;
         }
 
-        /* Sections */
-        .doc-section { margin-bottom: 80px; scroll-margin-top: 40px; }
-
-        h1 {
-            font-size: 2.4rem; font-weight: 800;
-            letter-spacing: -0.03em;
-            margin-bottom: 12px;
-            background: linear-gradient(135deg, #fff 40%, var(--accent));
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
+        .nav-footer a {
+            text-decoration: none;
         }
 
-        .hero-subtitle {
-            font-size: 1.1rem; color: var(--text-secondary);
-            max-width: 600px; margin-bottom: 40px;
+        .docs-main {
+            margin-left: var(--docs-sidebar-width);
+            width: calc(100% - var(--docs-sidebar-width));
+            min-width: 0;
+            padding: 44px 36px 80px;
         }
 
-        h2 {
-            font-size: 1.5rem; font-weight: 700;
-            letter-spacing: -0.02em;
-            margin-bottom: 16px; margin-top: 48px;
-            padding-bottom: 12px;
-            border-bottom: 1px solid var(--border);
-            color: var(--text-primary);
+        .docs-content {
+            max-width: var(--docs-content-width);
+            margin: 0 auto;
         }
 
-        h2:first-child { margin-top: 0; }
-
-        h3 {
-            font-size: 1.15rem; font-weight: 600;
-            margin: 32px 0 12px;
-            color: var(--text-primary);
+        .hero {
+            padding: 28px 30px;
+            margin-bottom: 28px;
+            border: 1px solid var(--docs-border);
+            border-radius: 24px;
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent),
+                var(--docs-surface);
+            box-shadow: var(--docs-shadow);
         }
 
-        p { margin-bottom: 16px; color: var(--text-secondary); font-size: 0.95rem; }
+        .hero h1 {
+            margin: 0 0 12px;
+            color: var(--text-heading, #ffffff);
+            font-family: var(--font-primary, "Cinzel", serif);
+            font-size: clamp(2.4rem, 6vw, 4rem);
+            line-height: 1;
+        }
 
-        /* Code */
+        .hero p {
+            margin: 0;
+            max-width: 780px;
+            font-size: 1.02rem;
+            line-height: 1.8;
+        }
+
+        .hero-meta {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .meta-card {
+            padding: 14px 16px;
+            border: 1px solid var(--docs-border);
+            border-radius: var(--radius-lg);
+            background: rgba(0, 0, 0, 0.24);
+        }
+
+        .meta-card strong {
+            display: block;
+            margin-bottom: 6px;
+            color: var(--text-heading, #ffffff);
+            font-family: var(--font-primary, "Cinzel", serif);
+            font-size: 0.95rem;
+        }
+
+        .doc-section {
+            scroll-margin-top: 24px;
+            margin-bottom: 24px;
+            padding: 28px 30px;
+            border: 1px solid var(--docs-border);
+            border-radius: 24px;
+            background: var(--docs-surface);
+            box-shadow: var(--docs-shadow);
+        }
+
+        .doc-section h2 {
+            margin: 0 0 14px;
+            color: var(--text-heading, #ffffff);
+            font-family: var(--font-primary, "Cinzel", serif);
+            font-size: 1.85rem;
+        }
+
+        .doc-section h3 {
+            margin: 28px 0 10px;
+            color: var(--text-heading, #ffffff);
+            font-family: var(--font-primary, "Cinzel", serif);
+            font-size: 1.18rem;
+        }
+
+        .doc-section p,
+        .doc-section li {
+            font-size: 0.97rem;
+            line-height: 1.8;
+        }
+
+        .doc-section ul,
+        .doc-section ol {
+            margin: 12px 0 0 22px;
+        }
+
+        .doc-section li + li {
+            margin-top: 8px;
+        }
+
+        .summary-grid,
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+            margin-top: 16px;
+        }
+
+        .info-card {
+            padding: 16px 18px;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--docs-border);
+            background: rgba(0, 0, 0, 0.24);
+        }
+
+        .info-card h4 {
+            margin: 0 0 8px;
+            color: var(--text-heading, #ffffff);
+            font-family: var(--font-primary, "Cinzel", serif);
+            font-size: 1rem;
+        }
+
+        .info-card p {
+            margin: 0;
+        }
+
+        .info-card.success {
+            border-color: rgba(125, 220, 135, 0.28);
+        }
+
+        .info-card.warning {
+            border-color: rgba(242, 198, 107, 0.28);
+        }
+
+        .info-card.danger {
+            border-color: rgba(255, 141, 141, 0.28);
+        }
+
+        .info-card.info {
+            border-color: rgba(157, 196, 255, 0.28);
+        }
+
+        .callout {
+            margin-top: 18px;
+            padding: 16px 18px;
+            border-left: 4px solid var(--text-heading, #ffffff);
+            border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+            background: rgba(0, 0, 0, 0.25);
+        }
+
+        .callout strong {
+            color: var(--text-heading, #ffffff);
+        }
+
+        .table-wrap {
+            margin-top: 16px;
+            overflow-x: auto;
+            border: 1px solid var(--docs-border);
+            border-radius: var(--radius-lg);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 12px 14px;
+            text-align: left;
+            vertical-align: top;
+            border-bottom: 1px solid var(--docs-border);
+        }
+
+        th {
+            color: var(--text-heading, #ffffff);
+            background: rgba(0, 0, 0, 0.28);
+            font-family: var(--font-primary, "Cinzel", serif);
+            font-size: 0.95rem;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
         code {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.82em;
-            background: var(--bg-elevated);
-            padding: 2px 7px; border-radius: 5px;
-            border: 1px solid var(--border);
-            color: var(--accent-hover);
+            padding: 2px 7px;
+            border: 1px solid var(--docs-border);
+            border-radius: 999px;
+            background: rgba(0, 0, 0, 0.24);
+            color: var(--text-heading, #ffffff);
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 0.88em;
         }
 
         pre {
-            background: var(--bg-code);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 20px 24px;
-            margin: 16px 0 24px;
+            margin: 16px 0 0;
+            padding: 18px 20px;
             overflow-x: auto;
-            position: relative;
+            border: 1px solid var(--docs-border-strong);
+            border-radius: var(--radius-lg);
+            background: var(--docs-code-bg);
         }
 
         pre code {
-            background: none; border: none; padding: 0;
-            font-size: 0.82rem; line-height: 1.8;
-            color: var(--text-primary);
+            padding: 0;
+            border: none;
+            border-radius: 0;
+            background: transparent;
+            color: #e6e6e6;
+            font-size: 0.9rem;
+            line-height: 1.7;
         }
 
-        .code-label {
-            position: absolute; top: 8px; right: 12px;
-            font-size: 0.65rem; font-weight: 600;
-            text-transform: uppercase; letter-spacing: 0.1em;
-            color: var(--text-muted);
+        .pill-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 14px;
         }
 
-        /* Tables */
-        .table-wrap {
-            overflow-x: auto;
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            margin: 16px 0 24px;
+        .pill {
+            padding: 7px 12px;
+            border: 1px solid var(--docs-border);
+            border-radius: 999px;
+            background: rgba(0, 0, 0, 0.22);
+            color: var(--text-heading, #ffffff);
+            font-size: 0.88rem;
         }
 
-        table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
-
-        th {
-            text-align: left;
-            padding: 12px 16px;
-            background: var(--bg-elevated);
-            color: var(--text-primary);
-            font-weight: 600;
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            border-bottom: 1px solid var(--border);
+        .inline-note {
+            color: var(--text-muted, #71717a);
+            font-size: 0.88rem;
         }
 
-        td {
-            padding: 10px 16px;
-            border-bottom: 1px solid var(--border);
-            color: var(--text-secondary);
+        @media (max-width: 1100px) {
+            .docs-sidebar {
+                position: static;
+                width: 100%;
+                height: auto;
+                border-right: none;
+                border-bottom: 1px solid var(--docs-border);
+            }
+
+            .docs-layout {
+                display: block;
+            }
+
+            .docs-main {
+                width: 100%;
+                margin-left: 0;
+                padding-top: 24px;
+            }
         }
 
-        tr:last-child td { border-bottom: none; }
-        tr:hover td { background: rgba(255,255,255,0.02); }
+        @media (max-width: 820px) {
+            .docs-main {
+                padding: 20px 14px 56px;
+            }
 
-        /* Method badges */
-        .method {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 0.72rem;
-            font-weight: 700;
-            font-family: 'JetBrains Mono', monospace;
-            letter-spacing: 0.04em;
+            .hero,
+            .doc-section {
+                padding: 20px 18px;
+                border-radius: 18px;
+            }
+
+            .hero-meta,
+            .summary-grid,
+            .card-grid {
+                grid-template-columns: 1fr;
+            }
         }
-        .method-get { background: rgba(52, 211, 153, 0.15); color: var(--green); }
-        .method-post { background: rgba(96, 165, 250, 0.15); color: var(--blue); }
-
-        /* Info Cards */
-        .info-card {
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 20px 24px;
-            margin: 16px 0;
-        }
-
-        .info-card.accent { border-left: 3px solid var(--accent); }
-        .info-card.green { border-left: 3px solid var(--green); }
-        .info-card.yellow { border-left: 3px solid var(--yellow); }
-        .info-card.red { border-left: 3px solid var(--red); }
-
-        .info-card h4 {
-            font-size: 0.85rem; font-weight: 700;
-            margin-bottom: 8px; color: var(--text-primary);
-        }
-        .info-card p { margin-bottom: 0; font-size: 0.88rem; }
-
-        /* Feature Grid */
-        .feature-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-            gap: 16px; margin: 20px 0;
-        }
-
-        .feature-card {
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 20px;
-            transition: border-color 0.2s, transform 0.2s;
-        }
-
-        .feature-card:hover { border-color: var(--border-accent); transform: translateY(-2px); }
-
-        .feature-icon { font-size: 1.6rem; margin-bottom: 10px; }
-
-        .feature-card h4 {
-            font-size: 0.9rem; font-weight: 600;
-            margin-bottom: 6px; color: var(--text-primary);
-        }
-        .feature-card p { font-size: 0.82rem; margin: 0; color: var(--text-muted); }
-
-        /* File tree */
-        .file-tree {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.82rem;
-            line-height: 1.9;
-            white-space: pre-wrap;
-            background: var(--bg-code);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 20px 24px;
-            margin: 16px 0;
-            color: var(--text-secondary);
-        }
-        .file-tree .dir { color: var(--blue); font-weight: 600; }
-        .file-tree .file { color: var(--text-secondary); }
-        .file-tree .comment { color: var(--text-muted); font-style: italic; }
-
-        /* Lists */
-        ul, ol { padding-left: 24px; margin-bottom: 16px; }
-        li { margin-bottom: 8px; color: var(--text-secondary); font-size: 0.92rem; }
-
-        /* Responsive */
-        @media (max-width: 900px) {
-            .sidebar { display: none; }
-            .main-content { margin-left: 0; padding: 32px 24px 80px; }
-        }
-
-        /* JSON Schema display */
-        .schema-prop { color: var(--green); }
-        .schema-type { color: var(--yellow); }
-        .schema-str { color: var(--purple); }
     </style>
-    <meta name="description" content="Odyssey - A text-based AI adventure game">
-    <meta name="theme-color" content="#121212">
 </head>
 <body>
     <div class="docs-layout">
-        <!-- Sidebar Navigation -->
-        <nav class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-                <div class="sidebar-logo">Odyssey Docs</div>
-                <div class="sidebar-version">Developer Reference v1.0</div>
+        <aside class="docs-sidebar">
+            <div class="brand-block">
+                <p class="eyebrow">Developer Docs</p>
+                <h1 class="brand-title">Odyssey</h1>
+                <p class="brand-copy">This is the Tauri-era reference page. It replaces the old browser/server mental model with the current desktop app architecture, runtime flow, and theming conventions.</p>
             </div>
-            <div class="sidebar-nav">
-                <div class="nav-section-title">Getting Started</div>
-                <a href="#overview" class="nav-link active">Overview</a>
-                <a href="#architecture" class="nav-link">Architecture</a>
-                <a href="#project-structure" class="nav-link">Project Structure</a>
 
-                <div class="nav-section-title">Server</div>
-                <a href="#server" class="nav-link">Server (server.js)</a>
-                <a href="#api-reference" class="nav-link">API Reference</a>
-
-                <div class="nav-section-title">Frontend</div>
-                <a href="#page-flow" class="nav-link">Page Flow</a>
-                <a href="#setup-wizard" class="nav-link">Setup Wizard</a>
-                <a href="#game-engine" class="nav-link">Game Engine</a>
-                <a href="#theming" class="nav-link">Theming System</a>
-                <a href="#ui-components" class="nav-link">UI Components</a>
-
-                <div class="nav-section-title">Data</div>
-                <a href="#game-state" class="nav-link">Game State Schema</a>
-                <a href="#localstorage" class="nav-link">localStorage Keys</a>
-                <a href="#presets" class="nav-link">World Presets</a>
-
-                <div class="nav-section-title">Contributing</div>
-                <a href="#contributing" class="nav-link">Contribution Guide</a>
-                <a href="#security" class="nav-link">Security Notes</a>
+            <div class="nav-group">
+                <h2 class="nav-group-title">Architecture</h2>
+                <a class="nav-link" href="#overview">Overview</a>
+                <a class="nav-link" href="#runtime-map">Runtime Map</a>
+                <a class="nav-link" href="#frontend-surfaces">Frontend Surfaces</a>
+                <a class="nav-link" href="#tauri-shell">Tauri Shell</a>
+                <a class="nav-link" href="#storage-model">Storage Model</a>
             </div>
-            <div class="sidebar-back">
-                <a href="mainmenu.html">← Back to Game</a>
+
+            <div class="nav-group">
+                <h2 class="nav-group-title">Systems</h2>
+                <a class="nav-link" href="#setup-flow">Setup Flow</a>
+                <a class="nav-link" href="#provider-flow">Provider Flow</a>
+                <a class="nav-link" href="#game-loop">Game Loop</a>
+                <a class="nav-link" href="#tts-images">Images and TTS</a>
+                <a class="nav-link" href="#theming">Theme and Fonts</a>
             </div>
-        </nav>
 
-        <!-- Main Content -->
-        <main class="main-content">
-            <!-- Hero -->
-            <section class="doc-section" id="overview">
-                <h1>Odyssey Developer Documentation</h1>
-                <p class="hero-subtitle">Everything you need to understand, extend, and contribute to the Odyssey AI text adventure engine.</p>
+            <div class="nav-group">
+                <h2 class="nav-group-title">Contributor Notes</h2>
+                <a class="nav-link" href="#project-layout">Project Layout</a>
+                <a class="nav-link" href="#dev-workflow">Dev Workflow</a>
+                <a class="nav-link" href="#guardrails">Guardrails</a>
+            </div>
 
-                <div class="feature-grid">
-                    <div class="feature-card">
-                        <div class="feature-icon">🏗️</div>
-                        <h4>Zero Frameworks</h4>
-                        <p>Pure HTML, CSS, and vanilla JS. No build step required.</p>
+            <div class="nav-footer">
+                <strong>Quick links:</strong><br>
+                <a href="README.md">README.md</a><br>
+                <a href="public/infowiki.html">public/infowiki.html</a><br>
+                <a href="src-tauri/tauri.conf.json">src-tauri/tauri.conf.json</a>
+            </div>
+        </aside>
+
+        <main class="docs-main">
+            <div class="docs-content">
+                <section class="hero">
+                    <p class="eyebrow">Current Stack</p>
+                    <h1>Desktop-first, Tauri-native, still vanilla on the frontend.</h1>
+                    <p>Odyssey is no longer a browser app backed by a local Node server. The current app is a Tauri 2 desktop shell that serves static HTML from <code>public/</code>, persists data through the Tauri FS plugin, and keeps most gameplay orchestration in <code>public/setup.js</code>. When updating docs or features, assume native desktop first.</p>
+                    <div class="hero-meta">
+                        <div class="meta-card">
+                            <strong>Frontend</strong>
+                            Static HTML pages, shared CSS, shared theme engine, large vanilla JS modules.
+                        </div>
+                        <div class="meta-card">
+                            <strong>Native Layer</strong>
+                            Tauri 2 window shell, Rust bootstrap, bundled dialog/fs/shell plugins.
+                        </div>
+                        <div class="meta-card">
+                            <strong>Persistence</strong>
+                            App data lives under Tauri's app data directory, not inside the repo.
+                        </div>
                     </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">🧠</div>
-                        <h4>Multi-Provider AI</h4>
-                        <p>OpenRouter, Google AI, xAI, LM Studio, and OpenAI-compatible.</p>
+                </section>
+
+                <section class="doc-section" id="overview">
+                    <h2>Overview</h2>
+                    <p>The old devdocs drifted because they still described a web-server shape that no longer exists. The current source of truth is straightforward:</p>
+                    <div class="summary-grid">
+                        <div class="info-card info">
+                            <h4>Native window</h4>
+                            <p><code>src-tauri/tauri.conf.json</code> points <code>frontendDist</code> at <code>../public</code> and launches the app on <code>Welcome.html</code>.</p>
+                        </div>
+                        <div class="info-card success">
+                            <h4>Single shared frontend</h4>
+                            <p>The menu, game screen, settings, presets, and wiki are all plain HTML pages living in <code>public/</code>.</p>
+                        </div>
+                        <div class="info-card warning">
+                            <h4>Bridge-first storage</h4>
+                            <p>Save files and preset files are created via <code>window.tauriBridge</code>, not a local HTTP API.</p>
+                        </div>
+                        <div class="info-card danger">
+                            <h4>No docs-only design language</h4>
+                            <p>Developer docs should inherit the same dark palette and default fonts the game uses so they feel like part of Odyssey.</p>
+                        </div>
                     </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">🎨</div>
-                        <h4>5 Visual Themes</h4>
-                        <p>Canvas-animated backgrounds, glassmorphism, custom fonts.</p>
+                    <div class="callout">
+                        <strong>Mental model:</strong> Odyssey is a static frontend bundled into a native shell. The browser APIs are still used for UI work, but the app behaves like a desktop client with direct local persistence.
                     </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">📦</div>
-                        <h4>Structured Output</h4>
-                        <p>JSON Schema–enforced AI responses for reliable game state.</p>
+                </section>
+
+                <section class="doc-section" id="runtime-map">
+                    <h2>Runtime Map</h2>
+                    <h3>Boot sequence</h3>
+                    <ol>
+                        <li>Tauri launches a frameless native window defined in <code>src-tauri/tauri.conf.json</code>.</li>
+                        <li>The first page loaded is <code>public/Welcome.html</code>.</li>
+                        <li>Shared scripts like <code>theme.js</code>, <code>titlebar.js</code>, <code>menu-music.js</code>, and <code>tauri-bridge.js</code> wire up the app shell behavior.</li>
+                        <li>The user moves through the menu into setup and gameplay, while settings and data are read from <code>localStorage</code> plus files in the app data directory.</li>
+                    </ol>
+
+                    <h3>Key runtime responsibilities</h3>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Layer</th>
+                                    <th>Primary files</th>
+                                    <th>What it owns</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Window shell</td>
+                                    <td><code>src-tauri/src/main.rs</code>, <code>src-tauri/tauri.conf.json</code></td>
+                                    <td>Bootstrap, native window settings, plugin registration, packaging.</td>
+                                </tr>
+                                <tr>
+                                    <td>UI pages</td>
+                                    <td><code>public/*.html</code></td>
+                                    <td>Screen layouts for menu, settings, game, presets, welcome, and wiki.</td>
+                                </tr>
+                                <tr>
+                                    <td>Gameplay engine</td>
+                                    <td><code>public/setup.js</code></td>
+                                    <td>World setup, AI requests, schema parsing, game turns, codex updates, image generation, TTS helpers.</td>
+                                </tr>
+                                <tr>
+                                    <td>Native persistence bridge</td>
+                                    <td><code>public/tauri-bridge.js</code></td>
+                                    <td>Filesystem CRUD for saves and presets, import/export, image storage, app data folder management.</td>
+                                </tr>
+                                <tr>
+                                    <td>Design system</td>
+                                    <td><code>public/style.css</code>, <code>public/theme.js</code></td>
+                                    <td>Theme variables, typography, shared layout primitives, animated backgrounds, accessibility toggles.</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
-                </div>
-            </section>
+                </section>
 
-            <!-- Architecture -->
-            <section class="doc-section" id="architecture">
-                <h2>Architecture</h2>
-                <p>Odyssey uses a simple client-server architecture with no build tooling. The Node.js server handles file I/O and API proxying, while the browser handles all AI communication, game logic, and rendering.</p>
+                <section class="doc-section" id="frontend-surfaces">
+                    <h2>Frontend Surfaces</h2>
+                    <p>All screens are shipped as static files and share the same theme and storage conventions.</p>
+                    <div class="card-grid">
+                        <div class="info-card">
+                            <h4><code>public/Welcome.html</code></h4>
+                            <p>First-run entry point and handoff into the rest of the app.</p>
+                        </div>
+                        <div class="info-card">
+                            <h4><code>public/mainmenu.html</code></h4>
+                            <p>Main navigation hub, save access, music, and transitions into gameplay-related screens.</p>
+                        </div>
+                        <div class="info-card">
+                            <h4><code>public/game.html</code></h4>
+                            <p>Live play surface with the chat log, stats, codex access, clock, portraits, and player menu.</p>
+                        </div>
+                        <div class="info-card">
+                            <h4><code>public/settings.html</code></h4>
+                            <p>Provider configuration, theme settings, prompt settings, accessibility, and voice/TTS options.</p>
+                        </div>
+                        <div class="info-card">
+                            <h4><code>public/presets.html</code></h4>
+                            <p>Reusable character preset management backed by local JSON files.</p>
+                        </div>
+                        <div class="info-card">
+                            <h4><code>public/infowiki.html</code></h4>
+                            <p>Player-facing how-to and reference page, separate from this developer doc.</p>
+                        </div>
+                    </div>
 
-                <div class="info-card accent">
-                    <h4>Key Design Decision</h4>
-                    <p>API keys and AI calls are managed entirely client-side. The server never touches API credentials — it only stores game saves, serves static files, and proxies xAI requests to bypass CORS. This makes the server stateless and simple.</p>
-                </div>
+                    <h3>Shared assumptions</h3>
+                    <ul>
+                        <li>Pages lean on global state and shared browser APIs rather than a component framework.</li>
+                        <li><code>theme.js</code> is responsible for CSS variables and font loading.</li>
+                        <li><code>titlebar.js</code> matters because the Tauri window is frameless.</li>
+                        <li>When you change storage or gameplay contracts, the impact usually spans multiple HTML pages plus <code>setup.js</code>.</li>
+                    </ul>
+                </section>
 
-                <h3>Request Flow</h3>
-                <pre><code><span class="code-label">FLOW</span>
-Browser (setup.js / game.html)
-  │
-  ├─→ Direct HTTPS to AI Provider (OpenRouter, Google AI, etc.)
-  │     └─→ JSON Schema–enforced response
-  │
-  ├─→ /api/xai-proxy/* → server.js → https://api.x.ai/* (CORS bypass)
-  │
-  └─→ /api/* (save-game, load-game, presets, images)
-        └─→ server.js → filesystem (./games/, ./presets/)</code></pre>
-            </section>
+                <section class="doc-section" id="tauri-shell">
+                    <h2>Tauri Shell</h2>
+                    <p>The Rust side is intentionally thin. The app does not expose a large custom command layer yet; instead it uses Tauri's built-in plugins plus the browser-side bridge.</p>
 
-            <!-- Project Structure -->
-            <section class="doc-section" id="project-structure">
-                <h2>Project Structure</h2>
-                <div class="file-tree">
-<span class="dir">Odyssey/</span>
-├── <span class="file">server.js</span>           <span class="comment"># HTTP server, API routes, static file serving</span>
-├── <span class="file">setup.js</span>            <span class="comment"># 5-phase game creation wizard (3200+ lines)</span>
-├── <span class="file">game.html</span>           <span class="comment"># Main game UI — chat, stats, inventory, codex</span>
-├── <span class="file">mainmenu.html</span>       <span class="comment"># Animated main menu (New/Load/Settings/Presets)</span>
-├── <span class="file">Welcome.html</span>        <span class="comment"># Cinematic intro sequence with parallax</span>
-├── <span class="file">settings.html</span>       <span class="comment"># Settings panel (API, appearance, prompts)</span>
-├── <span class="file">presets.html</span>        <span class="comment"># Character preset create/edit/delete</span>
-├── <span class="file">infowiki.html</span>       <span class="comment"># In-app user wiki / guide</span>
-├── <span class="file">devdocs.html</span>        <span class="comment"># This file — developer documentation</span>
-├── <span class="file">style.css</span>           <span class="comment"># Global styles (1900+ lines)</span>
-├── <span class="file">theme.js</span>            <span class="comment"># Theme engine (5 presets, canvas animations)</span>
-├── <span class="file">ui-components.js</span>    <span class="comment"># Custom dropdowns and number spinners</span>
-├── <span class="file">models.json</span>         <span class="comment"># Cached OpenRouter model list</span>
-├── <span class="dir">assets/</span>             <span class="comment"># Favicon, backgrounds, audio files</span>
-├── <span class="dir">jsons/</span>              <span class="comment"># JSON templates for new games</span>
-├── <span class="dir">presets/</span>            <span class="comment"># Saved character preset .json files</span>
-└── <span class="dir">games/</span>              <span class="comment"># Game save directories (numbered)</span>
-    └── <span class="dir">{id}/</span>
-        ├── <span class="file">worldinfo.json</span>
-        ├── <span class="file">player.json</span>
-        ├── <span class="file">gamestate.json</span>
-        ├── <span class="file">scenario.json</span>
-        ├── <span class="file">chat_history.json</span>
-        ├── <span class="file">npc-ledger.json</span>
-        ├── <span class="file">locationsledger.json</span>
-        └── <span class="file">mainoutput.json</span>
-                </div>
-            </section>
+                    <h3>Current native footprint</h3>
+                    <div class="pill-row">
+                        <span class="pill">Tauri 2.x</span>
+                        <span class="pill">FS plugin</span>
+                        <span class="pill">Dialog plugin</span>
+                        <span class="pill">Shell plugin</span>
+                        <span class="pill">Custom titlebar</span>
+                        <span class="pill">Frameless window</span>
+                    </div>
 
-            <!-- Server -->
-            <section class="doc-section" id="server">
-                <h2>Server (server.js)</h2>
-                <p>The server is a single-file Node.js HTTP server with <strong>zero external dependencies</strong> for serving (only <code>@openrouter/sdk</code> is listed in package.json). It uses native <code>http</code>, <code>fs</code>, and <code>path</code> modules.</p>
+                    <h3>Important config facts</h3>
+                    <ul>
+                        <li><code>frontendDist</code> points at <code>../public</code>, so the HTML files in <code>public/</code> are the packaged frontend.</li>
+                        <li>The main window starts hidden, is undecorated, and is configured to open at <code>Welcome.html</code>.</li>
+                        <li><code>withGlobalTauri: true</code> is enabled, which is why <code>window.__TAURI__</code> is available to the frontend.</li>
+                        <li><code>src-tauri/src/main.rs</code> is just the bootstrap entry that delegates to <code>app_lib::run()</code>.</li>
+                    </ul>
 
-                <h3>Key Responsibilities</h3>
-                <ul>
-                    <li><strong>Static file serving</strong> — Serves HTML, CSS, JS, images with correct MIME types and cache-busting support</li>
-                    <li><strong>Game save management</strong> — CRUD operations on <code>./games/{id}/</code> directories</li>
-                    <li><strong>Character presets</strong> — Save, list, and delete preset JSON files in <code>./presets/</code></li>
-                    <li><strong>Image handling</strong> — Download, save, and serve player character images</li>
-                    <li><strong>xAI CORS proxy</strong> — Forwards requests from <code>/api/xai-proxy/*</code> to <code>https://api.x.ai/*</code></li>
-                </ul>
-
-                <div class="info-card yellow">
-                    <h4>⚠️ Security Hardening</h4>
-                    <p>The server includes directory traversal prevention (path normalization + <code>__dirname</code> boundary checking), input ID sanitization (numeric-only), and SSRF protection on image downloads (HTTPS-only URLs). See the <a href="#security">Security Notes</a> section.</p>
-                </div>
-            </section>
-
-            <!-- API Reference -->
-            <section class="doc-section" id="api-reference">
-                <h2>API Reference</h2>
-                <p>All endpoints are served on port <code>3001</code> by default. The server binds to <code>0.0.0.0</code> for LAN access.</p>
-
-                <h3>Game Management</h3>
-                <div class="table-wrap">
-                    <table>
-                        <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
-                        <tbody>
-                            <tr><td><span class="method method-get">GET</span></td><td><code>/api/list-games</code></td><td>Returns JSON array of game folder names</td></tr>
-                            <tr><td><span class="method method-get">GET</span></td><td><code>/api/load-game?id={id}</code></td><td>Loads all JSON files from a game directory. ID is numeric-only sanitized.</td></tr>
-                            <tr><td><span class="method method-post">POST</span></td><td><code>/api/save-new-game</code></td><td>Creates a new numbered game directory with worldinfo, player, gamestate, scenario, and default ledger files.</td></tr>
-                            <tr><td><span class="method method-post">POST</span></td><td><code>/api/update-game</code></td><td>Updates gamestate, chat history, NPC ledger, locations ledger, and/or summary for an existing game.</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <h3>Character Presets</h3>
-                <div class="table-wrap">
-                    <table>
-                        <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
-                        <tbody>
-                            <tr><td><span class="method method-get">GET</span></td><td><code>/api/list-presets</code></td><td>Returns array of all preset JSON objects from <code>./presets/</code></td></tr>
-                            <tr><td><span class="method method-post">POST</span></td><td><code>/api/save-preset</code></td><td>Saves a preset. Filename is sanitized from <code>presetName</code>.</td></tr>
-                            <tr><td><span class="method method-post">POST</span></td><td><code>/api/delete-preset</code></td><td>Deletes a preset file by name.</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <h3>Images & Proxy</h3>
-                <div class="table-wrap">
-                    <table>
-                        <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
-                        <tbody>
-                            <tr><td><span class="method method-post">POST</span></td><td><code>/api/download-image</code></td><td>Downloads an image from HTTPS URL or saves a base64 data URI to game folder.</td></tr>
-                            <tr><td><span class="method method-post">POST</span></td><td><code>/api/update-image</code></td><td>Updates the player image URL reference for a game.</td></tr>
-                            <tr><td><span class="method method-get">GET</span></td><td><code>/api/get-base-image?id={id}</code></td><td>Returns the player base image as a base64 data URI.</td></tr>
-                            <tr><td><span class="method method-post">POST</span></td><td><code>/api/shutdown</code></td><td>Gracefully shuts down the server process.</td></tr>
-                            <tr><td><span class="method method-get">*</span></td><td><code>/api/xai-proxy/*</code></td><td>Forwards requests to <code>https://api.x.ai/</code> with auth headers intact. Used for CORS bypass.</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-
-            <!-- Page Flow -->
-            <section class="doc-section" id="page-flow">
-                <h2>Page Flow</h2>
-                <p>The application is a multi-page app (MPA) with client-side state managed via <code>localStorage</code> and URL query parameters.</p>
-                <pre><code><span class="code-label">NAVIGATION</span>
-Welcome.html  (cinematic intro → content warning)
-    ↓ Agree
-mainmenu.html (New Game / Load Game / Settings / Presets / Info)
-    ├─→ game.html?action=new     → setup.js wizard → gameplay
-    ├─→ game.html?action=load&id=N → load save → gameplay
-    ├─→ settings.html?from=mainmenu
-    ├─→ presets.html
-    └─→ infowiki.html
-
-game.html (during gameplay)
-    ├─→ settings.html?...&from=game → returns to game.html
-    └─→ mainmenu.html (via Main Menu button)</code></pre>
-            </section>
-
-            <!-- Setup Wizard -->
-            <section class="doc-section" id="setup-wizard">
-                <h2>Setup Wizard (setup.js)</h2>
-                <p>The <code>setup.js</code> file (3200+ lines) manages the complete new game creation flow. It runs inside <code>game.html</code> when <code>?action=new</code> is in the URL.</p>
-
-                <h3>Five Phases</h3>
-                <div class="table-wrap">
-                    <table>
-                        <thead><tr><th>Phase</th><th>Name</th><th>Description</th></tr></thead>
-                        <tbody>
-                            <tr><td><code>1</code></td><td>World Setup</td><td>Choose Real Universe or Custom. Custom worlds have 8 fields (name, era, setting, tone, magic, rules, dangers, factions). Presets auto-fill known IPs.</td></tr>
-                            <tr><td><code>2</code></td><td>Player Creation</td><td>12+ fields including attribute sliders (athleticism, intelligence), AI-generated text for appearance, personality, backstory, family, friends, inventory.</td></tr>
-                            <tr><td><code>3</code></td><td>Starting Scenario</td><td>User writes or AI generates the opening scene description.</td></tr>
-                            <tr><td><code>4</code></td><td>AI Summary</td><td>AI processes all world + player data into a coherent summary. Optional character image generation.</td></tr>
-                            <tr><td><code>5</code></td><td>Game Launch</td><td>Saves all data via <code>/api/save-new-game</code>, transitions to the live chat game view.</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <h3>Field Types</h3>
-                <ul>
-                    <li><code>text</code> / <code>number</code> — Simple input with optional 🎲 AI auto-generate</li>
-                    <li><code>select</code> — Dropdown (used for preset selection, gender)</li>
-                    <li><code>attribute</code> — Snapping slider with labeled markers + "Define it myself" toggle</li>
-                    <li><code>ai</code> — Textarea with AI draft → review → approve/edit/retry flow</li>
-                    <li><code>date</code> — Calendar-aware (Gregorian, Star Wars BBY/ABY, LOTR Ages, etc.)</li>
-                </ul>
-
-                <h3>Key Function: buildFetchPayload()</h3>
-                <p>Constructs the OpenAI-compatible API payload. Handles provider-specific quirks (xAI omits penalty params, LM Studio uses <code>json_schema</code> instead of <code>json_object</code>).</p>
-            </section>
-
-            <!-- Game Engine -->
-            <section class="doc-section" id="game-engine">
-                <h2>Game Engine</h2>
-                <p>During gameplay, the chat interface in <code>game.html</code> sends user actions to the AI with the full game context. The AI responds with structured JSON matching the <code>gameOutputSchema</code>.</p>
-
-                <h3>UI Layout (3-Column Grid)</h3>
-                <ul>
-                    <li><strong>Left Column</strong> — Player stats (health, money, hunger, thirst, energy), player image, Main Menu button, Player Menu button</li>
-                    <li><strong>Center Column</strong> — Chat interface (message history + input area). Max width 850px, auto-scrolling.</li>
-                    <li><strong>Right Column</strong> — In-game clock (supports 5 calendar systems), Settings button, Game Codex button</li>
-                </ul>
-
-                <h3>Modals</h3>
-                <ul>
-                    <li><strong>Player Menu</strong> — Left side: player profile (image + attributes). Right side: inventory grid with auto-scaling item names.</li>
-                    <li><strong>Game Codex</strong> — Left side: NPC Ledger. Right side: Location Ledger. Both auto-populated from AI responses.</li>
-                </ul>
-            </section>
-
-            <!-- Theming -->
-            <section class="doc-section" id="theming">
-                <h2>Theming System (theme.js)</h2>
-                <p>The theme engine manages 5 visual presets, with CSS custom properties for colors and canvas-based animated backgrounds.</p>
-
-                <h3>Theme Types</h3>
-                <div class="table-wrap">
-                    <table>
-                        <thead><tr><th>ID</th><th>Name</th><th>Type</th><th>Background</th></tr></thead>
-                        <tbody>
-                            <tr><td><code>dark</code></td><td>Dark Mode</td><td><code>standard</code></td><td>Solid black</td></tr>
-                            <tr><td><code>light</code></td><td>Light Mode</td><td><code>standard</code></td><td>Solid white</td></tr>
-                            <tr><td><code>bliss</code></td><td>Bliss</td><td><code>image</code></td><td>BlissBackground.jpg (Windows XP style)</td></tr>
-                            <tr><td><code>starry</code></td><td>Starry Night</td><td><code>canvas-stars</code></td><td>Animated twinkling stars + shooting stars</td></tr>
-                            <tr><td><code>matrix</code></td><td>Matrix</td><td><code>canvas-matrix</code></td><td>Falling green characters</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <h3>How Themes Work</h3>
-                <p>Each theme defines a <code>vars</code> object of CSS custom properties that get applied to <code>:root</code>. All UI components reference these variables (e.g., <code>var(--bg-secondary)</code>, <code>var(--accent-color)</code>). Canvas themes additionally create a <code>&lt;canvas id="bg-canvas"&gt;</code> element with requestAnimationFrame loops.</p>
-
-                <h3>Adding a New Theme</h3>
-                <pre><code><span class="code-label">theme.js</span>
-// Add to the presetThemes object:
-'mytheme': {
-    name: 'My Theme',
-    type: 'standard',  // or 'image', 'canvas-stars', 'canvas-matrix'
-    vars: {
-        '--bg-main': '#...',
-        '--bg-secondary': '...',
-        '--text-main': '...',
-        '--text-heading': '...',
-        '--accent-color': '...',
-        // ... all 12 CSS variables
-    }
+                    <pre><code>{
+  "build": { "frontendDist": "../public" },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "decorations": false,
+        "maximized": true,
+        "url": "Welcome.html"
+      }
+    ]
+  }
 }</code></pre>
-            </section>
+                </section>
 
-            <!-- UI Components -->
-            <section class="doc-section" id="ui-components">
-                <h2>UI Components (ui-components.js)</h2>
-                <p>A custom UI component library that replaces native HTML elements with styled, accessible versions.</p>
+                <section class="doc-section" id="storage-model">
+                    <h2>Storage Model</h2>
+                    <p>There are two persistence layers in play: lightweight config in <code>localStorage</code>, and structured save/preset data on disk through Tauri FS.</p>
 
-                <h3>Custom Select Dropdown</h3>
-                <p><code>createCustomSelect(nativeSelect, opts)</code> — Hides the native <code>&lt;select&gt;</code> and creates a fully styled dropdown with optional search filtering. Supports <code>&lt;optgroup&gt;</code> labels and per-option font previews.</p>
+                    <h3>App data directory layout</h3>
+                    <p><code>public/tauri-bridge.js</code> resolves <code>path.appDataDir()</code>, appends <code>odyssey</code>, then manages the following folders:</p>
+                    <pre><code>appDataDir()/odyssey/
+  presets/
+    *.json
+  games/
+    1/
+      worldinfo.json
+      player.json
+      gamestate.json
+      scenario.json
+      locationsledger.json
+      npc-ledger.json
+      mainoutput.json
+      chat_history.json
+      base_image.json
+      current_image.json
+</code></pre>
 
-                <h3>Custom Number Spinner</h3>
-                <p><code>createCustomNumberInput(nativeInput)</code> — Wraps <code>&lt;input type="number"&gt;</code> with up/down arrow buttons that support click-and-hold for rapid increment.</p>
+                    <h3>Bridge responsibilities</h3>
+                    <ul>
+                        <li><code>listPresets</code>, <code>savePreset</code>, <code>deletePreset</code></li>
+                        <li><code>listGames</code>, <code>loadGame</code>, <code>saveNewGame</code>, <code>deleteGame</code>, <code>updateGame</code></li>
+                        <li><code>downloadImage</code>, <code>getBaseImage</code>, <code>updateImage</code></li>
+                        <li><code>exportGame</code> and import/export dialog flows through the Tauri dialog plugin</li>
+                    </ul>
 
-                <h3>Auto-Initialization</h3>
-                <pre><code><span class="code-label">USAGE</span>
-// Call after DOM is ready:
-initCustomUIComponents(document.body, {
-    searchSelects: ['model-select', 'font-select']  // IDs to enable search
-});
+                    <div class="callout">
+                        <strong>Contributor rule:</strong> if you are documenting or changing persistence, document the Tauri bridge first. Old references to <code>/api/save-new-game</code> and similar local server endpoints are legacy fallback paths, not the primary architecture.
+                    </div>
+                </section>
 
-// Refresh after programmatic option changes:
-refreshCustomSelect('model-select');</code></pre>
-            </section>
+                <section class="doc-section" id="setup-flow">
+                    <h2>Setup Flow</h2>
+                    <p><code>public/setup.js</code> still carries a large amount of product logic. It is effectively the main game application module.</p>
 
-            <!-- Game State Schema -->
-            <section class="doc-section" id="game-state">
-                <h2>Game State Schema</h2>
-                <p>The AI is instructed to respond with JSON matching this schema. It is enforced via the <code>response_format.json_schema</code> parameter on each API call.</p>
+                    <h3>New game phases</h3>
+                    <ol>
+                        <li><strong>World</strong>: real-world start or custom universe, including optional preset data from <code>WORLD_PRESETS</code>.</li>
+                        <li><strong>Player</strong>: character sheet, attributes, relationships, inventory, and preset loading.</li>
+                        <li><strong>Scenario</strong>: opening situation written by the player.</li>
+                        <li><strong>Summary</strong>: AI-generated campaign summary and confirmation step.</li>
+                        <li><strong>Launch</strong>: initial save written through <code>window.tauriBridge.saveNewGame()</code>, optional portrait download, then transition into gameplay.</li>
+                    </ol>
 
-                <pre><code><span class="code-label">gameOutputSchema</span>
-{
-  <span class="schema-prop">"time"</span>: {
-    <span class="schema-prop">"hour"</span>: <span class="schema-type">integer</span>,
-    <span class="schema-prop">"minute"</span>: <span class="schema-type">integer</span>,
-    <span class="schema-prop">"period"</span>: <span class="schema-str">"AM" | "PM"</span>,
-    <span class="schema-prop">"dayOfWeek"</span>: <span class="schema-type">string</span>,
-    <span class="schema-prop">"day"</span>: <span class="schema-type">integer</span>,
-    <span class="schema-prop">"month"</span>: <span class="schema-type">integer</span>,
-    <span class="schema-prop">"year"</span>: <span class="schema-type">integer</span>,
-    <span class="schema-prop">"era"</span>: <span class="schema-type">string</span>,
-    <span class="schema-prop">"calendarType"</span>: <span class="schema-type">string</span>
-  },
-  <span class="schema-prop">"textoutput"</span>: <span class="schema-type">string</span> <span class="comment">// Markdown-formatted narrative</span>,
-  <span class="schema-prop">"inventory_changes"</span>: [{ action, name, newName, description }],
-  <span class="schema-prop">"location_changes"</span>: [{ name, description }],
-  <span class="schema-prop">"npc_changes"</span>: [{ name, status_or_history }],
-  <span class="schema-prop">"stats"</span>: { health, money, hunger, thirst, energy }
+                    <h3>Built-in world presets</h3>
+                    <p>The current preset map includes:</p>
+                    <div class="pill-row">
+                        <span class="pill">Harry Potter</span>
+                        <span class="pill">Star Wars</span>
+                        <span class="pill">The Chronicles of Narnia</span>
+                        <span class="pill">Lord of the Rings</span>
+                        <span class="pill">A Song of Ice and Fire</span>
+                    </div>
+
+                    <h3>Schema-driven responses</h3>
+                    <p>The main game loop expects structured JSON described by <code>gameOutputSchema</code>. Required top-level keys are:</p>
+                    <pre><code>{
+  "time": { "hour": 0, "minute": 0, "period": "AM", "dayOfWeek": "", "day": 1, "month": 1, "year": 1, "era": "", "calendarType": "" },
+  "textoutput": "",
+  "inventory_changes": [],
+  "location_changes": [],
+  "npc_changes": [],
+  "stats": { "health": 100, "money": 0, "hunger": 0, "thirst": 0, "energy": 100 }
+}</code></pre>
+                </section>
+
+                <section class="doc-section" id="provider-flow">
+                    <h2>Provider Flow</h2>
+                    <p>Odyssey talks to OpenAI-compatible chat endpoints, but the implementation has provider-specific branches. This is one of the places old docs aged out fastest.</p>
+
+                    <h3>Current request model</h3>
+                    <ul>
+                        <li><code>buildFetchPayload()</code> assembles the chat payload for text generation.</li>
+                        <li>Presence and frequency penalties are skipped for xAI.</li>
+                        <li>LM Studio gets a <code>response_format.type = "json_schema"</code> block tailored to its expectations.</li>
+                        <li>Generic OpenAI-compatible mode may need prompt-enforced JSON or repair logic if the backend does not fully support structured outputs.</li>
+                    </ul>
+
+                    <h3>OpenAI-compatible notes worth preserving</h3>
+                    <div class="card-grid">
+                        <div class="info-card warning">
+                            <h4>Base URL shape</h4>
+                            <p>Store custom provider URLs at the API root such as <code>https://host.example/v1</code>, not the full <code>/chat/completions</code> endpoint.</p>
+                        </div>
+                        <div class="info-card info">
+                            <h4>Manual model IDs</h4>
+                            <p>Some providers support chat completions but not a useful <code>/models</code> endpoint, so settings include a manual model path.</p>
+                        </div>
+                        <div class="info-card danger">
+                            <h4>Structured output drift</h4>
+                            <p>Local or third-party servers often fail on <code>response_format</code>. The app surfaces targeted user guidance when that happens.</p>
+                        </div>
+                        <div class="info-card success">
+                            <h4>Repair pass</h4>
+                            <p>For OpenAI-compatible providers, malformed JSON can be repaired through a follow-up parse/repair path before the turn is rejected.</p>
+                        </div>
+                    </div>
+
+                    <h3>Settings-backed values used heavily in runtime</h3>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Key</th>
+                                    <th>Purpose</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>jsonAdventure_apiProvider</code></td>
+                                    <td>Primary text provider selection.</td>
+                                </tr>
+                                <tr>
+                                    <td><code>jsonAdventure_apiBaseUrl</code></td>
+                                    <td>Base URL for OpenAI-compatible requests.</td>
+                                </tr>
+                                <tr>
+                                    <td><code>jsonAdventure_openRouterApiKey</code></td>
+                                    <td>Main API credential slot used by the text request helpers.</td>
+                                </tr>
+                                <tr>
+                                    <td><code>jsonAdventure_openRouterModel</code></td>
+                                    <td>Selected text model.</td>
+                                </tr>
+                                <tr>
+                                    <td><code>jsonAdventure_enableImage</code></td>
+                                    <td>Turns portrait and image-generation features on.</td>
+                                </tr>
+                                <tr>
+                                    <td><code>jsonAdventure_enableAutoImage</code></td>
+                                    <td>Automatically generates images during play.</td>
+                                </tr>
+                                <tr>
+                                    <td><code>jsonAdventure_enableWebSearch</code></td>
+                                    <td>Controls web-search augmentation logic.</td>
+                                </tr>
+                                <tr>
+                                    <td><code>jsonAdventure_enableFandomSearch</code></td>
+                                    <td>Controls fandom/wiki augmentation logic for known universes.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="doc-section" id="game-loop">
+                    <h2>Game Loop</h2>
+                    <p>The gameplay turn loop is still frontend-managed. The app builds context, calls the model, parses structured output, updates state, and persists the changed files through the bridge.</p>
+
+                    <h3>Per-turn flow</h3>
+                    <ol>
+                        <li>Load world, player, gamestate, ledgers, summary, and chat history into memory.</li>
+                        <li>Build a game system prompt with current state and optional lore augmentation.</li>
+                        <li>Send a structured chat completion request with <code>gameOutputSchema</code>.</li>
+                        <li>Parse or repair the result into narration, codex updates, stat changes, and inventory changes.</li>
+                        <li>Render the markdown output and persist updated state via <code>window.tauriBridge.updateGame()</code>.</li>
+                        <li>If enabled, kick off auto-image generation for the latest scene.</li>
+                    </ol>
+
+                    <h3>What gets updated after a turn</h3>
+                    <ul>
+                        <li><code>gamestate.json</code></li>
+                        <li><code>chat_history.json</code></li>
+                        <li><code>npc-ledger.json</code></li>
+                        <li><code>locationsledger.json</code></li>
+                        <li>Optional current scene image metadata</li>
+                    </ul>
+                </section>
+
+                <section class="doc-section" id="tts-images">
+                    <h2>Images and TTS</h2>
+                    <p>Odyssey now has two notable auxiliary systems that the old docs barely covered: image generation and voice playback.</p>
+
+                    <h3>Image generation</h3>
+                    <ul>
+                        <li>Portrait and scene image work is coordinated inside <code>setup.js</code>.</li>
+                        <li>The app can use a separate image provider from the text provider.</li>
+                        <li>LM Studio is explicitly blocked for image generation with a user-facing error message.</li>
+                        <li>Base character images and latest scene images are stored alongside the save.</li>
+                    </ul>
+
+                    <h3>TTS providers</h3>
+                    <ul>
+                        <li>Kokoro / OpenAI-compatible speech endpoint</li>
+                        <li>OpenAI speech</li>
+                        <li>Google Cloud TTS</li>
+                        <li>xAI TTS</li>
+                    </ul>
+
+                    <div class="callout">
+                        <strong>Why this matters for docs:</strong> settings, saved keys, and runtime wiring now span text, image, and audio providers. Any contributor doc that only talks about text generation is incomplete.
+                    </div>
+                </section>
+
+                <section class="doc-section" id="theming">
+                    <h2>Theme and Fonts</h2>
+                    <p>The docs page should behave like the app, not like a random marketing microsite. Odyssey's visual system lives in <code>public/theme.js</code> and <code>public/style.css</code>.</p>
+
+                    <h3>Default game typography</h3>
+                    <ul>
+                        <li><code>--font-primary</code>: default heading font is <code>Cinzel</code></li>
+                        <li><code>--font-secondary</code>: default body font is <code>Merriweather</code></li>
+                    </ul>
+
+                    <h3>Dark theme source of truth</h3>
+                    <p>The dark preset defines the palette for the current docs refresh: black base backgrounds, translucent dark surfaces, white headings, muted gray body text, and subtle white borders. This page now applies those same tokens directly in its own CSS so it stays visually aligned with Odyssey without mutating the app's saved theme state.</p>
+
+                    <pre><code>:root {
+  --bg-main: #000000;
+  --bg-secondary: rgba(15, 15, 15, 0.6);
+  --text-main: #a1a1aa;
+  --text-heading: #ffffff;
+  --font-primary: "Cinzel", serif;
+  --font-secondary: "Merriweather", serif;
 }</code></pre>
 
-                <div class="info-card green">
-                    <h4>💡 Inventory Actions</h4>
-                    <p>The <code>inventory_changes</code> array supports three actions: <code>"add"</code> (new item), <code>"remove"</code> (drop/use item), and <code>"update"</code> (rename or change description via <code>newName</code>).</p>
-                </div>
-            </section>
+                    <h3>Contributor guidance</h3>
+                    <ul>
+                        <li>Use existing CSS variables before inventing new colors.</li>
+                        <li>Prefer <code>var(--font-primary)</code> and <code>var(--font-secondary)</code> over page-specific font stacks.</li>
+                        <li>If you add a new docs component, it should still look correct under the shared dark token set.</li>
+                    </ul>
+                </section>
 
-            <!-- localStorage -->
-            <section class="doc-section" id="localstorage">
-                <h2>localStorage Keys</h2>
-                <p>All client-side configuration is stored under the <code>jsonAdventure_</code> prefix.</p>
+                <section class="doc-section" id="project-layout">
+                    <h2>Project Layout</h2>
+                    <pre><code>Odyssey/
+  public/
+    Welcome.html
+    mainmenu.html
+    game.html
+    presets.html
+    settings.html
+    infowiki.html
+    style.css
+    theme.js
+    tauri-bridge.js
+    setup.js
+    ui-components.js
+    titlebar.js
+    menu-music.js
+    assets/
+    jsons/
+  src-tauri/
+    src/
+    icons/
+    Cargo.toml
+    tauri.conf.json
+  devdocs.html
+  README.md
+  CONTRIBUTING.md
+</code></pre>
 
-                <div class="table-wrap">
-                    <table>
-                        <thead><tr><th>Key</th><th>Type</th><th>Default</th><th>Purpose</th></tr></thead>
-                        <tbody>
-                            <tr><td><code>apiProvider</code></td><td>string</td><td>openrouter</td><td>Active AI provider ID</td></tr>
-                            <tr><td><code>openRouterApiKey</code></td><td>string</td><td>—</td><td>Active API key (legacy, also stored per-provider)</td></tr>
-                            <tr><td><code>apiKey_{provider}</code></td><td>string</td><td>—</td><td>Per-provider API key storage</td></tr>
-                            <tr><td><code>openRouterModel</code></td><td>string</td><td>—</td><td>Active model ID</td></tr>
-                            <tr><td><code>savedModel_{provider}</code></td><td>string</td><td>—</td><td>Per-provider saved model ID</td></tr>
-                            <tr><td><code>apiTemperature</code></td><td>float</td><td>0.7</td><td>Sampling temperature</td></tr>
-                            <tr><td><code>apiMaxTokens</code></td><td>int</td><td>2048</td><td>Max output tokens</td></tr>
-                            <tr><td><code>apiTopP</code></td><td>float</td><td>1.0</td><td>Nucleus sampling</td></tr>
-                            <tr><td><code>enableImage</code></td><td>bool</td><td>false</td><td>Enable image features</td></tr>
-                            <tr><td><code>enableAutoImage</code></td><td>bool</td><td>false</td><td>Auto-generate images each turn</td></tr>
-                            <tr><td><code>enableWebSearch</code></td><td>bool</td><td>false</td><td>Wikipedia RAG integration</td></tr>
-                            <tr><td><code>enableFandomSearch</code></td><td>bool</td><td>false</td><td>IP fandom wiki lookups</td></tr>
-                            <tr><td><code>activeThemeId</code></td><td>string</td><td>dark</td><td>Active theme</td></tr>
-                            <tr><td><code>primaryFont</code></td><td>string</td><td>Cinzel</td><td>Heading font</td></tr>
-                            <tr><td><code>secondaryFont</code></td><td>string</td><td>Merriweather</td><td>Body font</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-                <p><em>All keys are prefixed with <code>jsonAdventure_</code> in actual storage (e.g., <code>jsonAdventure_apiProvider</code>).</em></p>
-            </section>
+                    <p class="inline-note">If a doc mentions Express routes, static server middleware, or browser-only deployment as the main path, it is outdated.</p>
+                </section>
 
-            <!-- World Presets -->
-            <section class="doc-section" id="presets">
-                <h2>Built-in World Presets</h2>
-                <p>Defined in <code>setup.js</code> under the <code>WORLD_PRESETS</code> object. Each preset auto-fills world fields and configures a custom calendar system.</p>
+                <section class="doc-section" id="dev-workflow">
+                    <h2>Dev Workflow</h2>
+                    <h3>Commands</h3>
+                    <pre><code>npm install
+npm run dev
+npm run build</code></pre>
 
-                <div class="table-wrap">
-                    <table>
-                        <thead><tr><th>Key</th><th>World Name</th><th>Calendar</th><th>Fandom Wiki</th></tr></thead>
-                        <tbody>
-                            <tr><td><code>harry potter</code></td><td>The Wizarding World</td><td>Gregorian</td><td>harrypotter.fandom.com</td></tr>
-                            <tr><td><code>star wars</code></td><td>The Star Wars Galaxy</td><td>BBY/ABY</td><td>starwars.fandom.com</td></tr>
-                            <tr><td><code>the chronicles of narnia</code></td><td>Narnia</td><td>Narnian Year (NY)</td><td>narnia.fandom.com</td></tr>
-                            <tr><td><code>lord of the rings</code></td><td>Middle-earth</td><td>Ages (1st–4th)</td><td>lotr.fandom.com</td></tr>
-                            <tr><td><code>a song of ice and fire</code></td><td>Westeros & Essos</td><td>BC/AC</td><td>awoiaf.westeros.org</td></tr>
-                        </tbody>
-                    </table>
-                </div>
+                    <h3>What these do now</h3>
+                    <ul>
+                        <li><code>npm run dev</code> starts the Tauri desktop app in development mode.</li>
+                        <li><code>npm run build</code> produces native bundles under <code>src-tauri/target/release/bundle/</code>.</li>
+                        <li>There is no standalone <code>npm start</code> local web server in the current package scripts.</li>
+                    </ul>
 
-                <h3>Adding a New Preset</h3>
-                <pre><code><span class="code-label">setup.js → WORLD_PRESETS</span>
-'my universe': {
-    name: 'My Universe',
-    era: 'Description of the era...',
-    setting: 'Description of the setting...',
-    tone: 'Dark fantasy with...',
-    magicOrTech: 'How magic/tech works...',
-    rules: 'Special world rules...',
-    dangers: 'What threats exist...',
-    factions: ['Faction A', 'Faction B'],
-    calendarType: 'gregorian',  // or create custom
-    wikiUrl: 'https://mywiki.fandom.com/wiki/'
-}</code></pre>
-            </section>
+                    <div class="callout">
+                        <strong>Docs maintenance rule:</strong> whenever scripts, plugin usage, or save paths change, update this page and the top-level <code>README.md</code> together so contributor guidance does not fork.
+                    </div>
+                </section>
 
-            <!-- Contributing -->
-            <section class="doc-section" id="contributing">
-                <h2>Contribution Guide</h2>
+                <section class="doc-section" id="guardrails">
+                    <h2>Guardrails</h2>
+                    <h3>When changing docs</h3>
+                    <ul>
+                        <li>Document the Tauri path first, and only mention legacy fallback code when it still affects behavior.</li>
+                        <li>Match the actual filenames and script names in the repo.</li>
+                        <li>Call out whether behavior is powered by local files, <code>localStorage</code>, or a provider API.</li>
+                    </ul>
 
-                <h3>Getting Started</h3>
-                <ol>
-                    <li>Fork the repository on <a href="https://github.com/DUR6NA/Odyssey" style="color: var(--accent);">GitHub</a></li>
-                    <li>Clone your fork and run <code>npm install</code></li>
-                    <li>Create a feature branch: <code>git checkout -b feature/my-feature</code></li>
-                    <li>Make your changes and test locally with <code>npm start</code></li>
-                    <li>Push and open a Pull Request</li>
-                </ol>
+                    <h3>When changing code</h3>
+                    <ul>
+                        <li>If you alter save file names or structure, update <code>tauri-bridge.js</code> docs and any import/export notes.</li>
+                        <li>If you touch theme tokens or font defaults, check this page and the player-facing wiki for visual drift.</li>
+                        <li>If you add a new provider branch, document its base URL expectations and structured-output quirks.</li>
+                    </ul>
 
-                <h3>Code Conventions</h3>
-                <ul>
-                    <li>No build tools or transpilers — keep it vanilla HTML/CSS/JS</li>
-                    <li>Use CSS custom properties (defined in <code>theme.js</code>) for all colors</li>
-                    <li>Prefix all localStorage keys with <code>jsonAdventure_</code></li>
-                    <li>Sanitize all user inputs before filesystem operations</li>
-                    <li>Game IDs are numeric-only — enforce with <code>.replace(/[^0-9]/g, '')</code></li>
-                    <li>Preset filenames are sanitized: <code>.replace(/[^a-z0-9]/gi, '_').toLowerCase()</code></li>
-                </ul>
-
-                <div class="info-card accent">
-                    <h4>Testing Tip</h4>
-                    <p>The server prints LAN IPs on startup. Test on mobile by connecting to the same network and navigating to the printed IP address.</p>
-                </div>
-            </section>
-
-            <!-- Security -->
-            <section class="doc-section" id="security">
-                <h2>Security Notes</h2>
-                <p>The server implements several security hardening measures:</p>
-
-                <div class="info-card red">
-                    <h4>🛡️ Directory Traversal Prevention</h4>
-                    <p>Static file paths are normalized with <code>path.normalize()</code> and verified to be within <code>__dirname</code>. Requests resolving outside the project root receive a <code>403 Forbidden</code>.</p>
-                </div>
-
-                <div class="info-card red">
-                    <h4>🛡️ Input Sanitization</h4>
-                    <p>Game IDs are stripped to digits-only (<code>/[^0-9]/g</code>). Preset names are sanitized to alphanumeric + underscores. This prevents path injection via crafted IDs.</p>
-                </div>
-
-                <div class="info-card red">
-                    <h4>🛡️ SSRF Protection</h4>
-                    <p>The image download endpoint only allows <code>https:</code> protocol URLs, preventing attackers from using the server as an open proxy to internal services.</p>
-                </div>
-
-                <div class="info-card red">
-                    <h4>🛡️ CORS Policy</h4>
-                    <p>No <code>Access-Control-Allow-Origin</code> header is set, relying on browser Same-Origin policies. The xAI proxy strips incoming CORS headers from upstream responses.</p>
-                </div>
-            </section>
+                    <div class="summary-grid">
+                        <div class="info-card success">
+                            <h4>Current truth</h4>
+                            <p>Tauri app, local file persistence, static pages, vanilla JS gameplay engine.</p>
+                        </div>
+                        <div class="info-card danger">
+                            <h4>Most common stale assumption</h4>
+                            <p>Thinking Odyssey still centers around a local Node server or browser-hosted storage flow.</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
         </main>
     </div>
 
-    <!-- Sidebar active link tracking -->
     <script>
-        const sections = document.querySelectorAll('.doc-section');
-        const navLinks = document.querySelectorAll('.nav-link');
+        document.addEventListener('DOMContentLoaded', () => {
+            const sections = Array.from(document.querySelectorAll('.doc-section'));
+            const navLinks = Array.from(document.querySelectorAll('.nav-link'));
 
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    navLinks.forEach(link => link.classList.remove('active'));
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach((entry) => {
+                    if (!entry.isIntersecting) return;
+                    navLinks.forEach((link) => link.classList.remove('active'));
                     const activeLink = document.querySelector(`.nav-link[href="#${entry.target.id}"]`);
                     if (activeLink) activeLink.classList.add('active');
-                }
-            });
-        }, { rootMargin: '-20% 0px -70% 0px' });
+                });
+            }, { rootMargin: '-15% 0px -65% 0px', threshold: 0 });
 
-        sections.forEach(section => observer.observe(section));
+            sections.forEach((section) => observer.observe(section));
+        });
     </script>
 </body>
 </html>

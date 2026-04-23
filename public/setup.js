@@ -54,9 +54,7 @@ function buildFetchPayload(model, messages, temp, maxTokens, topP, presPen, freq
     if (presPen !== 0 && provider !== 'xai') payload.presence_penalty = presPen;
     if (freqPen !== 0 && provider !== 'xai') payload.frequency_penalty = freqPen;
 
-    // LM Studio specific vs generic OpenAI-compatible (separate branches)
     if (provider === 'lmstudio') {
-        // LM Studio specific: always uses json_schema on OpenAI compat endpoint
         const schema = jsonSchema && typeof jsonSchema === 'object' ? jsonSchema : {
             type: "object",
             properties: { content: { type: "string" } },
@@ -70,14 +68,7 @@ function buildFetchPayload(model, messages, temp, maxTokens, topP, presPen, freq
                 schema: schema
             }
         };
-    } else if (provider === 'openai') {
-        // Generic OpenAI-compatible servers
-        if (jsonSchema && typeof jsonSchema === 'object') {
-            payload.response_format = { type: 'json_object' };
-        }
-        // otherwise no response_format (relies on prompt)
-    } else if (jsonSchema && typeof jsonSchema === 'object') {
-        // Other providers (e.g. OpenRouter)
+    } else if (provider !== 'openai' && jsonSchema && typeof jsonSchema === 'object') {
         const schemaName = jsonSchema.properties && jsonSchema.properties.textoutput ? "game_turn" : "structured_response";
         payload.response_format = {
             type: 'json_schema',
@@ -90,6 +81,132 @@ function buildFetchPayload(model, messages, temp, maxTokens, topP, presPen, freq
     }
 
     return JSON.stringify(payload);
+}
+
+function stripJsonCodeFences(content) {
+    if (typeof content !== 'string') return '';
+    let sanitized = content.trim();
+    if (sanitized.startsWith('```json')) {
+        sanitized = sanitized.replace(/^```json\s*/i, '').replace(/\s*```$/, '').trim();
+    } else if (sanitized.startsWith('```')) {
+        sanitized = sanitized.replace(/^```\s*/, '').replace(/\s*```$/, '').trim();
+    }
+    return sanitized;
+}
+
+function extractBalancedJsonSegment(text, openChar, closeChar) {
+    if (typeof text !== 'string') return null;
+    let start = -1;
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+
+    for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+
+        if (inString) {
+            if (escaped) {
+                escaped = false;
+            } else if (ch === '\\') {
+                escaped = true;
+            } else if (ch === '"') {
+                inString = false;
+            }
+            continue;
+        }
+
+        if (ch === '"') {
+            inString = true;
+            continue;
+        }
+
+        if (ch === openChar) {
+            if (depth === 0) start = i;
+            depth++;
+        } else if (ch === closeChar && depth > 0) {
+            depth--;
+            if (depth === 0 && start !== -1) {
+                return text.slice(start, i + 1);
+            }
+        }
+    }
+
+    return null;
+}
+
+function tryParseJsonObject(rawContent) {
+    const sanitized = stripJsonCodeFences(rawContent);
+    const candidates = [
+        sanitized,
+        extractBalancedJsonSegment(sanitized, '{', '}'),
+        extractBalancedJsonSegment(sanitized, '[', ']')
+    ].filter(Boolean);
+
+    for (const candidate of candidates) {
+        try {
+            return JSON.parse(candidate);
+        } catch (err) {
+        }
+    }
+
+    return null;
+}
+
+function hasRequiredKeys(obj, requiredKeys = []) {
+    return !!obj && typeof obj === 'object' && requiredKeys.every(key => Object.prototype.hasOwnProperty.call(obj, key));
+}
+
+async function repairCompatibleJson(rawContent, jsonExample, requiredKeys = [], label = 'response') {
+    const provider = localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter';
+    const baseUrl = localStorage.getItem('jsonAdventure_apiBaseUrl') || '';
+    const apiKey = localStorage.getItem('jsonAdventure_openRouterApiKey');
+    const model = localStorage.getItem('jsonAdventure_openRouterModel') || 'openai/gpt-3.5-turbo';
+
+    if (provider !== 'openai' || !baseUrl) return null;
+
+    const fetchUrl = baseUrl.endsWith('/') ? `${baseUrl}chat/completions` : `${baseUrl}/chat/completions`;
+    const repairPrompt = `You repair malformed model outputs into strict JSON.
+
+Return ONLY valid JSON. Do not include markdown fences, explanations, or any text before/after the JSON.
+The JSON must contain these required top-level keys: ${requiredKeys.join(', ')}.
+Match this shape exactly:
+${jsonExample}
+
+Malformed ${label} to repair:
+${rawContent}`;
+
+    const response = await fetch(fetchUrl, {
+        method: 'POST',
+        headers: buildAuthHeaders(apiKey),
+        body: buildFetchPayload(model, [{ role: 'system', content: repairPrompt }], 0.1, 2500, 1.0, 0, 0, provider, null)
+    });
+
+    if (!response.ok) {
+        throw new Error(`JSON repair failed with status ${response.status}: ${await response.text()}`);
+    }
+
+    const data = await response.json();
+    return data?.choices?.[0]?.message?.content || '';
+}
+
+async function parseStructuredModelOutput(rawContent, options = {}) {
+    const {
+        requiredKeys = [],
+        jsonExample = '{}',
+        label = 'response'
+    } = options;
+
+    const directParsed = tryParseJsonObject(rawContent);
+    if (hasRequiredKeys(directParsed, requiredKeys)) return directParsed;
+
+    const provider = localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter';
+    if (provider === 'openai') {
+        const repairedContent = await repairCompatibleJson(rawContent, jsonExample, requiredKeys, label);
+        const repairedParsed = tryParseJsonObject(repairedContent);
+        if (hasRequiredKeys(repairedParsed, requiredKeys)) return repairedParsed;
+    }
+
+    throw new Error(`The AI returned invalid JSON for ${label}.`);
 }
 
 const gameOutputSchema = {
@@ -1095,11 +1212,12 @@ The value of "result" must be ${expectedFormatStr}.`;
         const data = await response.json();
         let content = data.choices && data.choices[0] && data.choices[0].message.content;
         if (!content) throw new Error('No content in API response. Check your Base URL and model settings.');
-        content = content.trim();
-        if (content.startsWith('```json')) content = content.replace(/^```json/, '').replace(/```$/, '').trim();
-        if (content.startsWith('```')) content = content.replace(/^```/, '').replace(/```$/, '').trim();
 
-        const finalParsed = JSON.parse(content);
+        const finalParsed = await parseStructuredModelOutput(content, {
+            requiredKeys: ['result'],
+            jsonExample: '{"result":0}',
+            label: `auto-generated ${fieldInfo.id}`
+        });
         if (finalParsed.result === undefined) throw new Error("AI did not return 'result' key.");
 
         aiProcessedResult = finalParsed.result;
@@ -1385,12 +1503,14 @@ The JSON object must have exactly one key named "result", and its value must be 
         const data = await response.json();
         let content = data.choices && data.choices[0] && data.choices[0].message.content;
         if (!content) throw new Error('No content in API response. Check your Base URL and model settings.');
-        content = content.trim();
-        if (content.startsWith('```json')) {
-            content = content.replace(/^```json/, '').replace(/```$/, '').trim();
-        }
 
-        const finalParsed = JSON.parse(content);
+        const finalParsed = await parseStructuredModelOutput(content, {
+            requiredKeys: ['result'],
+            jsonExample: fieldInfo.isArray
+                ? '{"result":["item one","item two"]}'
+                : '{"result":"refined text"}',
+            label: `${fieldInfo.id} refinement`
+        });
         if (!finalParsed.result) {
             throw new Error("AI did not return 'result' key in JSON.");
         }
@@ -1904,12 +2024,11 @@ CRITICAL: Output ONLY a valid JSON object with one key "summary" containing the 
         }
 
         const data = await response.json();
-        let content = data.choices[0].message.content.trim();
-        if (content.startsWith('```json')) {
-            content = content.replace(/^```json/, '').replace(/```$/, '').trim();
-        }
-
-        const parsed = JSON.parse(content);
+        const parsed = await parseStructuredModelOutput(data.choices[0].message.content, {
+            requiredKeys: ['summary'],
+            jsonExample: '{"summary":"Adventure summary text"}',
+            label: 'adventure summary'
+        });
         const summaryText = parsed.summary;
 
         displaySummary(summaryText);
@@ -2224,7 +2343,12 @@ async function launchGame(summaryText, allData) {
         }
 
         const data = await response.json();
-        const aiText = data.choices[0].message.content;
+        const aiJson = await parseStructuredModelOutput(data.choices[0].message.content, {
+            requiredKeys: ['time', 'textoutput', 'inventory_changes', 'location_changes', 'npc_changes', 'stats'],
+            jsonExample: '{"time":{"hour":0,"minute":0,"period":"AM","dayOfWeek":"Monday","day":1,"month":1,"year":1,"era":"CE","calendarType":"gregorian"},"textoutput":"Opening scene text","inventory_changes":[],"location_changes":[],"npc_changes":[],"stats":{"health":100,"money":0,"hunger":100,"thirst":100,"energy":100}}',
+            label: 'opening game turn'
+        });
+        const aiText = JSON.stringify(aiJson);
 
         // Store in chat history
         window.chatHistory.push({ role: 'user', content: `Begin the adventure. Here is the opening scenario:\n\n${startingScenario}` });
@@ -2311,11 +2435,7 @@ Replace all values with the actual current game state. The "textoutput" field is
 function processGameTurnJson(aiText) {
     let aiJson = { textoutput: aiText };
     try {
-        let content = aiText.trim();
-        if (content.startsWith('```json')) {
-            content = content.replace(/^```json/, '').replace(/```$/, '').trim();
-        }
-        aiJson = JSON.parse(content);
+        aiJson = tryParseJsonObject(aiText) || aiJson;
     } catch (e) {
         console.error("Failed to parse AI JSON:", e);
     }
@@ -2556,8 +2676,11 @@ CRITICAL: Output ONLY a JSON object:
 
         if (response.ok) {
             const data = await response.json();
-            const content = data.choices[0].message.content.trim();
-            const parsed = JSON.parse(content.replace(/^```json/, '').replace(/```$/, '').trim());
+            const parsed = await parseStructuredModelOutput(data.choices[0].message.content, {
+                requiredKeys: ['relevant', 'context_string'],
+                jsonExample: '{"relevant":true,"context_string":"Known lore details"}',
+                label: 'prompt context precheck'
+            });
 
             if (parsed.relevant && parsed.context_string && parsed.context_string.trim()) {
                 console.log("Prompter injected context:", parsed.context_string);
@@ -2661,8 +2784,11 @@ CRITICAL: Output ONLY valid JSON:
 
         if (response.ok) {
             const data = await response.json();
-            const content = data.choices[0].message.content.trim();
-            const parsed = JSON.parse(content.replace(/^```json/, '').replace(/```$/, '').trim());
+            const parsed = await parseStructuredModelOutput(data.choices[0].message.content, {
+                requiredKeys: ['needs_search', 'search_query'],
+                jsonExample: '{"needs_search":true,"search_query":"CEO of Apple"}',
+                label: 'Wikipedia precheck'
+            });
             return { needs_search: !!parsed.needs_search, query: parsed.search_query || '' };
         }
     } catch (err) { console.error("Wiki precheck error:", err); }
@@ -2729,8 +2855,11 @@ CRITICAL: Output ONLY valid JSON:
 
         if (response.ok) {
             const data = await response.json();
-            const content = data.choices[0].message.content.trim();
-            const parsed = JSON.parse(content.replace(/^```json/, '').replace(/```$/, '').trim());
+            const parsed = await parseStructuredModelOutput(data.choices[0].message.content, {
+                requiredKeys: ['needs_search', 'search_query'],
+                jsonExample: '{"needs_search":true,"search_query":"Darth Vader"}',
+                label: 'Fandom precheck'
+            });
             return { needs_search: !!parsed.needs_search, query: parsed.search_query || '' };
         }
     } catch (err) { console.error("Fandom precheck error:", err); }
@@ -2868,7 +2997,12 @@ async function sendChatMessage() {
         }
 
         const data = await response.json();
-        const aiText = data.choices[0].message.content;
+        const aiJson = await parseStructuredModelOutput(data.choices[0].message.content, {
+            requiredKeys: ['time', 'textoutput', 'inventory_changes', 'location_changes', 'npc_changes', 'stats'],
+            jsonExample: '{"time":{"hour":0,"minute":0,"period":"AM","dayOfWeek":"Monday","day":1,"month":1,"year":1,"era":"CE","calendarType":"gregorian"},"textoutput":"Narrative text","inventory_changes":[],"location_changes":[],"npc_changes":[],"stats":{"health":100,"money":0,"hunger":100,"thirst":100,"energy":100}}',
+            label: 'game turn'
+        });
+        const aiText = JSON.stringify(aiJson);
 
         window.chatHistory.push({ role: 'assistant', content: aiText });
 
@@ -2988,7 +3122,12 @@ async function regenerateLastAI() {
         }
 
         const data = await response.json();
-        const aiText = data.choices[0].message.content;
+        const aiJson = await parseStructuredModelOutput(data.choices[0].message.content, {
+            requiredKeys: ['time', 'textoutput', 'inventory_changes', 'location_changes', 'npc_changes', 'stats'],
+            jsonExample: '{"time":{"hour":0,"minute":0,"period":"AM","dayOfWeek":"Monday","day":1,"month":1,"year":1,"era":"CE","calendarType":"gregorian"},"textoutput":"Narrative text","inventory_changes":[],"location_changes":[],"npc_changes":[],"stats":{"health":100,"money":0,"hunger":100,"thirst":100,"energy":100}}',
+            label: 'regenerated game turn'
+        });
+        const aiText = JSON.stringify(aiJson);
 
         window.chatHistory.push({ role: 'assistant', content: aiText });
 

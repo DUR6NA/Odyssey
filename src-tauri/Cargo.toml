@@ -1,6 +1,6 @@
 [package]
 name = "odyssey"
-version = "0.5.1"
+version = "0.5.2"
 description = "Odyssey Tauri App"
 authors = ["Dur6na"]
 license = "AGPL-3.0"

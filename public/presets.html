@@ -1075,9 +1075,7 @@
                 payload.presence_penalty = presPen;
                 payload.frequency_penalty = freqPen;
             }
-            // Separate handling: LM Studio vs generic OpenAI-compatible
             if (provider === 'lmstudio') {
-                // LM Studio specific: always json_schema on OpenAI compat endpoint
                 const schema = jsonSchema || {
                     type: "object",
                     properties: { content: { type: "string" } },
@@ -1088,14 +1086,127 @@
                     type: 'json_schema',
                     json_schema: { name: "response", schema: schema }
                 };
-            } else if (provider === 'openai') {
-                if (jsonSchema) {
-                    payload.response_format = { type: 'json_object' };
-                }
-            } else if (provider !== 'anthropic' && provider !== 'xai') {
+            } else if (provider !== 'openai' && provider !== 'anthropic' && provider !== 'xai') {
                 payload.response_format = { type: 'json_object' };
             }
             return JSON.stringify(payload);
+        }
+
+        function stripJsonCodeFences(content) {
+            if (typeof content !== 'string') return '';
+            let sanitized = content.trim();
+            if (sanitized.startsWith('```json')) {
+                sanitized = sanitized.replace(/^```json\s*/i, '').replace(/\s*```$/, '').trim();
+            } else if (sanitized.startsWith('```')) {
+                sanitized = sanitized.replace(/^```\s*/, '').replace(/\s*```$/, '').trim();
+            }
+            return sanitized;
+        }
+
+        function extractBalancedJsonSegment(text, openChar, closeChar) {
+            if (typeof text !== 'string') return null;
+            let start = -1;
+            let depth = 0;
+            let inString = false;
+            let escaped = false;
+
+            for (let i = 0; i < text.length; i++) {
+                const ch = text[i];
+
+                if (inString) {
+                    if (escaped) escaped = false;
+                    else if (ch === '\\') escaped = true;
+                    else if (ch === '"') inString = false;
+                    continue;
+                }
+
+                if (ch === '"') {
+                    inString = true;
+                    continue;
+                }
+
+                if (ch === openChar) {
+                    if (depth === 0) start = i;
+                    depth++;
+                } else if (ch === closeChar && depth > 0) {
+                    depth--;
+                    if (depth === 0 && start !== -1) return text.slice(start, i + 1);
+                }
+            }
+
+            return null;
+        }
+
+        function tryParseJsonObject(rawContent) {
+            const sanitized = stripJsonCodeFences(rawContent);
+            const candidates = [
+                sanitized,
+                extractBalancedJsonSegment(sanitized, '{', '}'),
+                extractBalancedJsonSegment(sanitized, '[', ']')
+            ].filter(Boolean);
+
+            for (const candidate of candidates) {
+                try {
+                    return JSON.parse(candidate);
+                } catch (err) {}
+            }
+
+            return null;
+        }
+
+        async function repairCompatibleJson(rawContent, jsonExample, requiredKeys, label) {
+            const provider = localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter';
+            const baseUrl = localStorage.getItem('jsonAdventure_apiBaseUrl') || '';
+            const apiKey = localStorage.getItem('jsonAdventure_openRouterApiKey');
+            const model = localStorage.getItem('jsonAdventure_openRouterModel') || 'openai/gpt-3.5-turbo';
+
+            if (provider !== 'openai' || !baseUrl) return null;
+
+            const fetchUrl = baseUrl.endsWith('/') ? `${baseUrl}chat/completions` : `${baseUrl}/chat/completions`;
+            const repairPrompt = `You repair malformed model outputs into strict JSON.
+
+Return ONLY valid JSON. Do not include markdown fences, explanations, or any text before/after the JSON.
+The JSON must contain these required top-level keys: ${requiredKeys.join(', ')}.
+Match this shape exactly:
+${jsonExample}
+
+Malformed ${label} to repair:
+${rawContent}`;
+
+            const response = await fetch(fetchUrl, {
+                method: 'POST',
+                headers: buildAuthHeaders(apiKey),
+                body: buildFetchPayload(model, [{ role: 'system', content: repairPrompt }], 0.1, 1200, 1.0, 0, 0, provider, null)
+            });
+
+            if (!response.ok) {
+                throw new Error(`JSON repair failed with status ${response.status}: ${await response.text()}`);
+            }
+
+            const data = await response.json();
+            return data?.choices?.[0]?.message?.content || '';
+        }
+
+        async function parseStructuredModelOutput(rawContent, options = {}) {
+            const requiredKeys = options.requiredKeys || [];
+            const jsonExample = options.jsonExample || '{}';
+            const label = options.label || 'response';
+
+            const directParsed = tryParseJsonObject(rawContent);
+            if (directParsed && requiredKeys.every(key => Object.prototype.hasOwnProperty.call(directParsed, key))) {
+                return directParsed;
+            }
+
+            const provider = localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter';
+            if (provider === 'openai') {
+                const repairedContent = await repairCompatibleJson(rawContent, jsonExample, requiredKeys, label);
+                const repairedParsed = tryParseJsonObject(repairedContent);
+                if (repairedParsed && requiredKeys.every(key => Object.prototype.hasOwnProperty.call(repairedParsed, key))) {
+                    return repairedParsed;
+                }
+            }
+
+            throw new Error(`The AI returned invalid JSON for ${label}.`);
         }
 
         async function fetchAI(messages, isArray) {
@@ -1129,10 +1240,11 @@
             }
 
             const data = await response.json();
-            let content = data.choices && data.choices[0] && data.choices[0].message.content;
-            if (content.startsWith('```json')) content = content.replace(/^```json/, '').replace(/```$/, '').trim();
-
-            const parsed = JSON.parse(content);
+            const parsed = await parseStructuredModelOutput(data.choices && data.choices[0] && data.choices[0].message.content, {
+                requiredKeys: ['result'],
+                jsonExample: isArray ? '{"result":["item one","item two"]}' : '{"result":"refined text"}',
+                label: 'preset AI response'
+            });
             if (!parsed.result) throw new Error("AI did not return 'result' key in JSON.");
             return parsed.result;
         }
