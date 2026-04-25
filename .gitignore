@@ -25,12 +25,11 @@ logs
 log.md
 error_log.txt
 
-# User data (do not commit saves/presets by default)
+
 games/
 presets/
 
-# Secrets / Environment
-# Copy .env.example to .env and add your keys
+
 .env
 .env.local
 .env.*.local
@@ -52,7 +51,7 @@ __pycache__/
 *.AppImage
 *.rpm
 
-# Old Node server files
+
 server.js
 install*.*
 run*.*
@@ -63,13 +62,13 @@ todo.md
 # Always include readme assets (overrides start*.* above)
 !readme images/**
 
-# Exclude large demo videos from the repo (README links to YouTube instead)
+
 readme images/theme demo video.mp4
 readme images/theme demo video.webm
 
-# Claude Code
+
 .claude/
+.codex/
 memory/
 
-# Keep these if you want initial presets in repo
-# !presets/cd_18.json
+

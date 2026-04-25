@@ -478,7 +478,7 @@
                 <section class="hero">
                     <p class="eyebrow">Current Stack</p>
                     <h1>Desktop-first, Tauri-native, still vanilla on the frontend.</h1>
-                    <p>Odyssey is no longer a browser app backed by a local Node server. The current app is a Tauri 2 desktop shell that serves static HTML from <code>public/</code>, persists data through the Tauri FS plugin, and keeps most gameplay orchestration in <code>public/setup.js</code>. When updating docs or features, assume native desktop first.</p>
+                    <p>Odyssey is no longer a browser app backed by a local Node server. The current app is a Tauri 2 desktop shell that serves static HTML from <code>public/</code>, persists data through the Tauri FS plugin, and splits gameplay orchestration across <code>public/creation.js</code>, <code>public/chat.js</code>, and <code>public/saves.js</code>. When updating docs or features, assume native desktop first.</p>
                     <div class="hero-meta">
                         <div class="meta-card">
                             <strong>Frontend</strong>
@@ -554,8 +554,8 @@
                                 </tr>
                                 <tr>
                                     <td>Gameplay engine</td>
-                                    <td><code>public/setup.js</code></td>
-                                    <td>World setup, AI requests, schema parsing, game turns, codex updates, image generation, TTS helpers.</td>
+                                    <td><code>public/creation.js</code>, <code>public/chat.js</code>, <code>public/saves.js</code></td>
+                                    <td>World setup, AI requests, schema parsing, game turns, codex updates, image generation, TTS helpers, autosaves.</td>
                                 </tr>
                                 <tr>
                                     <td>Native persistence bridge</td>
@@ -607,7 +607,7 @@
                         <li>Pages lean on global state and shared browser APIs rather than a component framework.</li>
                         <li><code>theme.js</code> is responsible for CSS variables and font loading.</li>
                         <li><code>titlebar.js</code> matters because the Tauri window is frameless.</li>
-                        <li>When you change storage or gameplay contracts, the impact usually spans multiple HTML pages plus <code>setup.js</code>.</li>
+                        <li>When you change storage or gameplay contracts, the impact usually spans multiple HTML pages plus <code>creation.js</code>, <code>chat.js</code>, and <code>saves.js</code>.</li>
                     </ul>
                 </section>
 
@@ -686,7 +686,7 @@
 
                 <section class="doc-section" id="setup-flow">
                     <h2>Setup Flow</h2>
-                    <p><code>public/setup.js</code> still carries a large amount of product logic. It is effectively the main game application module.</p>
+                    <p>The old monolithic gameplay module is now split by responsibility: <code>creation.js</code> owns new game setup, <code>chat.js</code> owns prompts and in-game chat, and <code>saves.js</code> owns autosaves and chat history persistence.</p>
 
                     <h3>New game phases</h3>
                     <ol>
@@ -828,7 +828,7 @@
 
                     <h3>Image generation</h3>
                     <ul>
-                        <li>Portrait and scene image work is coordinated inside <code>setup.js</code>.</li>
+                        <li>Portrait and scene image work is coordinated through <code>creation.js</code> for initial setup and <code>chat.js</code> for runtime updates.</li>
                         <li>The app can use a separate image provider from the text provider.</li>
                         <li>LM Studio is explicitly blocked for image generation with a user-facing error message.</li>
                         <li>Base character images and latest scene images are stored alongside the save.</li>
@@ -890,7 +890,9 @@
     style.css
     theme.js
     tauri-bridge.js
-    setup.js
+    creation.js
+    chat.js
+    saves.js
     ui-components.js
     titlebar.js
     menu-music.js

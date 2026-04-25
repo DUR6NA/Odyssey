@@ -1,6 +1,6 @@
 // ============================================================
 // UI COMPONENTS - Custom Dropdown, Number Spinner, etc.
-// Shared across settings.html, setup.js, and game.html
+// Shared across settings.html, creation.js, chat.js, and game.html
 // ============================================================
 
 // SVG icons for arrows

@@ -13,7 +13,9 @@
     <script src="tauri-bridge.js"></script>
     <script src="titlebar.js"></script>
     <script src="ui-components.js?v=2"></script>
-    <script src="setup.js?v=2"></script>
+    <script src="creation.js?v=2"></script>
+    <script src="chat.js?v=2"></script>
+    <script src="saves.js?v=2"></script>
     <script src="menu-music.js"></script>
     <meta name="description" content="Odyssey - A text-based AI adventure game">
     <meta name="theme-color" content="#121212">
@@ -32,7 +34,7 @@
         <!-- Setup Screen (multi-phase wizard) -->
         <div id="setup-screen" class="setup-screen hidden">
             <div id="setup-content" class="setup-content">
-                <!-- Content injected via setup.js -->
+                <!-- Content injected via creation.js -->
             </div>
         </div>
 
@@ -78,7 +80,7 @@
             <main class="center-column">
                 <div class="chat-interface">
                     <div class="chat-messages" id="chat-messages">
-                        <!-- Messages populated by setup.js / chat -->
+                        <!-- Messages populated by chat.js -->
                     </div>
 
                     <div class="chat-input-container">
@@ -212,7 +214,7 @@
                 // Show game layout
                 document.querySelector('.layout').style.display = 'grid';
 
-                currentGameFolder = gameId; // Used by setup.js
+                currentGameFolder = gameId; // Used by saves.js
 
                 // Set state
                 window.gamestate = data['gamestate.json'] || { time: {}, stats: {}, inventory: [], locations: [], npcs: [] };
