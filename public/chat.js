@@ -477,7 +477,7 @@ async function performImageGeneration(promptText, aspect_ratio = "2:3", baseImag
 }
 
 
-function buildGameSystemPrompt(allData, summaryText, relevantLore = '', wikipediaData = '', fandomData = '', provider = '') {
+function buildGameSystemPrompt(allData, summaryText, relevantLore = '', wikipediaData = '', fandomData = '', provider = '', ragData = '', braveData = '') {
     const defaultGamePrompt = `You are now a seasoned novelist acting as the Game Master. Write a dynamic, immersive, and grounded text-based adventure. 
 
 CRITICAL NARRATIVE RULES:
@@ -513,8 +513,14 @@ ${summaryText}
 === RELEVANT CODEX ENTRIES ===
 ${relevantLore}
 
+=== RETRIEVED MEMORY ===
+${ragData}
+
 === RELEVANT WORLD INFO ===
 ${wikipediaData}
+
+=== BRAVE WEB SEARCH ===
+${braveData}
 
 === FANDOM LORE ===
 ${fandomData}`;
@@ -661,6 +667,177 @@ function createChatMessage(type, text) {
     msgDiv.appendChild(body);
 
     return msgDiv;
+}
+
+const generationLoadingLines = [
+    'Checking notes...',
+    'Building story threads...',
+    'Taking witness statements...',
+    'Consulting the codex...',
+    'Tracing the scene...',
+    'Reviewing inventory clues...',
+    'Updating the timeline...',
+    'Cross-checking local lore...',
+    'Sharpening consequences...',
+    'Writing the next turn...',
+    'Dusting off the map...',
+    'Reviewing old rumors...',
+    'Testing alibis...',
+    'Sorting scene details...',
+    'Listening at closed doors...',
+    'Cataloging loose ends...',
+    'Following the footprints...',
+    'Checking the weathered signposts...',
+    'Reading the room...',
+    'Looking for contradictions...',
+    'Matching names to faces...',
+    'Threading cause and effect...',
+    'Sketching the next dilemma...',
+    'Balancing risk and reward...',
+    'Setting the stage...',
+    'Choosing the right shadow...',
+    'Checking character motives...',
+    'Polishing the tension...',
+    'Reviewing recent choices...',
+    'Weighing hidden consequences...',
+    'Preparing dialogue beats...',
+    'Scanning memory fragments...',
+    'Organizing the case file...',
+    'Finding the dramatic angle...',
+    'Tuning the atmosphere...',
+    'Writing in the margins...',
+    'Checking the clock...',
+    'Pulling on story threads...',
+    'Reconstructing the scene...',
+    'Listening for danger...',
+    'Consulting travel notes...',
+    'Mapping possible exits...',
+    'Checking NPC ledgers...',
+    'Updating location notes...',
+    'Reviewing the last clue...',
+    'Measuring the stakes...',
+    'Setting lanterns in the dark...',
+    'Sorting witness accounts...',
+    'Checking the trail...',
+    'Planning the reveal...',
+    'Tightening the mystery...',
+    'Preparing the next clue...',
+    'Inspecting the evidence...',
+    'Checking the horizon...',
+    'Reviewing promises made...',
+    'Checking for unfinished business...',
+    'Setting the tone...',
+    'Building the next obstacle...',
+    'Revising the danger level...',
+    'Listening for echoes...',
+    'Matching lore to action...',
+    'Choosing a meaningful consequence...',
+    'Opening the next door...',
+    'Checking the party records...',
+    'Reviewing the world state...',
+    'Shuffling encounter notes...',
+    'Preparing a twist...',
+    'Filing suspicious details...',
+    'Interpreting the silence...',
+    'Arranging the next scene...',
+    'Checking narrative pressure...',
+    'Looking behind the curtain...',
+    'Balancing the encounter...',
+    'Refreshing character memory...',
+    'Reading travel logs...',
+    'Finding a clean transition...',
+    'Reviewing danger signs...',
+    'Setting the emotional weather...',
+    'Checking the pulse of the story...',
+    'Connecting distant clues...',
+    'Preparing the response...',
+    'Staging the next moment...',
+    'Sharpening the prompt...',
+    'Sorting the timeline...',
+    'Checking world consistency...',
+    'Reviewing faction moves...',
+    'Listening to the setting...',
+    'Choosing the next beat...',
+    'Updating the adventure log...',
+    'Inspecting motive and means...',
+    'Preparing the scene lighting...',
+    'Checking unanswered questions...',
+    'Tracing old debts...',
+    'Reading between the lines...',
+    'Tending continuity...',
+    'Checking the chain of events...',
+    'Drafting consequences...',
+    'Setting up the next choice...',
+    'Reviewing the inventory trail...',
+    'Placing the next breadcrumb...',
+    'Checking for secret doors...',
+    'Updating threat levels...',
+    'Aligning lore fragments...',
+    'Reviewing character arcs...',
+    'Testing the scene logic...',
+    'Preparing sensory details...',
+    'Checking the pressure points...',
+    'Setting the narrative compass...',
+    'Turning the page...',
+    'Finalizing the next move...'
+];
+
+function createGenerationLoader(initialLine = generationLoadingLines[0]) {
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'message ai-message generation-loader-message';
+
+    const loader = document.createElement('div');
+    loader.className = 'generation-loader';
+    loader.setAttribute('role', 'status');
+    loader.setAttribute('aria-live', 'polite');
+
+    const globe = document.createElement('div');
+    globe.className = 'wireframe-globe';
+    globe.setAttribute('aria-hidden', 'true');
+
+    const meridian = document.createElement('span');
+    meridian.className = 'globe-meridian';
+
+    const equator = document.createElement('span');
+    equator.className = 'globe-equator';
+
+    const tilt = document.createElement('span');
+    tilt.className = 'globe-tilt';
+
+    globe.appendChild(meridian);
+    globe.appendChild(equator);
+    globe.appendChild(tilt);
+
+    const text = document.createElement('div');
+    text.className = 'generation-loader-text';
+    text.textContent = initialLine;
+
+    loader.appendChild(globe);
+    loader.appendChild(text);
+    msgDiv.appendChild(loader);
+
+    let lineIndex = Math.max(0, generationLoadingLines.indexOf(initialLine));
+    msgDiv._generationLineTimer = window.setInterval(() => {
+        lineIndex = (lineIndex + 1) % generationLoadingLines.length;
+        text.classList.remove('is-swapping');
+        window.requestAnimationFrame(() => {
+            text.classList.add('is-swapping');
+            text.textContent = generationLoadingLines[lineIndex];
+        });
+    }, 1800);
+
+    return msgDiv;
+}
+
+function removeGenerationLoader(loader) {
+    if (!loader) return;
+    if (loader._generationLineTimer) {
+        window.clearInterval(loader._generationLineTimer);
+        loader._generationLineTimer = null;
+    }
+    if (loader.parentNode) {
+        loader.parentNode.removeChild(loader);
+    }
 }
 
 function editMessage(msgDiv) {
@@ -953,6 +1130,11 @@ CRITICAL: Output ONLY valid JSON:
 
 async function performWikipediaSearch(query) {
     if (!query) return '';
+    if (window.OdysseyRetrieval) {
+        const results = await window.OdysseyRetrieval.searchWikipedia(query, 3);
+        return window.OdysseyRetrieval.formatSearchResults('WIKIPEDIA RESULT', results);
+    }
+
     try {
         console.log("Querying Wikipedia for:", query);
         const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&utf8=&format=json&origin=*`;
@@ -968,6 +1150,12 @@ async function performWikipediaSearch(query) {
         console.error("Wikipedia search failed:", err);
     }
     return '';
+}
+
+async function performBraveSearch(query) {
+    if (!query || !window.OdysseyRetrieval) return '';
+    const results = await window.OdysseyRetrieval.searchBrave(query);
+    return window.OdysseyRetrieval.formatSearchResults('BRAVE WEB RESULT', results);
 }
 
 async function runFandomPreCheck(userInput, presetKey) {
@@ -1024,6 +1212,11 @@ CRITICAL: Output ONLY valid JSON:
 
 async function performFandomSearch(query, presetKey) {
     if (!query) return '';
+    if (window.OdysseyRetrieval) {
+        const results = await window.OdysseyRetrieval.searchFandom(query, presetKey, 3, window.worldInfo || {});
+        return window.OdysseyRetrieval.formatSearchResults('LORE WIKI RESULT', results);
+    }
+
     const presetData = WORLD_PRESETS[presetKey];
     if (!presetData || !presetData.wikiUrl) return '';
     try {
@@ -1058,6 +1251,17 @@ async function performFandomSearch(query, presetKey) {
     return '';
 }
 
+async function retrieveVectorRagContext(userInput) {
+    if (!window.OdysseyRetrieval || !userInput) return '';
+    const allData = {
+        worldInfo: window.worldInfo || {},
+        playerInfo: window.playerInfo || {},
+        gameState: window.gamestate || {},
+        summaryText: window.gameSummaryText || ''
+    };
+    return await window.OdysseyRetrieval.buildRagContext(userInput, allData);
+}
+
 
 async function sendChatMessage() {
     const chatInput = document.getElementById('chat-input');
@@ -1074,32 +1278,40 @@ async function sendChatMessage() {
     chatMessages.appendChild(userMsg);
     chatMessages.scrollTop = chatMessages.scrollHeight;
 
-    // Show loading for prompter step
-    const loadingMsg = createChatMessage('ai', '⏳ Prompter is checking context...');
+    // Show centered generation loader while context checks and model output run.
+    const loadingMsg = createGenerationLoader('Checking notes...');
     chatMessages.appendChild(loadingMsg);
     chatMessages.scrollTop = chatMessages.scrollHeight;
 
     // Run the prompter to enrich the input
     const promptedMessage = await runPrompter(message);
 
-    // Update loading text
-    const loaderContent = loadingMsg.querySelector('.message-content');
-    if (loaderContent) loaderContent.textContent = '⏳ Thinking...';
+    const loaderContent = loadingMsg.querySelector('.generation-loader-text');
+    if (loaderContent) loaderContent.textContent = 'Building story threads...';
 
     // 1: Check Internal Lore
     const internalLore = retrieveInternalLore(message);
 
-    // 2: Check Real-World Wikipedia Search
+    // 2: Check semantic vector memory
+    const ragData = await retrieveVectorRagContext(message);
+
+    // 3: Check Real-World Wikipedia and Brave Search
     let wikiData = '';
+    let braveData = '';
     const searchContext = await runWikipediaPreCheck(message);
     if (searchContext && searchContext.needs_search && searchContext.query) {
-        wikiData = await performWikipediaSearch(searchContext.query);
+        const [wikiResult, braveResult] = await Promise.all([
+            performWikipediaSearch(searchContext.query),
+            performBraveSearch(searchContext.query)
+        ]);
+        wikiData = wikiResult;
+        braveData = braveResult;
     }
 
-    // 3: Check IP Fandom Lore Search
+    // 4: Check IP Fandom Lore Search
     let fandomData = '';
     const presetKey = (window.worldInfo?.world?.preset || '').toLowerCase();
-    if (presetKey && WORLD_PRESETS[presetKey]) {
+    if (presetKey && (WORLD_PRESETS[presetKey] || window.OdysseyRetrieval?.getWorldWikiConfig(presetKey, window.worldInfo || {}))) {
         const fandomContext = await runFandomPreCheck(message, presetKey);
         if (fandomContext && fandomContext.needs_search && fandomContext.query) {
             fandomData = await performFandomSearch(fandomContext.query, presetKey);
@@ -1116,7 +1328,7 @@ async function sendChatMessage() {
             playerInfo: window.playerInfo || {},
             gameState: window.gamestate || {}
         };
-        window.chatHistory[0].content = buildGameSystemPrompt(allData, window.gameSummaryText || '', internalLore, wikiData, fandomData, localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter');
+        window.chatHistory[0].content = buildGameSystemPrompt(allData, window.gameSummaryText || '', internalLore, wikiData, fandomData, localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter', ragData, braveData);
     }
 
     const provider = localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter';
@@ -1162,7 +1374,7 @@ async function sendChatMessage() {
         window.chatHistory.push({ role: 'assistant', content: aiText });
 
         // Replace loading with real message
-        chatMessages.removeChild(loadingMsg);
+        removeGenerationLoader(loadingMsg);
         const displayText = processGameTurnJson(aiText);
         const aiMsg = createChatMessage('ai', displayText);
         chatMessages.appendChild(aiMsg);
@@ -1178,7 +1390,7 @@ async function sendChatMessage() {
         }
 
     } catch (err) {
-        chatMessages.removeChild(loadingMsg);
+        removeGenerationLoader(loadingMsg);
         const errorMsg = createChatMessage('ai', `<div class="error-card" style="background: var(--bg-tertiary); border-left: 4px solid var(--accent-color); padding: 15px; border-radius: 8px; margin: 10px 0;"><strong>⚠️ Connection Error</strong><p style="margin-top: 5px; color: var(--text-muted);">${formatErrorForUser(err)}</p></div>`);
         chatMessages.appendChild(errorMsg);
     }
@@ -1200,7 +1412,7 @@ async function regenerateLastAI() {
     }
 
     // Show loading
-    const loadingMsg = createChatMessage('ai', '🔄 Regenerating...');
+    const loadingMsg = createGenerationLoader('Revisiting the last scene...');
     chatMessages.appendChild(loadingMsg);
 
     // Find the last user message to use as context for regeneration searches
@@ -1216,17 +1428,26 @@ async function regenerateLastAI() {
     // 1: Check Internal Lore
     const internalLore = retrieveInternalLore(lastUserMessage);
 
-    // 2: Check Real-World Wikipedia Search
+    // 2: Check semantic vector memory
+    const ragData = await retrieveVectorRagContext(lastUserMessage);
+
+    // 3: Check Real-World Wikipedia and Brave Search
     let wikiData = '';
+    let braveData = '';
     let fandomData = '';
     if (lastUserMessage) {
         const searchContext = await runWikipediaPreCheck(lastUserMessage);
         if (searchContext && searchContext.needs_search && searchContext.query) {
-            wikiData = await performWikipediaSearch(searchContext.query);
+            const [wikiResult, braveResult] = await Promise.all([
+                performWikipediaSearch(searchContext.query),
+                performBraveSearch(searchContext.query)
+            ]);
+            wikiData = wikiResult;
+            braveData = braveResult;
         }
 
         const presetKey = (window.worldInfo?.world?.preset || '').toLowerCase();
-        if (presetKey && WORLD_PRESETS[presetKey]) {
+        if (presetKey && (WORLD_PRESETS[presetKey] || window.OdysseyRetrieval?.getWorldWikiConfig(presetKey, window.worldInfo || {}))) {
             const fandomContext = await runFandomPreCheck(lastUserMessage, presetKey);
             if (fandomContext && fandomContext.needs_search && fandomContext.query) {
                 fandomData = await performFandomSearch(fandomContext.query, presetKey);
@@ -1241,7 +1462,7 @@ async function regenerateLastAI() {
             playerInfo: window.playerInfo || {},
             gameState: window.gamestate || {}
         };
-        window.chatHistory[0].content = buildGameSystemPrompt(allData, window.gameSummaryText || '', internalLore, wikiData, fandomData, localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter');
+        window.chatHistory[0].content = buildGameSystemPrompt(allData, window.gameSummaryText || '', internalLore, wikiData, fandomData, localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter', ragData, braveData);
     }
 
     const provider = localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter';
@@ -1286,7 +1507,7 @@ async function regenerateLastAI() {
 
         window.chatHistory.push({ role: 'assistant', content: aiText });
 
-        chatMessages.removeChild(loadingMsg);
+        removeGenerationLoader(loadingMsg);
         const displayText = processGameTurnJson(aiText);
         const aiMsg = createChatMessage('ai', displayText);
         chatMessages.appendChild(aiMsg);
@@ -1302,7 +1523,7 @@ async function regenerateLastAI() {
         }
 
     } catch (err) {
-        chatMessages.removeChild(loadingMsg);
+        removeGenerationLoader(loadingMsg);
         const errorMsg = createChatMessage('ai', `⚠️ Regeneration failed: ${err.message}`);
         chatMessages.appendChild(errorMsg);
     }

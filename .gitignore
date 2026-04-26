@@ -71,4 +71,16 @@ readme images/theme demo video.webm
 .codex/
 memory/
 
+# Local RAG/vector generation workspace. Generated checkpoints, smoke outputs,
+# and intermediate vector stores live here until intentionally published.
+.rag-vector-generation/
+
+# Legacy local vector generation cache from early CLI smoke tests.
+.vector-cache/
+
+# Keep only curated distributable vector stores in the app tree.
+public/jsons/universe-vector-stores/*.tmp
+public/jsons/universe-vector-stores/*.partial
+public/jsons/universe-vector-stores/*.bak
+public/jsons/universe-vector-stores/*.checkpoint.json
 

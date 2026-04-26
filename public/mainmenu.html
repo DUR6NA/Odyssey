@@ -15,6 +15,10 @@
             window.location.href = 'game.html?action=new';
         }
 
+        function formatSaveLabel(game) {
+            return /^\d+$/.test(String(game)) ? `Save ${game}` : String(game);
+        }
+
         async function loadGameMenu() {
             document.getElementById('menu-buttons').classList.add('hidden');
             const container = document.getElementById('save-list-container');
@@ -52,7 +56,7 @@
                     const btn = document.createElement('button');
                     btn.className = 'menu-btn save-btn';
                     btn.style.fontSize = '1.2rem';
-                    btn.textContent = `Save ${game}`;
+                    btn.textContent = formatSaveLabel(game);
                     btn.onclick = () => {
                         window.location.href = `game.html?action=load&id=${encodeURIComponent(game)}`;
                     };
@@ -84,7 +88,7 @@
                     delBtn.title = 'Delete Save';
                     delBtn.onclick = async (e) => {
                         e.stopPropagation();
-                        if (confirm(`Are you sure you want to delete save ${game}? This cannot be undone.`)) {
+                        if (confirm(`Are you sure you want to delete ${formatSaveLabel(game)}? This cannot be undone.`)) {
                             try {
                                 let success = false;
                                 if (window.tauriBridge) {

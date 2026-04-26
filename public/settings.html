@@ -10,6 +10,7 @@
     <script src="theme.js"></script>
     <script src="titlebar.js"></script>
     <script src="ui-components.js"></script>
+    <script src="retrieval.js?v=1"></script>
     <script src="menu-music.js"></script>
     <meta name="description" content="Odyssey - A text-based AI adventure game">
     <meta name="theme-color" content="#121212">
@@ -126,8 +127,7 @@
                     <div class="control-group mt-md">
                         <label>Enable Real-World Web Search:</label>
                         <input type="checkbox" id="api-enable-web-search" onchange="saveApiSettings()">
-                        <span class="hint-text">Enables Wikipedia
-                            API integration</span>
+                        <span class="hint-text">Enables Wikipedia lookup and optional Brave web search</span>
                     </div>
 
                     <div class="control-group mt-md">
@@ -135,6 +135,84 @@
                         <input type="checkbox" id="api-enable-fandom-search" onchange="saveApiSettings()">
                         <span class="hint-text">Enables Wiki
                             (Wookieepedia, etc) lookups for presets</span>
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Enable Brave Web Search:</label>
+                        <input type="checkbox" id="api-enable-brave-search" onchange="saveApiSettings()">
+                        <span class="hint-text">Uses Brave Search for live web context when Real-World Web Search decides a lookup is needed</span>
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Brave Search API Key:</label>
+                        <input type="password" id="brave-search-api-key" placeholder="BSA..."
+                            class="input-md" oninput="saveApiSettings()">
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Brave Result Count:</label>
+                        <input type="number" id="brave-search-count" min="1" max="10" value="3"
+                            class="input-sm" onchange="saveApiSettings()">
+                    </div>
+
+                    <hr class="divider">
+                    <h3>Retrieval and Vector RAG</h3>
+
+                    <div class="control-group mt-md">
+                        <button onclick="useLmStudioEmbeddingDefaults()" class="btn btn-compact">Use LM Studio Defaults</button>
+                        <button onclick="fetchEmbeddingModels()" class="btn btn-compact">Fetch Embedding Models</button>
+                        <span id="embedding-model-fetch-status" class="hint-text"></span>
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Enable Vector RAG:</label>
+                        <input type="checkbox" id="api-enable-vector-rag" onchange="saveApiSettings()">
+                        <span class="hint-text">Requires an embedding model. Game memory and searched wiki/web context are stored locally as vectors.</span>
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Embedding Provider:</label>
+                        <select id="embedding-provider-select" onchange="handleEmbeddingProviderChange(); saveApiSettings()" class="input-md">
+                            <option value="lmstudio">LM Studio (Local)</option>
+                            <option value="ollama">Ollama (Local)</option>
+                            <option value="openai">OpenAI</option>
+                            <option value="openai_compatible">OpenAI Compatible</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Embedding Base URL:</label>
+                        <input type="text" id="embedding-base-url" placeholder="http://localhost:1234/v1"
+                            class="input-md" onchange="saveApiSettings()">
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Embedding API Key:</label>
+                        <input type="password" id="embedding-api-key" placeholder="Optional for local providers"
+                            class="input-md" oninput="saveApiSettings()">
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Embedding Model:</label>
+                        <input type="text" id="embedding-model" placeholder="e.g. text-embedding-nomic-embed-text-v1.5, embeddinggemma, text-embedding-3-small"
+                            class="input-lg" oninput="saveApiSettings()">
+                        <select id="embedding-model-select" class="input-lg" onchange="selectEmbeddingModel(this.value)">
+                            <option value="">-- Fetch embedding models or type manually --</option>
+                        </select>
+                        <button onclick="testEmbeddingConnection()" class="btn btn-compact">Test Embeddings</button>
+                        <span id="embedding-test-status" class="hint-text"></span>
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Vector Results:</label>
+                        <input type="number" id="vector-top-k" min="1" max="12" value="5"
+                            class="input-sm" onchange="saveApiSettings()">
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Vector Min Score:</label>
+                        <input type="number" id="vector-min-score" min="-1" max="1" step="0.01" value="0.18"
+                            class="input-sm" onchange="saveApiSettings()">
                     </div>
 
                     <div class="control-group mt-md">
@@ -528,7 +606,7 @@
             loadTtsSettings();
             // Initialize custom dropdowns and number inputs
             initCustomUIComponents(document.body, {
-                searchSelects: ['openrouter-model-select', 'openrouter-image-model-select', 'primary-font-select', 'secondary-font-select']
+                searchSelects: ['openrouter-model-select', 'openrouter-image-model-select', 'embedding-model-select', 'primary-font-select', 'secondary-font-select']
             });
 
             // Update back button icon and title if from main menu
@@ -851,6 +929,133 @@
             }
         }
 
+        function handleEmbeddingProviderChange() {
+            const provider = document.getElementById('embedding-provider-select').value;
+            const baseUrlInput = document.getElementById('embedding-base-url');
+            const modelInput = document.getElementById('embedding-model');
+            const defaults = {
+                lmstudio: { baseUrl: 'http://localhost:1234/v1', model: 'text-embedding-nomic-embed-text-v1.5' },
+                ollama: { baseUrl: 'http://localhost:11434', model: 'embeddinggemma' },
+                openai: { baseUrl: 'https://api.openai.com/v1', model: 'text-embedding-3-small' },
+                openai_compatible: { baseUrl: 'http://localhost:1234/v1', model: 'text-embedding-nomic-embed-text-v1.5' }
+            };
+            const selected = defaults[provider] || defaults.lmstudio;
+            if (!baseUrlInput.value.trim()) baseUrlInput.value = selected.baseUrl;
+            if (!modelInput.value.trim() && selected.model) modelInput.value = selected.model;
+        }
+
+        function useLmStudioEmbeddingDefaults() {
+            document.getElementById('api-enable-vector-rag').checked = true;
+            document.getElementById('embedding-provider-select').value = 'lmstudio';
+            document.getElementById('embedding-base-url').value = 'http://localhost:1234/v1';
+            document.getElementById('embedding-api-key').value = '';
+            document.getElementById('embedding-model').value = 'text-embedding-nomic-embed-text-v1.5';
+            document.getElementById('vector-top-k').value = '5';
+            document.getElementById('vector-min-score').value = '0.18';
+            saveApiSettings();
+            const statusEl = document.getElementById('embedding-model-fetch-status');
+            statusEl.textContent = 'LM Studio defaults set. Start the LM Studio server and load an embedding model, then test.';
+            statusEl.style.color = 'var(--text-muted)';
+        }
+
+        function selectEmbeddingModel(modelId) {
+            if (!modelId) return;
+            document.getElementById('embedding-model').value = modelId;
+            saveApiSettings();
+        }
+
+        function normalizeEmbeddingModels(rawModels) {
+            const list = Array.isArray(rawModels?.models) ? rawModels.models : (Array.isArray(rawModels?.data) ? rawModels.data : []);
+            const keywords = ['embed', 'embedding', 'nomic', 'bge', 'mxbai', 'mixedbread', 'e5', 'jina', 'gte', 'minilm'];
+            return list
+                .map(model => {
+                    const id = model.id || model.key || model.name || model.model || '';
+                    const name = model.display_name || model.name || model.id || model.key || id;
+                    const type = String(model.type || model.architecture?.modality || '').toLowerCase();
+                    return { id, name, type };
+                })
+                .filter(model => model.id)
+                .filter(model => {
+                    const haystack = `${model.id} ${model.name} ${model.type}`.toLowerCase();
+                    return model.type.includes('embed') || keywords.some(keyword => haystack.includes(keyword));
+                });
+        }
+
+        function populateEmbeddingModelSelect(models) {
+            const select = document.getElementById('embedding-model-select');
+            const savedModel = document.getElementById('embedding-model').value.trim();
+            select.innerHTML = '<option value="">-- Select embedding model --</option>';
+            models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.id;
+                option.textContent = model.name && model.name !== model.id ? `${model.name} (${model.id})` : model.id;
+                if (model.id === savedModel) option.selected = true;
+                select.appendChild(option);
+            });
+            if (typeof refreshCustomSelect === 'function') refreshCustomSelect('embedding-model-select');
+        }
+
+        async function fetchEmbeddingModels() {
+            const statusEl = document.getElementById('embedding-model-fetch-status');
+            const provider = document.getElementById('embedding-provider-select').value;
+            const rawBaseUrl = document.getElementById('embedding-base-url').value.trim();
+            const apiKey = document.getElementById('embedding-api-key').value.trim();
+            statusEl.textContent = 'Fetching...';
+            statusEl.style.color = 'var(--text-muted)';
+
+            try {
+                let url;
+                const headers = { 'Content-Type': 'application/json' };
+                if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+
+                if (provider === 'ollama') {
+                    const base = (rawBaseUrl || 'http://localhost:11434').replace(/\/api\/?$/, '').replace(/\/+$/, '');
+                    url = `${base}/api/tags`;
+                } else {
+                    const base = (rawBaseUrl || 'http://localhost:1234/v1')
+                        .replace(/\/models\/?$/, '')
+                        .replace(/\/+$/, '');
+                    url = `${base}/models`;
+                }
+
+                const response = await fetch(url, { method: 'GET', headers });
+                if (!response.ok) throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+
+                const models = normalizeEmbeddingModels(await response.json());
+                if (models.length === 0) throw new Error('No embedding-like models found. Load an embedding model in LM Studio first, or type the model ID manually.');
+                populateEmbeddingModelSelect(models);
+
+                const current = document.getElementById('embedding-model').value.trim();
+                if (!current && models[0]) {
+                    document.getElementById('embedding-model').value = models[0].id;
+                    selectEmbeddingModel(models[0].id);
+                }
+
+                statusEl.textContent = `${models.length} embedding model${models.length === 1 ? '' : 's'} found`;
+                statusEl.style.color = '#28a745';
+            } catch (error) {
+                statusEl.textContent = `Failed: ${error.message}`;
+                statusEl.style.color = '#dc3545';
+            }
+        }
+
+        async function testEmbeddingConnection() {
+            const statusEl = document.getElementById('embedding-test-status');
+            statusEl.textContent = 'Testing...';
+            statusEl.style.color = 'var(--text-muted)';
+            saveApiSettings();
+            try {
+                if (!window.OdysseyRetrieval) throw new Error('Retrieval layer is not loaded.');
+                const result = await window.OdysseyRetrieval.testEmbedding();
+                if (!result.success) throw new Error('No embedding vector returned.');
+                statusEl.textContent = `OK (${result.dimensions} dimensions)`;
+                statusEl.style.color = '#28a745';
+            } catch (error) {
+                statusEl.textContent = `Failed: ${error.message}`;
+                statusEl.style.color = '#dc3545';
+            }
+        }
+
         function loadApiSettings() {
             const provider = localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter';
             const baseUrl = localStorage.getItem('jsonAdventure_apiBaseUrl') || '';
@@ -884,10 +1089,23 @@
             const autoImgCheck = document.getElementById('api-enable-auto-image');
             const webSearchCheck = document.getElementById('api-enable-web-search');
             const fandomSearchCheck = document.getElementById('api-enable-fandom-search');
+            const braveSearchCheck = document.getElementById('api-enable-brave-search');
+            const vectorRagCheck = document.getElementById('api-enable-vector-rag');
             imgCheck.checked = localStorage.getItem('jsonAdventure_enableImage') === 'true';
             autoImgCheck.checked = localStorage.getItem('jsonAdventure_enableAutoImage') === 'true';
             webSearchCheck.checked = localStorage.getItem('jsonAdventure_enableWebSearch') === 'true';
             fandomSearchCheck.checked = localStorage.getItem('jsonAdventure_enableFandomSearch') === 'true';
+            braveSearchCheck.checked = localStorage.getItem('jsonAdventure_enableBraveSearch') === 'true';
+            document.getElementById('brave-search-api-key').value = localStorage.getItem('jsonAdventure_braveSearchApiKey') || '';
+            document.getElementById('brave-search-count').value = localStorage.getItem('jsonAdventure_braveSearchCount') || '3';
+            vectorRagCheck.checked = localStorage.getItem('jsonAdventure_enableVectorRag') === 'true';
+            document.getElementById('embedding-provider-select').value = localStorage.getItem('jsonAdventure_embeddingProvider') || 'lmstudio';
+            document.getElementById('embedding-base-url').value = localStorage.getItem('jsonAdventure_embeddingBaseUrl') || '';
+            document.getElementById('embedding-api-key').value = localStorage.getItem('jsonAdventure_embeddingApiKey') || '';
+            document.getElementById('embedding-model').value = localStorage.getItem('jsonAdventure_embeddingModel') || '';
+            document.getElementById('vector-top-k').value = localStorage.getItem('jsonAdventure_vectorTopK') || '5';
+            document.getElementById('vector-min-score').value = localStorage.getItem('jsonAdventure_vectorMinScore') || '0.18';
+            handleEmbeddingProviderChange();
 
             imgCheck.addEventListener('change', () => {
                 autoImgCheck.disabled = !imgCheck.checked;
@@ -928,6 +1146,16 @@
             const enableAutoImage = document.getElementById('api-enable-auto-image').checked;
             const enableWebSearch = document.getElementById('api-enable-web-search').checked;
             const enableFandomSearch = document.getElementById('api-enable-fandom-search').checked;
+            const enableBraveSearch = document.getElementById('api-enable-brave-search').checked;
+            const braveSearchApiKey = document.getElementById('brave-search-api-key').value.trim();
+            const braveSearchCount = document.getElementById('brave-search-count').value;
+            const enableVectorRag = document.getElementById('api-enable-vector-rag').checked;
+            const embeddingProvider = document.getElementById('embedding-provider-select').value;
+            const embeddingBaseUrl = document.getElementById('embedding-base-url').value.trim();
+            const embeddingApiKey = document.getElementById('embedding-api-key').value.trim();
+            const embeddingModel = document.getElementById('embedding-model').value.trim();
+            const vectorTopK = document.getElementById('vector-top-k').value;
+            const vectorMinScore = document.getElementById('vector-min-score').value;
             const selectedImageModel = document.getElementById('openrouter-image-model-select').value;
 
             // Normalize base URL: strip accidental endpoint suffixes (e.g. /chat/completions)
@@ -957,6 +1185,16 @@
             localStorage.setItem('jsonAdventure_enableAutoImage', enableAutoImage);
             localStorage.setItem('jsonAdventure_enableWebSearch', enableWebSearch);
             localStorage.setItem('jsonAdventure_enableFandomSearch', enableFandomSearch);
+            localStorage.setItem('jsonAdventure_enableBraveSearch', enableBraveSearch);
+            localStorage.setItem('jsonAdventure_braveSearchApiKey', braveSearchApiKey);
+            localStorage.setItem('jsonAdventure_braveSearchCount', braveSearchCount);
+            localStorage.setItem('jsonAdventure_enableVectorRag', enableVectorRag);
+            localStorage.setItem('jsonAdventure_embeddingProvider', embeddingProvider);
+            localStorage.setItem('jsonAdventure_embeddingBaseUrl', embeddingBaseUrl);
+            localStorage.setItem('jsonAdventure_embeddingApiKey', embeddingApiKey);
+            localStorage.setItem('jsonAdventure_embeddingModel', embeddingModel);
+            localStorage.setItem('jsonAdventure_vectorTopK', vectorTopK);
+            localStorage.setItem('jsonAdventure_vectorMinScore', vectorMinScore);
             // Save separate image API settings
             const useSeparateImage = document.getElementById('api-image-separate').checked;
             localStorage.setItem('jsonAdventure_imageUseSeparateApi', useSeparateImage);

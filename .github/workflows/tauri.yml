@@ -34,10 +34,32 @@ jobs:
         with:
           script: |
             const version = process.env.APP_VERSION;
+            const tagName = context.ref.replace('refs/tags/', '');
+            const expectedTag = `v${version}`;
+            if (tagName !== expectedTag) {
+              throw new Error(`Release tag ${tagName} does not match app version ${expectedTag}`);
+            }
+            const isPrerelease = version.includes('-');
             const body = [
               `## Odyssey v${version}`,
               '',
-              'Download the installer for your platform from the assets below.',
+              'This beta focuses on stronger context retrieval, better lore lookup, and smoother campaign setup. Download the installer for your platform from the assets below.',
+              '',
+              '### Highlights',
+              '',
+              '- Added vector RAG support for game memory, player/world state, adventure summaries, NPCs, locations, and retrieved lore.',
+              '- Added configurable embedding providers for LM Studio, Ollama, OpenAI, and OpenAI-compatible endpoints, including model fetch and connection testing from Settings.',
+              '- Improved Wikipedia and fandom wiki retrieval through MediaWiki APIs, with richer source excerpts and support for custom wiki metadata on created worlds.',
+              '- Added optional Brave Search context for live web results when real-world lookup is enabled.',
+              '- Added local persistence for game and universe vector stores through the Tauri bridge, with a curated universe vector-store publishing workflow.',
+              '- Improved generation feedback with a rotating in-game loading state while Odyssey gathers context and writes the next turn.',
+              '- Added generated save names during campaign creation so new adventures are easier to recognize in the load menu.',
+              '',
+              '### Beta Notes',
+              '',
+              '- Vector RAG is opt-in from Settings and requires an embedding model before retrieval context is injected into turns.',
+              '- Local embedding backends may require their server to be running before model fetch, embedding tests, or vector retrieval will succeed.',
+              '- This is a beta prerelease, so please expect a few rough edges around provider-specific embedding behavior and large universe-store workflows.',
               '',
               '| Platform | Recommended asset |',
               '| --- | --- |',
@@ -51,11 +73,11 @@ jobs:
             const { data } = await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              tag_name:              `v${version}`,
-              name:                  `Odyssey v${version}`,
+              tag_name:              tagName,
+              name:                  isPrerelease ? `Odyssey v${version} Beta` : `Odyssey v${version}`,
               body,
               draft:                 true,
-              prerelease:            false,
+              prerelease:            isPrerelease,
               generate_release_notes: true,
             })
             return data.id
@@ -142,6 +164,6 @@ jobs:
               repo:       context.repo.repo,
               release_id: ${{ needs.create-release.outputs.release_id }},
               draft:      false,
-              prerelease: false,
-              make_latest: 'true',
+              prerelease: '${{ contains(github.ref_name, '-') }}' === 'true',
+              make_latest: '${{ contains(github.ref_name, '-') }}' === 'true' ? 'false' : 'true',
             })

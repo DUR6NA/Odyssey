@@ -14,6 +14,7 @@
     <script src="titlebar.js"></script>
     <script src="ui-components.js?v=2"></script>
     <script src="creation.js?v=2"></script>
+    <script src="retrieval.js?v=1"></script>
     <script src="chat.js?v=2"></script>
     <script src="saves.js?v=2"></script>
     <script src="menu-music.js"></script>
@@ -260,7 +261,7 @@
                         gameState: window.gamestate || {}
                     };
                     if (typeof buildGameSystemPrompt === 'function') {
-                        history[0].content = buildGameSystemPrompt(allData, window.gameSummaryText);
+                        history[0].content = buildGameSystemPrompt(allData, window.gameSummaryText, '', '', '', localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter');
                     }
                 }
 

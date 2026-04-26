@@ -51,6 +51,47 @@ function errMsg(e) {
     }
   }
 
+  function sanitizeGameFolderName(name) {
+    const cleaned = String(name || '')
+      .replace(/[_]+/g, ' ')
+      .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/^[.\-\s]+|[.\-\s]+$/g, '')
+      .slice(0, 48)
+      .trim();
+
+    const reservedWindowsNames = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
+    if (!cleaned || reservedWindowsNames.test(cleaned)) return null;
+    return cleaned;
+  }
+
+  function sanitizeVectorStoreName(name) {
+    return String(name || 'default')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'default';
+  }
+
+  async function getUniqueGameFolderName(gamesDir, requestedName) {
+    const baseName = sanitizeGameFolderName(requestedName);
+    if (baseName) {
+      let candidate = baseName;
+      let suffix = 2;
+      while (await fs.exists(await path.join(gamesDir, candidate))) {
+        candidate = `${baseName} ${suffix}`;
+        suffix++;
+      }
+      return candidate;
+    }
+
+    let i = 1;
+    while (await fs.exists(await path.join(gamesDir, String(i)))) {
+      i++;
+    }
+    return String(i);
+  }
+
   window.tauriBridge = {
     async listPresets() {
       try {
@@ -132,29 +173,77 @@ function errMsg(e) {
       } catch (e) { console.error('loadGame error:', e); return {}; }
     },
 
+    async loadVectorStore(id) {
+      try {
+        const base = await getBaseDir();
+        const filePath = await path.join(base, 'games', String(id), 'vector_store.json');
+        if (!(await fs.exists(filePath))) return null;
+        return JSON.parse(await fs.readTextFile(filePath));
+      } catch (e) {
+        console.error('loadVectorStore error:', e);
+        return null;
+      }
+    },
+
+    async saveVectorStore(id, store) {
+      try {
+        const base = await getBaseDir();
+        const gameDir = await path.join(base, 'games', String(id));
+        await ensureDir(gameDir);
+        await fs.writeTextFile(await path.join(gameDir, 'vector_store.json'), JSON.stringify(store || {}, null, 2));
+        return { success: true };
+      } catch (e) {
+        console.error('saveVectorStore error:', e);
+        return { success: false, error: errMsg(e) };
+      }
+    },
+
+    async loadUniverseVectorStore(key) {
+      try {
+        const safeKey = sanitizeVectorStoreName(key);
+        const base = await getBaseDir();
+        const dir = await path.join(base, 'vector-stores', 'universes');
+        const filePath = await path.join(dir, `${safeKey}.json`);
+        if (!(await fs.exists(filePath))) return null;
+        return JSON.parse(await fs.readTextFile(filePath));
+      } catch (e) {
+        console.error('loadUniverseVectorStore error:', e);
+        return null;
+      }
+    },
+
+    async saveUniverseVectorStore(key, store) {
+      try {
+        const safeKey = sanitizeVectorStoreName(key);
+        const base = await getBaseDir();
+        const dir = await path.join(base, 'vector-stores', 'universes');
+        await ensureDir(dir);
+        await fs.writeTextFile(await path.join(dir, `${safeKey}.json`), JSON.stringify(store || {}, null, 2));
+        return { success: true };
+      } catch (e) {
+        console.error('saveUniverseVectorStore error:', e);
+        return { success: false, error: errMsg(e) };
+      }
+    },
+
     async saveNewGame(data) {
       try {
         const base = await getBaseDir();
         const gamesDir = await path.join(base, 'games');
         await ensureDir(gamesDir);
-        let i = 1;
-        let newGameDir;
-        while (true) {
-          newGameDir = await path.join(gamesDir, String(i));
-          if (!(await fs.exists(newGameDir))) break;
-          i++;
-        }
+        const folderName = await getUniqueGameFolderName(gamesDir, data.saveName || data.gameName || '');
+        const newGameDir = await path.join(gamesDir, folderName);
         await fs.mkdir(newGameDir);
         if (data.worldInfo)  await fs.writeTextFile(await path.join(newGameDir, 'worldinfo.json'),       JSON.stringify(data.worldInfo, null, 2));
         if (data.playerInfo) await fs.writeTextFile(await path.join(newGameDir, 'player.json'),          JSON.stringify(data.playerInfo, null, 2));
         if (data.gameState)  await fs.writeTextFile(await path.join(newGameDir, 'gamestate.json'),       JSON.stringify(data.gameState, null, 2));
-        const scenario = { startingScenario: data.startingScenario || '', summary: data.summary || '' };
+        const scenario = { startingScenario: data.startingScenario || '', summary: data.summary || '', saveName: folderName };
         await fs.writeTextFile(await path.join(newGameDir, 'scenario.json'),        JSON.stringify(scenario, null, 2));
         await fs.writeTextFile(await path.join(newGameDir, 'locationsledger.json'), JSON.stringify({ locations: [] }, null, 2));
         await fs.writeTextFile(await path.join(newGameDir, 'npc-ledger.json'),      JSON.stringify({ npcs: [] }, null, 2));
         await fs.writeTextFile(await path.join(newGameDir, 'mainoutput.json'),      JSON.stringify({ time: {}, textoutput: '', inventory_changes: [], location_changes: [], npc_changes: [], stats: {} }, null, 2));
         await fs.writeTextFile(await path.join(newGameDir, 'chat_history.json'),    JSON.stringify([], null, 2));
-        return { success: true, folder: i };
+        return { success: true, folder: folderName };
       } catch (e) {
         console.error('saveNewGame error:', e);
         return { success: false, error: errMsg(e) };
@@ -270,20 +359,17 @@ function errMsg(e) {
         const base = await getBaseDir();
         const gamesDir = await path.join(base, 'games');
         await ensureDir(gamesDir);
-        let i = 1;
-        let newGameDir;
-        while (true) {
-          newGameDir = await path.join(gamesDir, String(i));
-          if (!(await fs.exists(newGameDir))) break;
-          i++;
-        }
+        const importedName = importData?.['scenario.json']?.saveName || importData?.id || '';
+        const folderName = await getUniqueGameFolderName(gamesDir, importedName);
+        const newGameDir = await path.join(gamesDir, folderName);
         await fs.mkdir(newGameDir);
         const skipKeys = new Set(['_backupVersion', 'id']);
         for (const [filename, fileData] of Object.entries(importData)) {
           if (skipKeys.has(filename) || !filename.endsWith('.json')) continue;
-          await fs.writeTextFile(await path.join(newGameDir, filename), JSON.stringify(fileData, null, 2));
+          const outputData = filename === 'scenario.json' ? { ...fileData, saveName: folderName } : fileData;
+          await fs.writeTextFile(await path.join(newGameDir, filename), JSON.stringify(outputData, null, 2));
         }
-        return { success: true, folder: i };
+        return { success: true, folder: folderName };
       } catch (e) {
         console.error('importGameData error:', e);
         return { success: false, error: errMsg(e) };

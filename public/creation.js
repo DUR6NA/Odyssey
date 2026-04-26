@@ -36,7 +36,9 @@ const WORLD_PRESETS = {
         dangers: 'Dark Wizards and their followers, magical creatures (dragons, dementors, basilisks), cursed artifacts, political corruption within the Ministry of Magic.',
         factions: ['The Order of the Phoenix', 'Death Eaters', 'The Ministry of Magic', 'Dumbledore\'s Army', 'The Hogwarts Houses (Gryffindor, Slytherin, Ravenclaw, Hufflepuff)'],
         calendarType: 'gregorian',
-        wikiUrl: 'https://harrypotter.fandom.com/wiki/'
+        wikiUrl: 'https://harrypotter.fandom.com/wiki/',
+        wikiName: 'Harry Potter Wiki',
+        mediaWikiApiUrl: 'https://harrypotter.fandom.com/api.php'
     },
     'star wars': {
         name: 'The Star Wars Galaxy',
@@ -48,7 +50,9 @@ const WORLD_PRESETS = {
         dangers: 'The Sith and Dark Side users, galactic wars, bounty hunters, crime syndicates (Hutt Cartel, Black Sun), hostile alien species, superweapons like the Death Star.',
         factions: ['The Jedi Order', 'The Sith', 'The Galactic Republic / Rebel Alliance / Resistance', 'The Galactic Empire / First Order', 'The Mandalorians', 'The Hutt Cartel', 'The Bounty Hunters Guild'],
         calendarType: 'starwars',
-        wikiUrl: 'https://starwars.fandom.com/wiki/'
+        wikiUrl: 'https://starwars.fandom.com/wiki/',
+        wikiName: 'Wookieepedia',
+        mediaWikiApiUrl: 'https://starwars.fandom.com/api.php'
     },
     'the chronicles of narnia': {
         name: 'Narnia',
@@ -60,7 +64,9 @@ const WORLD_PRESETS = {
         dangers: 'The White Witch and her followers, corrupted Narnians, Calormene invaders, dark magic, the Emerald Witch, sea serpents, and the forces that seek to undo Aslan\'s creation.',
         factions: ['The Narnians (Talking Animals, Dwarves, Centaurs)', 'The Calormenes', 'The Telmarines', 'The Followers of the White Witch', 'The Court of Cair Paravel'],
         calendarType: 'narnia',
-        wikiUrl: 'https://narnia.fandom.com/wiki/'
+        wikiUrl: 'https://narnia.fandom.com/wiki/',
+        wikiName: 'The Chronicles of Narnia Wiki',
+        mediaWikiApiUrl: 'https://narnia.fandom.com/api.php'
     },
     'lord of the rings': {
         name: 'Middle-earth',
@@ -72,7 +78,9 @@ const WORLD_PRESETS = {
         dangers: 'Sauron and his armies of Orcs, Trolls, Nazgûl, and Haradrim. Balrogs in the deep places. Shelob and other ancient evils. The corrupting influence of the One Ring.',
         factions: ['The Fellowship / Free Peoples', 'Sauron\'s Forces (Mordor)', 'The Elves of Rivendell and Lothlórien', 'The Rohirrim', 'The Men of Gondor', 'The Istari (Wizards)', 'Saruman and Isengard'],
         calendarType: 'lotr',
-        wikiUrl: 'https://lotr.fandom.com/wiki/'
+        wikiUrl: 'https://lotr.fandom.com/wiki/',
+        wikiName: 'The One Wiki to Rule Them All',
+        mediaWikiApiUrl: 'https://lotr.fandom.com/api.php'
     },
     'a song of ice and fire': {
         name: 'The Known World (Westeros & Essos)',
@@ -84,7 +92,9 @@ const WORLD_PRESETS = {
         dangers: 'The Others (White Walkers) and the army of the dead, civil war among the Great Houses, wildfire, dragons, the Faceless Men assassins, Dothraki hordes, and the ruthless game of thrones itself.',
         factions: ['House Stark', 'House Lannister', 'House Targaryen', 'House Baratheon', 'The Night\'s Watch', 'The Iron Islands (Greyjoy)', 'House Martell (Dorne)', 'The Free Folk (Wildlings)'],
         calendarType: 'asoiaf',
-        wikiUrl: 'https://awoiaf.westeros.org/index.php/'
+        wikiUrl: 'https://awoiaf.westeros.org/index.php/',
+        wikiName: 'A Wiki of Ice and Fire',
+        mediaWikiApiUrl: 'https://awoiaf.westeros.org/api.php'
     }
 };
 
@@ -1000,11 +1010,15 @@ function saveFieldAndNext(val, phase) {
             worldAnswers.dangers = preset.dangers;
             worldAnswers.factions = preset.factions;
             worldAnswers.wikiUrl = preset.wikiUrl;
+            worldAnswers.wikiName = preset.wikiName;
+            worldAnswers.mediaWikiApiUrl = preset.mediaWikiApiUrl;
             // Tone is kept as editable, but we pre-fill it
             if (!worldAnswers.tone) worldAnswers.tone = preset.tone;
         } else {
             // "None (Custom)" — clear any preset auto-fills
             delete worldAnswers.wikiUrl;
+            delete worldAnswers.wikiName;
+            delete worldAnswers.mediaWikiApiUrl;
         }
     }
 
@@ -1619,6 +1633,115 @@ function displaySummary(summaryText) {
     setupContent.appendChild(btnRow);
 }
 
+function getSetupChatCompletionsUrl(provider, baseUrl) {
+    if (provider === 'xai') {
+        return "https://api.x.ai/v1/chat/completions";
+    }
+    if (provider === 'googleai') {
+        return "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+    }
+    if (provider === 'lmstudio' || provider === 'openai') {
+        return baseUrl.endsWith('/') ? `${baseUrl}chat/completions` : `${baseUrl}/chat/completions`;
+    }
+    return "https://openrouter.ai/api/v1/chat/completions";
+}
+
+function cleanGeneratedSaveName(name) {
+    const cleaned = String(name || '')
+        .replace(/[_]+/g, ' ')
+        .replace(/[^a-zA-Z0-9 \-']/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/^[.\-\s']+|[.\-\s']+$/g, '');
+    return cleaned.slice(0, 48).trim();
+}
+
+function buildFallbackSaveName(allData) {
+    const playerName = cleanGeneratedSaveName(allData?.playerInfo?.player?.name || '');
+    const worldName = cleanGeneratedSaveName(allData?.worldInfo?.world?.name || '');
+    if (playerName && worldName) return cleanGeneratedSaveName(`${playerName} in ${worldName}`);
+    if (playerName) return playerName;
+    if (worldName) return worldName;
+    return 'New Odyssey';
+}
+
+async function generateGameSaveName(summaryText, allData) {
+    const provider = localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter';
+    const baseUrl = localStorage.getItem('jsonAdventure_apiBaseUrl') || '';
+    const apiKey = localStorage.getItem('jsonAdventure_openRouterApiKey');
+    const model = localStorage.getItem('jsonAdventure_openRouterModel') || 'openai/gpt-3.5-turbo';
+
+    if (!apiKey && provider !== 'openai' && provider !== 'lmstudio') {
+        return buildFallbackSaveName(allData);
+    }
+
+    const saveNameSchema = {
+        type: "object",
+        properties: {
+            saveName: {
+                type: "string",
+                description: "A short distinctive game/save name suitable for a file-system folder and load-game menu."
+            }
+        },
+        required: ["saveName"],
+        additionalProperties: false
+    };
+
+    const prompt = `You create save-game names for Odyssey, a text RPG.
+
+Generate ONE short, distinctive save name for this newly created campaign.
+
+Naming priorities:
+- Capture what is memorable about the character, world, goal, conflict, or starting scenario.
+- Prefer concrete names tied to this setup over generic labels.
+- Keep it short: 2 to 5 words, ideally under 36 characters.
+- Make it reasonable as a folder name and a load-game menu label.
+- Use ASCII letters/numbers/spaces/hyphens/apostrophes only.
+- Do not include quotes, file extensions, emoji, slashes, colons, or markdown.
+- Avoid bland names like "New Adventure", "Epic Quest", "Odyssey Save", or just the character name unless that is truly the strongest title.
+
+WORLD INFO:
+${JSON.stringify(allData.worldInfo, null, 2)}
+
+PLAYER INFO:
+${JSON.stringify(allData.playerInfo, null, 2)}
+
+STARTING SCENARIO:
+${allData.startingScenario || ''}
+
+ADVENTURE SUMMARY:
+${summaryText || ''}
+
+Output ONLY valid JSON with this exact shape:
+{"saveName":"Distinctive Short Name"}`;
+
+    try {
+        const response = await fetch(getSetupChatCompletionsUrl(provider, baseUrl), {
+            method: 'POST',
+            headers: buildAuthHeaders(apiKey),
+            body: buildFetchPayload(model, [
+                { role: 'system', content: prompt },
+                { role: 'user', content: 'Generate the short save-game name now.' }
+            ], 0.55, 80, 1.0, 0, 0, provider, saveNameSchema)
+        });
+
+        if (!response.ok) {
+            throw new Error(`API returned status ${response.status}: ${await response.text()}`);
+        }
+
+        const data = await response.json();
+        const parsed = await parseStructuredModelOutput(data.choices[0].message.content, {
+            requiredKeys: ['saveName'],
+            jsonExample: '{"saveName":"Distinctive Short Name"}',
+            label: 'save game name'
+        });
+        return cleanGeneratedSaveName(parsed.saveName) || buildFallbackSaveName(allData);
+    } catch (err) {
+        console.warn('Save name generation failed, using fallback name:', err);
+        return buildFallbackSaveName(allData);
+    }
+}
+
 // ============================================================
 // BUILD JSON DATA
 // ============================================================
@@ -1636,7 +1759,9 @@ function buildWorldJson() {
             magicOrTech: worldAnswers.magicOrTech || '',
             dangers: worldAnswers.dangers || '',
             factions: worldAnswers.factions || '',
-            wikiUrl: worldAnswers.wikiUrl || ''
+            wikiUrl: worldAnswers.wikiUrl || '',
+            wikiName: worldAnswers.wikiName || '',
+            mediaWikiApiUrl: worldAnswers.mediaWikiApiUrl || ''
         }
     };
     return w;
@@ -1739,6 +1864,9 @@ async function finishSetup(summaryText) {
     };
 
     try {
+        const generatedSaveName = await generateGameSaveName(summaryText, payload);
+        payload.saveName = generatedSaveName;
+
         let saveResult;
         if (window.tauriBridge) {
             saveResult = await window.tauriBridge.saveNewGame(payload);
@@ -1754,6 +1882,7 @@ async function finishSetup(summaryText) {
             saveResult = await res.json();
             currentGameFolder = saveResult.folder;
         }
+        payload.saveName = currentGameFolder || generatedSaveName;
 
         // Download and save the base player image locally (xAI URLs expire)
         if (playerImageBaseURL && window.tauriBridge) {
