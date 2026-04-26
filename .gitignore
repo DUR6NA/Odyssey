@@ -70,6 +70,7 @@ readme images/theme demo video.webm
 .claude/
 .codex/
 memory/
+.codex-jacquard.css
 
 # Local RAG/vector generation workspace. Generated checkpoints, smoke outputs,
 # and intermediate vector stores live here until intentionally published.
@@ -83,4 +84,10 @@ public/jsons/universe-vector-stores/*.tmp
 public/jsons/universe-vector-stores/*.partial
 public/jsons/universe-vector-stores/*.bak
 public/jsons/universe-vector-stores/*.checkpoint.json
+
+# Local icon generation helpers and extra mobile icon outputs.
+src-tauri/icons/fonts/
+src-tauri/icons/android/
+src-tauri/icons/ios/
+src-tauri/icons/64x64.png
 

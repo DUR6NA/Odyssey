@@ -12,7 +12,7 @@ import process from 'node:process';
 const STORE_VERSION = 1;
 const DEFAULT_OUTPUT_DIR = path.join('.rag-vector-generation', 'output', 'universe-vector-stores');
 const DEFAULT_CACHE_DIR = path.join('.rag-vector-generation', 'cache');
-const USER_AGENT = 'OdysseyVectorGenerator/0.5.2 (https://github.com/DUR6NA/Odyssey)';
+const USER_AGENT = 'OdysseyVectorGenerator/0.6.0-beta.1 (https://github.com/DUR6NA/Odyssey)';
 const MAX_CHUNK_CHARS = 1200;
 const CHUNK_OVERLAP_CHARS = 180;
 const DEFAULT_SHARD_TARGET_MB = 25;

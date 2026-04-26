@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Odyssey",
-  "version": "0.6.0-beta.1",
+  "version": "0.6.0-1",
   "identifier": "com.dur6na.odyssey",
   "build": {
     "frontendDist": "../public"

@@ -2486,7 +2486,7 @@ dependencies = [
 
 [[package]]
 name = "odyssey"
-version = "0.5.2"
+version = "0.6.0-1"
 dependencies = [
  "log",
  "rodio",
