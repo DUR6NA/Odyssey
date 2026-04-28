@@ -2,6 +2,8 @@
 // CHAT.JS - AI prompting, in-game chat, image runtime, and TTS
 // ============================================================
 
+const DEFAULT_MAX_TOKENS = 3000;
+const HELPER_MAX_TOKENS = 3000;
 
 function formatErrorForUser(err) {
     if (!err || !err.message) return "An unknown error occurred.";
@@ -43,10 +45,11 @@ function getChatCompletionsUrl(provider, baseUrl) {
     return "https://openrouter.ai/api/v1/chat/completions";
 }
 
-function buildFetchPayload(model, messages, temp, maxTokens, topP, presPen, freqPen, provider, jsonSchema = null) {
+function buildFetchPayload(model, messages, temp, maxTokens, topP, presPen, freqPen, provider, jsonSchema = null, options = {}) {
     const payload = { model: model, messages: messages, temperature: temp, max_tokens: maxTokens, top_p: topP };
     if (presPen !== 0 && provider !== 'xai') payload.presence_penalty = presPen;
     if (freqPen !== 0 && provider !== 'xai') payload.frequency_penalty = freqPen;
+    if (options && options.reasoning) payload.reasoning = options.reasoning;
 
     if (provider === 'lmstudio') {
         const schema = jsonSchema && typeof jsonSchema === 'object' ? jsonSchema : {
@@ -245,10 +248,13 @@ const gameOutputSchema = {
             items: {
                 type: "object",
                 properties: {
+                    action: { type: "string", enum: ["add", "remove", "update"] },
                     name: { type: "string" },
-                    description: { type: "string" }
+                    newName: { type: "string" },
+                    description: { type: "string" },
+                    notes: { type: "string" }
                 },
-                required: ["name", "description"],
+                required: ["action", "name", "newName", "description", "notes"],
                 additionalProperties: false
             }
         },
@@ -257,10 +263,26 @@ const gameOutputSchema = {
             items: {
                 type: "object",
                 properties: {
+                    action: { type: "string", enum: ["add", "remove", "update"] },
                     name: { type: "string" },
-                    status_or_history: { type: "string" }
+                    newName: { type: "string" },
+                    description: { type: "string" },
+                    notes: { type: "string" }
                 },
-                required: ["name", "status_or_history"],
+                required: ["action", "name", "newName", "description", "notes"],
+                additionalProperties: false
+            }
+        },
+        player_changes: {
+            type: "array",
+            items: {
+                type: "object",
+                properties: {
+                    action: { type: "string", enum: ["update"] },
+                    field: { type: "string", enum: ["description", "appearance", "personality", "backstory"] },
+                    value: { type: "string" }
+                },
+                required: ["action", "field", "value"],
                 additionalProperties: false
             }
         },
@@ -277,7 +299,7 @@ const gameOutputSchema = {
             additionalProperties: false
         }
     },
-    required: ["time", "textoutput", "inventory_changes", "location_changes", "npc_changes", "stats"],
+    required: ["time", "textoutput", "inventory_changes", "location_changes", "npc_changes", "player_changes", "stats"],
     additionalProperties: false
 };
 
@@ -287,7 +309,22 @@ async function generatePlayerImagePromptText(context = {}) {
     const provider = localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter';
     const baseUrl = localStorage.getItem('jsonAdventure_apiBaseUrl') || '';
     const apiKey = localStorage.getItem('jsonAdventure_openRouterApiKey');
-    const model = localStorage.getItem('jsonAdventure_openRouterModel') || 'openai/gpt-3.5-turbo';
+    const gameModel = localStorage.getItem('jsonAdventure_openRouterModel') || 'openai/gpt-3.5-turbo';
+    const useGameModel = localStorage.getItem('jsonAdventure_imagePromptUseGameModel') !== 'false';
+    const promptManualModel = localStorage.getItem('jsonAdventure_imagePromptManualModel_' + provider) || '';
+    const promptSelectedModel = localStorage.getItem('jsonAdventure_imagePromptModel_' + provider) || '';
+    const model = useGameModel ? gameModel : (promptManualModel || promptSelectedModel || gameModel);
+    const storedPromptTemperature = parseFloat(localStorage.getItem('jsonAdventure_imagePromptTemperature'));
+    const promptTemperature = Number.isFinite(storedPromptTemperature) ? storedPromptTemperature : 0.7;
+    const promptMaxTokens = Math.max(
+        parseInt(localStorage.getItem('jsonAdventure_imagePromptMaxTokens'), 10)
+            || parseInt(localStorage.getItem('jsonAdventure_apiMaxTokens'), 10)
+            || 0,
+        DEFAULT_MAX_TOKENS
+    );
+    const storedPromptTopP = parseFloat(localStorage.getItem('jsonAdventure_imagePromptTopP'));
+    const promptTopP = Number.isFinite(storedPromptTopP) ? storedPromptTopP : 1.0;
+    const excludeReasoning = localStorage.getItem('jsonAdventure_imagePromptExcludeReasoning') !== 'false';
 
     const defaultImagePromptBase = `You are an expert AI prompt engineer specializing in character visualization.
 Your job is to write a highly detailed image generation prompt that depicts ONLY the player character.
@@ -351,17 +388,27 @@ CRITICAL RULES:
         fetchUrl = getChatCompletionsUrl(provider, baseUrl);
     }
 
+    const payloadOptions = provider === 'openrouter' && excludeReasoning
+        ? { reasoning: { effort: 'none', exclude: true } }
+        : {};
     const res = await fetch(fetchUrl, {
         method: 'POST',
         headers: buildAuthHeaders(apiKey),
-        body: buildFetchPayload(model, [{ role: 'user', content: promptText }], 0.8, 600, 1.0, 0, 0, provider, false)
+        body: buildFetchPayload(model, [{ role: 'user', content: promptText }], promptTemperature, promptMaxTokens, promptTopP, 0, 0, provider, false, payloadOptions)
     });
     if (!res.ok) {
         const errText = await res.text();
         throw new Error("Failed to generate image prompt: " + errText);
     }
     const data = await res.json();
-    return data.choices[0].message.content.trim();
+    const choice = data?.choices?.[0];
+    const content = choice?.message?.content;
+    if (typeof content !== 'string' || !content.trim()) {
+        const finishReason = choice?.finish_reason ? ` Finish reason: ${choice.finish_reason}.` : '';
+        const reasoningHint = choice?.message?.reasoning ? ' The model returned reasoning but no final prompt content.' : '';
+        throw new Error(`The AI returned an empty image prompt.${finishReason}${reasoningHint} Try increasing Image Prompt Max Tokens or disabling reasoning for image prompts.`);
+    }
+    return content.trim();
 }
 
 async function performImageGeneration(promptText, aspect_ratio = "2:3", baseImageUrl = null) {
@@ -495,8 +542,24 @@ INVENTORY UPDATE RULE: When an existing inventory item changes (e.g. quantity, c
 Rely on the background JSON systems to handle stats, inventory, and time. Your ONLY job in the text output is to write a beautiful, grounded, and engaging story.`;
 
     const customBase = localStorage.getItem('jsonAdventure_promptGame') || defaultGamePrompt;
+    const stateUpdateContract = `STATE UPDATE CONTRACT:
+- Always express state changes in JSON arrays, not in narrative prose.
+- inventory_changes supports action "add", "update", or "remove". Use "update" for item renames, quantity/condition changes, or description edits; set name to the current item name, newName to the desired name or an empty string, and description to the desired description or an empty string.
+- location_changes supports action "add", "update", or "remove". Use "update" to rename a location or edit its description/notes. Use "remove" only when the codex entry should be deleted.
+- npc_changes supports action "add", "update", or "remove". Put visual/personality text in description, and current status, relationship history, or GM notes in notes. Use "update" to edit NPC descriptions or notes. Use "remove" only when the NPC codex entry should be deleted.
+- player_changes supports action "update" for field "description", "appearance", "personality", or "backstory". Use field "description" when the player's visible description/appearance changes.
+- If nothing changed for a system, output an empty array for that system.`;
+
+    const contextUseRules = `CONTEXT USE RULES:
+- Use retrieved memory, codex entries, web results, and fandom lore as references only when they are relevant to the player's current action.
+- Current game state and player/world facts override older retrieved memory if they conflict.
+- Fandom lore is for canon consistency; weave it into the scene naturally and do not dump unrelated facts.`;
 
     const baseParts = `${customBase}
+
+${stateUpdateContract}
+
+${contextUseRules}
 
 === WORLD INFO ===
 ${JSON.stringify(allData.worldInfo, null, 2)}
@@ -532,8 +595,8 @@ ${fandomData}`;
 
 === REQUIRED OUTPUT FORMAT ===
 CRITICAL: Your ENTIRE response must be valid JSON only — no markdown, no prose outside the JSON object. Use this exact structure:
-{"time":{"hour":0,"minute":0,"period":"AM","dayOfWeek":"Monday","day":1,"month":1,"year":1,"era":"CE","calendarType":"gregorian"},"textoutput":"Your full narrative here.","inventory_changes":[],"location_changes":[],"npc_changes":[],"stats":{"health":100,"money":0,"hunger":100,"thirst":100,"energy":100}}
-Replace all values with the actual current game state. The "textoutput" field is where your narrative goes. All six top-level keys are required.`;
+{"time":{"hour":0,"minute":0,"period":"AM","dayOfWeek":"Monday","day":1,"month":1,"year":1,"era":"CE","calendarType":"gregorian"},"textoutput":"Your full narrative here.","inventory_changes":[],"location_changes":[],"npc_changes":[],"player_changes":[],"stats":{"health":100,"money":0,"hunger":100,"thirst":100,"energy":100}}
+Replace all values with the actual current game state. The "textoutput" field is where your narrative goes. All seven top-level keys are required.`;
     }
 
     return baseParts;
@@ -543,6 +606,45 @@ Replace all values with the actual current game state. The "textoutput" field is
 // CHAT INTERFACE (In-Game)
 // ============================================================
 // Helper for parsing game JSON
+function findGameEntityByName(list, name) {
+    const needle = String(name || '').trim().toLowerCase();
+    if (!needle) return null;
+    return list.find(entry => String(entry?.name || '').trim().toLowerCase() === needle) || null;
+}
+
+function removeGameEntityByName(list, name) {
+    const needle = String(name || '').trim().toLowerCase();
+    if (!needle) return list;
+    return list.filter(entry => String(entry?.name || '').trim().toLowerCase() !== needle);
+}
+
+function getGameChangeAction(change, fallback = 'update') {
+    const action = String(change?.action || fallback).trim().toLowerCase();
+    return ['add', 'remove', 'update'].includes(action) ? action : fallback;
+}
+
+function getNpcChangeNotes(change) {
+    return change?.notes || change?.status_or_history || change?.history_with_player || '';
+}
+
+function applyNpcNotes(npc, notes) {
+    npc.notes = notes || '';
+    npc.status_or_history = notes || '';
+    if (Object.prototype.hasOwnProperty.call(npc, 'history_with_player')) {
+        npc.history_with_player = notes || '';
+    }
+}
+
+function getMutableGamePlayer() {
+    if (!window.playerInfo || typeof window.playerInfo !== 'object') {
+        window.playerInfo = { player: {} };
+    }
+    if (!window.playerInfo.player || typeof window.playerInfo.player !== 'object') {
+        window.playerInfo = { player: { ...window.playerInfo } };
+    }
+    return window.playerInfo.player;
+}
+
 function processGameTurnJson(aiText) {
     let aiJson = { textoutput: aiText };
     try {
@@ -567,41 +669,100 @@ function processGameTurnJson(aiText) {
     if (aiJson.inventory_changes && Array.isArray(aiJson.inventory_changes)) {
         if (!window.gamestate.inventory) window.gamestate.inventory = [];
         aiJson.inventory_changes.forEach(change => {
-            if (change.action === 'add') {
-                window.gamestate.inventory.push({ name: change.name, description: change.description || '' });
-            } else if (change.action === 'remove') {
-                window.gamestate.inventory = window.gamestate.inventory.filter(i => i.name !== change.name);
-            } else if (change.action === 'update') {
-                let item = window.gamestate.inventory.find(i => i.name.toLowerCase() === change.name.toLowerCase());
+            const action = getGameChangeAction(change, 'update');
+            const name = String(change.name || '').trim();
+            const newName = String(change.newName || '').trim();
+            const description = String(change.description || '').trim();
+            if (!name && !newName) return;
+
+            if (action === 'remove') {
+                window.gamestate.inventory = removeGameEntityByName(window.gamestate.inventory, name);
+            } else if (action === 'add') {
+                let item = findGameEntityByName(window.gamestate.inventory, newName || name) || findGameEntityByName(window.gamestate.inventory, name);
                 if (item) {
-                    if (change.newName && change.newName.trim()) item.name = change.newName;
-                    if (change.description && change.description.trim()) item.description = change.description;
+                    item.name = newName || name;
+                    if (description) item.description = description;
+                } else {
+                    window.gamestate.inventory.push({ name: newName || name, description: description || '' });
+                }
+            } else if (action === 'update') {
+                let item = findGameEntityByName(window.gamestate.inventory, name);
+                if (item) {
+                    if (newName) item.name = newName;
+                    if (description) item.description = description;
                 }
             }
         });
         if (typeof renderInventoryUI === 'function') renderInventoryUI();
+        if (typeof renderPlayerMenuUI === 'function') renderPlayerMenuUI();
     }
     if (aiJson.location_changes && Array.isArray(aiJson.location_changes)) {
         if (!window.gamestate.locations) window.gamestate.locations = [];
         aiJson.location_changes.forEach(change => {
-            let loc = window.gamestate.locations.find(l => l.name.toLowerCase() === change.name.toLowerCase());
-            if (loc) {
-                loc.description = change.description;
-            } else {
-                window.gamestate.locations.push({ name: change.name, description: change.description || '' });
+            const action = getGameChangeAction(change, change.action ? 'update' : 'add');
+            const name = String(change.name || '').trim();
+            const newName = String(change.newName || '').trim();
+            const description = String(change.description || '').trim();
+            const notes = String(change.notes || '').trim();
+            if (!name && !newName) return;
+
+            if (action === 'remove') {
+                window.gamestate.locations = removeGameEntityByName(window.gamestate.locations, name);
+                return;
             }
+
+            let loc = findGameEntityByName(window.gamestate.locations, name) || findGameEntityByName(window.gamestate.locations, newName);
+            if (!loc) {
+                loc = { name: newName || name, description: '' };
+                window.gamestate.locations.push(loc);
+            }
+            if (newName) loc.name = newName;
+            if (description) loc.description = description;
+            if (notes) loc.notes = notes;
         });
+        if (typeof renderCodexUI === 'function') renderCodexUI();
     }
     if (aiJson.npc_changes && Array.isArray(aiJson.npc_changes)) {
         if (!window.gamestate.npcs) window.gamestate.npcs = [];
         aiJson.npc_changes.forEach(change => {
-            let npc = window.gamestate.npcs.find(n => n.name.toLowerCase() === change.name.toLowerCase());
-            if (npc) {
-                npc.status_or_history = change.status_or_history;
-            } else {
-                window.gamestate.npcs.push({ name: change.name, status_or_history: change.status_or_history || '' });
+            const action = getGameChangeAction(change, change.action ? 'update' : 'add');
+            const name = String(change.name || '').trim();
+            const newName = String(change.newName || '').trim();
+            const description = String(change.description || '').trim();
+            const notes = String(getNpcChangeNotes(change)).trim();
+            if (!name && !newName) return;
+
+            if (action === 'remove') {
+                window.gamestate.npcs = removeGameEntityByName(window.gamestate.npcs, name);
+                return;
+            }
+
+            let npc = findGameEntityByName(window.gamestate.npcs, name) || findGameEntityByName(window.gamestate.npcs, newName);
+            if (!npc) {
+                npc = { name: newName || name, description: '', notes: '', status_or_history: '' };
+                window.gamestate.npcs.push(npc);
+            }
+            if (newName) npc.name = newName;
+            if (description) npc.description = description;
+            if (notes) applyNpcNotes(npc, notes);
+        });
+        if (typeof renderCodexUI === 'function') renderCodexUI();
+    }
+    if (aiJson.player_changes && Array.isArray(aiJson.player_changes)) {
+        const player = getMutableGamePlayer();
+        aiJson.player_changes.forEach(change => {
+            if (getGameChangeAction(change, 'update') !== 'update') return;
+            const rawField = String(change.field || '').trim();
+            const field = rawField === 'description' ? 'appearance' : rawField;
+            if (!['appearance', 'personality', 'backstory'].includes(field)) return;
+            const value = String(change.value || '').trim();
+            if (!value) return;
+            player[field] = value;
+            if (field === 'appearance' && Object.prototype.hasOwnProperty.call(player, 'description')) {
+                player.description = value;
             }
         });
+        if (typeof renderPlayerMenuUI === 'function') renderPlayerMenuUI();
     }
     return displayText;
 }
@@ -645,8 +806,10 @@ function createChatMessage(type, text) {
         const ttsBtn = document.createElement('button');
         ttsBtn.className = 'msg-action-btn';
         ttsBtn.title = 'Play Audio';
-        ttsBtn.textContent = '🔊';
-        ttsBtn.onclick = () => playTTS(text);
+        ttsBtn.dataset.ttsButton = 'true';
+        ttsBtn.setAttribute('aria-label', 'Play Audio');
+        ttsBtn.innerHTML = '<span class="tts-button-icon" aria-hidden="true">&#128266;</span><span class="tts-button-spinner" aria-hidden="true"></span>';
+        ttsBtn.onclick = () => playTTS(text, ttsBtn);
 
         options.appendChild(regenBtn);
         options.appendChild(copyBtn);
@@ -949,7 +1112,7 @@ CRITICAL: Output ONLY a JSON object:
             headers: buildAuthHeaders(apiKey),
             body: buildFetchPayload(model, [
                 { role: 'system', content: promptInstructions }
-            ], 0.1, 512, 1.0, 0, 0, provider,
+            ], 0.1, HELPER_MAX_TOKENS, 1.0, 0, 0, provider,
                 provider === 'lmstudio'
                     ? { type: "object", properties: { relevant: { type: "boolean" }, context_string: { type: "string" } }, required: ["relevant", "context_string"], additionalProperties: false }
                     : null
@@ -988,14 +1151,22 @@ function retrieveInternalLore(userInput) {
     // Scan NPCs
     for (const npc of npcs) {
         if (npc.name && lowerInput.includes(npc.name.toLowerCase())) {
-            loreLines.push(`NPC - ${npc.name}: ${npc.status_or_history}`);
+            const npcLore = [
+                npc.description ? `Description: ${npc.description}` : '',
+                (npc.notes || npc.status_or_history || npc.history_with_player) ? `Notes: ${npc.notes || npc.status_or_history || npc.history_with_player}` : ''
+            ].filter(Boolean).join(' ');
+            loreLines.push(`NPC - ${npc.name}: ${npcLore}`);
         }
     }
 
     // Scan Locations
     for (const loc of locations) {
         if (loc.name && lowerInput.includes(loc.name.toLowerCase())) {
-            loreLines.push(`Location - ${loc.name}: ${loc.description}`);
+            const locationLore = [
+                loc.description ? `Description: ${loc.description}` : '',
+                loc.notes ? `Notes: ${loc.notes}` : ''
+            ].filter(Boolean).join(' ');
+            loreLines.push(`Location - ${loc.name}: ${locationLore}`);
         }
     }
 
@@ -1107,7 +1278,7 @@ CRITICAL: Output ONLY valid JSON:
         const response = await fetch(fetchUrl, {
             method: 'POST',
             headers: buildAuthHeaders(apiKey),
-            body: buildFetchPayload(model, [{ role: 'system', content: promptInstructions }], 0.1, 150, 1.0, 0, 0, provider,
+            body: buildFetchPayload(model, [{ role: 'system', content: promptInstructions }], 0.1, HELPER_MAX_TOKENS, 1.0, 0, 0, provider,
                 provider === 'lmstudio' || provider === 'openai'
                     ? { type: "object", properties: { needs_search: { type: "boolean" }, search_query: { type: "string" } }, required: ["needs_search", "search_query"], additionalProperties: false }
                     : null
@@ -1189,7 +1360,7 @@ CRITICAL: Output ONLY valid JSON:
         const response = await fetch(fetchUrl, {
             method: 'POST',
             headers: buildAuthHeaders(apiKey),
-            body: buildFetchPayload(model, [{ role: 'system', content: promptInstructions }], 0.1, 150, 1.0, 0, 0, provider,
+            body: buildFetchPayload(model, [{ role: 'system', content: promptInstructions }], 0.1, HELPER_MAX_TOKENS, 1.0, 0, 0, provider,
                 provider === 'lmstudio' || provider === 'openai'
                     ? { type: "object", properties: { needs_search: { type: "boolean" }, search_query: { type: "string" } }, required: ["needs_search", "search_query"], additionalProperties: false }
                     : null
@@ -1247,6 +1418,26 @@ async function performFandomSearch(query, presetKey) {
         }
     } catch (err) {
         console.error("Fandom search failed:", err);
+    }
+    return '';
+}
+
+function getActiveLoreLookupKey() {
+    const presetKey = (window.worldInfo?.world?.preset || '').toLowerCase();
+    const wikiConfig = window.OdysseyRetrieval?.getWorldWikiConfig(presetKey, window.worldInfo || {});
+    return wikiConfig?.key || presetKey;
+}
+
+async function retrieveFandomLoreForMessage(message) {
+    const loreKey = getActiveLoreLookupKey();
+    if (!loreKey) return '';
+
+    const presetData = WORLD_PRESETS[loreKey] || window.OdysseyRetrieval?.getWorldWikiConfig(loreKey, window.worldInfo || {});
+    if (!presetData) return '';
+
+    const fandomContext = await runFandomPreCheck(message, loreKey);
+    if (fandomContext && fandomContext.needs_search && fandomContext.query) {
+        return await performFandomSearch(fandomContext.query, loreKey);
     }
     return '';
 }
@@ -1310,13 +1501,7 @@ async function sendChatMessage() {
 
     // 4: Check IP Fandom Lore Search
     let fandomData = '';
-    const presetKey = (window.worldInfo?.world?.preset || '').toLowerCase();
-    if (presetKey && (WORLD_PRESETS[presetKey] || window.OdysseyRetrieval?.getWorldWikiConfig(presetKey, window.worldInfo || {}))) {
-        const fandomContext = await runFandomPreCheck(message, presetKey);
-        if (fandomContext && fandomContext.needs_search && fandomContext.query) {
-            fandomData = await performFandomSearch(fandomContext.query, presetKey);
-        }
-    }
+    fandomData = await retrieveFandomLoreForMessage(message);
 
     // Add to history (with potential prompter context)
     window.chatHistory.push({ role: 'user', content: promptedMessage });
@@ -1337,7 +1522,7 @@ async function sendChatMessage() {
     const model = localStorage.getItem('jsonAdventure_openRouterModel') || 'openai/gpt-3.5-turbo';
 
     const temp = parseFloat(localStorage.getItem('jsonAdventure_apiTemperature')) || 0.8;
-    const maxTokens = parseInt(localStorage.getItem('jsonAdventure_apiMaxTokens')) || 2048;
+    const maxTokens = Math.max(parseInt(localStorage.getItem('jsonAdventure_apiMaxTokens'), 10) || 0, DEFAULT_MAX_TOKENS);
     const topP = parseFloat(localStorage.getItem('jsonAdventure_apiTopP')) || 1.0;
     const presPen = parseFloat(localStorage.getItem('jsonAdventure_apiPresencePenalty')) || 0.0;
     const freqPen = parseFloat(localStorage.getItem('jsonAdventure_apiFrequencyPenalty')) || 0.0;
@@ -1365,8 +1550,8 @@ async function sendChatMessage() {
 
         const data = await response.json();
         const aiJson = await parseStructuredModelOutput(data.choices[0].message.content, {
-            requiredKeys: ['time', 'textoutput', 'inventory_changes', 'location_changes', 'npc_changes', 'stats'],
-            jsonExample: '{"time":{"hour":0,"minute":0,"period":"AM","dayOfWeek":"Monday","day":1,"month":1,"year":1,"era":"CE","calendarType":"gregorian"},"textoutput":"Narrative text","inventory_changes":[],"location_changes":[],"npc_changes":[],"stats":{"health":100,"money":0,"hunger":100,"thirst":100,"energy":100}}',
+            requiredKeys: ['time', 'textoutput', 'inventory_changes', 'location_changes', 'npc_changes', 'player_changes', 'stats'],
+            jsonExample: '{"time":{"hour":0,"minute":0,"period":"AM","dayOfWeek":"Monday","day":1,"month":1,"year":1,"era":"CE","calendarType":"gregorian"},"textoutput":"Narrative text","inventory_changes":[],"location_changes":[],"npc_changes":[],"player_changes":[],"stats":{"health":100,"money":0,"hunger":100,"thirst":100,"energy":100}}',
             label: 'game turn'
         });
         const aiText = JSON.stringify(aiJson);
@@ -1446,13 +1631,7 @@ async function regenerateLastAI() {
             braveData = braveResult;
         }
 
-        const presetKey = (window.worldInfo?.world?.preset || '').toLowerCase();
-        if (presetKey && (WORLD_PRESETS[presetKey] || window.OdysseyRetrieval?.getWorldWikiConfig(presetKey, window.worldInfo || {}))) {
-            const fandomContext = await runFandomPreCheck(lastUserMessage, presetKey);
-            if (fandomContext && fandomContext.needs_search && fandomContext.query) {
-                fandomData = await performFandomSearch(fandomContext.query, presetKey);
-            }
-        }
+        fandomData = await retrieveFandomLoreForMessage(lastUserMessage);
     }
 
     // Refresh system prompt with latest game state before sending
@@ -1471,7 +1650,7 @@ async function regenerateLastAI() {
     const model = localStorage.getItem('jsonAdventure_openRouterModel') || 'openai/gpt-3.5-turbo';
 
     const temp = parseFloat(localStorage.getItem('jsonAdventure_apiTemperature')) || 0.85;
-    const maxTokens = parseInt(localStorage.getItem('jsonAdventure_apiMaxTokens')) || 2048;
+    const maxTokens = Math.max(parseInt(localStorage.getItem('jsonAdventure_apiMaxTokens'), 10) || 0, DEFAULT_MAX_TOKENS);
     const topP = parseFloat(localStorage.getItem('jsonAdventure_apiTopP')) || 1.0;
     const presPen = parseFloat(localStorage.getItem('jsonAdventure_apiPresencePenalty')) || 0.0;
     const freqPen = parseFloat(localStorage.getItem('jsonAdventure_apiFrequencyPenalty')) || 0.0;
@@ -1499,8 +1678,8 @@ async function regenerateLastAI() {
 
         const data = await response.json();
         const aiJson = await parseStructuredModelOutput(data.choices[0].message.content, {
-            requiredKeys: ['time', 'textoutput', 'inventory_changes', 'location_changes', 'npc_changes', 'stats'],
-            jsonExample: '{"time":{"hour":0,"minute":0,"period":"AM","dayOfWeek":"Monday","day":1,"month":1,"year":1,"era":"CE","calendarType":"gregorian"},"textoutput":"Narrative text","inventory_changes":[],"location_changes":[],"npc_changes":[],"stats":{"health":100,"money":0,"hunger":100,"thirst":100,"energy":100}}',
+            requiredKeys: ['time', 'textoutput', 'inventory_changes', 'location_changes', 'npc_changes', 'player_changes', 'stats'],
+            jsonExample: '{"time":{"hour":0,"minute":0,"period":"AM","dayOfWeek":"Monday","day":1,"month":1,"year":1,"era":"CE","calendarType":"gregorian"},"textoutput":"Narrative text","inventory_changes":[],"location_changes":[],"npc_changes":[],"player_changes":[],"stats":{"health":100,"money":0,"hunger":100,"thirst":100,"energy":100}}',
             label: 'regenerated game turn'
         });
         const aiText = JSON.stringify(aiJson);
@@ -1612,14 +1791,74 @@ async function triggerImageGeneration() {
 // TEXT TO SPEECH (TTS)
 // ============================================================
 
+const ttsRuntimeState = {
+    isGenerating: false,
+    activeAudio: null,
+    activeObjectUrl: null
+};
+
+function _getTtsButtons() {
+    return Array.from(document.querySelectorAll('[data-tts-button="true"]'));
+}
+
+function _setTtsGenerating(isGenerating, activeButton = null) {
+    ttsRuntimeState.isGenerating = isGenerating;
+    _getTtsButtons().forEach(button => {
+        const isActive = button === activeButton;
+        button.disabled = isGenerating;
+        button.classList.toggle('is-loading', isGenerating && isActive);
+        button.setAttribute('aria-busy', isGenerating && isActive ? 'true' : 'false');
+        button.title = isGenerating
+            ? (isActive ? 'Generating audio...' : 'TTS is already generating')
+            : 'Play Audio';
+    });
+}
+
+function _stopActiveTtsAudio() {
+    if (ttsRuntimeState.activeAudio) {
+        try {
+            ttsRuntimeState.activeAudio.pause();
+            ttsRuntimeState.activeAudio.removeAttribute('src');
+            ttsRuntimeState.activeAudio.load();
+        } catch (err) {
+            console.warn('Unable to stop active TTS audio:', err);
+        }
+    }
+
+    if (ttsRuntimeState.activeObjectUrl) {
+        URL.revokeObjectURL(ttsRuntimeState.activeObjectUrl);
+    }
+
+    ttsRuntimeState.activeAudio = null;
+    ttsRuntimeState.activeObjectUrl = null;
+}
+
 // Plays audio from a URL or data-URI, returns a Promise so callers can catch play() errors
-async function _playAudioUrl(url) {
+async function _playAudioUrl(url, options = {}) {
+    _stopActiveTtsAudio();
+
     const audio = new Audio(url);
+    const objectUrl = options.revokeObjectUrl ? url : null;
+
+    ttsRuntimeState.activeAudio = audio;
+    ttsRuntimeState.activeObjectUrl = objectUrl;
+
+    const clearIfCurrent = () => {
+        if (ttsRuntimeState.activeAudio !== audio) return;
+        if (ttsRuntimeState.activeObjectUrl) URL.revokeObjectURL(ttsRuntimeState.activeObjectUrl);
+        ttsRuntimeState.activeAudio = null;
+        ttsRuntimeState.activeObjectUrl = null;
+    };
+
+    audio.addEventListener('ended', clearIfCurrent, { once: true });
+    audio.addEventListener('error', clearIfCurrent, { once: true });
+
     // Warm up AudioContext with a silent buffer to keep the user-gesture token alive
     // across async fetch calls (prevents autoplay-policy silent failures)
     try {
         await audio.play();
     } catch (e) {
+        clearIfCurrent();
         throw new Error('Audio playback blocked: ' + e.message + '. Try clicking the button again.');
     }
 }
@@ -1635,7 +1874,9 @@ function _buildKokoroVoiceString(voiceMix) {
         .join('+');
 }
 
-async function playTTS(text) {
+async function playTTS(text, sourceButton = null) {
+    if (ttsRuntimeState.isGenerating) return;
+
     const provider = localStorage.getItem('jsonAdventure_ttsProvider') || 'none';
     if (provider === 'none') {
         alert("TTS is disabled. Enable it in Settings → Voice / TTS.");
@@ -1645,6 +1886,8 @@ async function playTTS(text) {
     // Strip markdown symbols that TTS might pronounce literally
     const pureText = text.replace(/[*_#`~>]/g, '').trim();
     if (!pureText) return;
+
+    _setTtsGenerating(true, sourceButton);
 
     try {
         if (provider === 'xai') {
@@ -1668,7 +1911,7 @@ async function playTTS(text) {
             });
             if (!res.ok) throw new Error(`xAI TTS ${res.status}: ${await res.text()}`);
             const blob = await res.blob();
-            await _playAudioUrl(URL.createObjectURL(blob));
+            await _playAudioUrl(URL.createObjectURL(blob), { revokeObjectUrl: true });
             return;
         }
 
@@ -1730,10 +1973,12 @@ async function playTTS(text) {
         }
 
         const blob = await response.blob();
-        await _playAudioUrl(URL.createObjectURL(blob));
+        await _playAudioUrl(URL.createObjectURL(blob), { revokeObjectUrl: true });
 
     } catch (err) {
         console.error("TTS Error:", err);
         alert("TTS failed: " + err.message);
+    } finally {
+        _setTtsGenerating(false, sourceButton);
     }
 }

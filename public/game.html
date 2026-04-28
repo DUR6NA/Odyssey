@@ -10,20 +10,22 @@
     <script src="assets/marked.min.js"></script>
     <script src="assets/dompurify.min.js"></script>
     <script src="theme.js?v=2"></script>
+    <script src="devtools.js"></script>
     <script src="tauri-bridge.js"></script>
     <script src="titlebar.js"></script>
     <script src="ui-components.js?v=2"></script>
+    <script src="theme-icons.js"></script>
     <script src="creation.js?v=2"></script>
     <script src="retrieval.js?v=1"></script>
     <script src="chat.js?v=2"></script>
     <script src="saves.js?v=2"></script>
     <script src="menu-music.js"></script>
     <meta name="application-name" content="Odyssey">
-    <meta name="description" content="Odyssey v0.6.0-beta.1 - AI-driven text adventure desktop game with retrieval-enhanced lore and memory.">
+    <meta name="description" content="Odyssey v0.6.1-alpha.1 - AI-driven text adventure desktop game with retrieval-enhanced lore and memory.">
     <meta name="theme-color" content="#121212">
-    <meta name="odyssey-version" content="0.6.0-beta.1">
-    <meta name="odyssey-bundle-version" content="0.6.0-1">
-    <meta property="og:title" content="Odyssey v0.6.0-beta.1">
+    <meta name="odyssey-version" content="0.6.1-alpha.1">
+    <meta name="odyssey-bundle-version" content="0.6.1-1">
+    <meta property="og:title" content="Odyssey v0.6.1-alpha.1">
     <meta property="og:description" content="AI-driven text adventure desktop game with retrieval-enhanced lore and memory.">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary">
@@ -144,7 +146,6 @@
             </div>
         </div>
     </div>
-    </div>
 
     <!-- Game Codex Modal -->
     <div id="game-codex-modal" class="inventory-modal hidden">
@@ -177,10 +178,87 @@
         </div>
     </div>
 
+    <!-- Shared Record Editor Modal -->
+    <div id="record-editor-modal" class="inventory-modal hidden">
+        <div class="record-editor-content">
+            <div class="inventory-modal-header">
+                <h2 id="record-editor-title">Edit</h2>
+                <span class="close-btn" onclick="closeRecordEditor()">&times;</span>
+            </div>
+
+            <div class="record-editor-body">
+                <label id="record-editor-name-wrap" class="record-editor-field">
+                    <span id="record-editor-name-label">Name</span>
+                    <input id="record-editor-name" type="text" maxlength="120">
+                </label>
+
+                <label class="record-editor-field">
+                    <span id="record-editor-description-label">Description</span>
+                    <textarea id="record-editor-description" rows="5"></textarea>
+                </label>
+
+                <label id="record-editor-notes-wrap" class="record-editor-field hidden">
+                    <span id="record-editor-notes-label">Notes</span>
+                    <textarea id="record-editor-notes" rows="5"></textarea>
+                </label>
+            </div>
+
+            <div class="record-editor-actions">
+                <button type="button" class="btn btn-secondary btn-compact" onclick="closeRecordEditor()">Cancel</button>
+                <button type="button" class="btn btn-compact" onclick="saveRecordEditor()">Save</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         function settings() {
             const searchParams = window.location.search;
             window.location.href = "settings.html" + (searchParams ? searchParams + "&from=game" : "?from=game");
+        }
+
+        function getImageUrlsFromSaveData(data) {
+            const candidates = [
+                data && data['current_image.json'],
+                data && data['base_image.json']
+            ];
+            const imageUrls = [];
+
+            for (const candidate of candidates) {
+                const imageUrl = candidate && (candidate.url || candidate.dataUri);
+                if (imageUrl && !imageUrls.includes(imageUrl)) imageUrls.push(imageUrl);
+            }
+
+            return imageUrls;
+        }
+
+        function showPlayerImage(imageUrls) {
+            const imgEl = document.getElementById('player-dynamic-image');
+            const placeholder = document.getElementById('player-dynamic-image-placeholder');
+            const urls = Array.isArray(imageUrls) ? imageUrls.filter(Boolean) : [imageUrls].filter(Boolean);
+            if (!imgEl || !placeholder || !urls.length) return;
+
+            let currentIndex = 0;
+            const tryLoadImage = () => {
+                imgEl.src = urls[currentIndex];
+                imgEl.style.display = 'block';
+                placeholder.style.display = 'none';
+            };
+
+            imgEl.onerror = () => {
+                currentIndex += 1;
+                if (currentIndex < urls.length) {
+                    tryLoadImage();
+                    return;
+                }
+
+                imgEl.style.display = 'none';
+                placeholder.style.display = 'flex';
+            };
+            imgEl.onload = () => {
+                imgEl.style.display = 'block';
+                placeholder.style.display = 'none';
+            };
+            tryLoadImage();
         }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -239,15 +317,7 @@
                 const enableImage = localStorage.getItem('jsonAdventure_enableImage') === 'true';
                 if (enableImage) {
                     document.getElementById('player-image-widget').style.display = 'block';
-                    const imgData = data['current_image.json'] || data['base_image.json'];
-                    const imgUrl = imgData?.url || imgData?.dataUri;
-                    if (imgUrl) {
-                        const imgEl = document.getElementById('player-dynamic-image');
-                        const placeholder = document.getElementById('player-dynamic-image-placeholder');
-                        imgEl.src = imgUrl;
-                        imgEl.style.display = 'block';
-                        placeholder.style.display = 'none';
-                    }
+                    showPlayerImage(getImageUrlsFromSaveData(data));
                 }
 
 
@@ -259,6 +329,7 @@
 
                 // Store summary text for on-the-fly prompt generation
                 window.gameSummaryText = data['scenario.json'] ? data['scenario.json'].summary : '';
+                window.startingScenarioText = data['scenario.json'] ? (data['scenario.json'].startingScenario || '') : '';
 
                 // REBUILD SYSTEM PROMPT WITH LATEST SETTINGS & GAME STATE
                 if (history.length > 0 && history[0].role === 'system') {
@@ -350,8 +421,84 @@
         window.gamestate = {
             time: { hour: 8, minute: 0, period: "AM", dayOfWeek: "Monday", day: 1, month: 1, year: 2026 },
             inventory: [],
+            locations: [],
+            npcs: [],
             stats: {}
         };
+        window.recordEditorState = null;
+
+        function getMutablePlayerRecord() {
+            if (!window.playerInfo || typeof window.playerInfo !== 'object') {
+                window.playerInfo = { player: {} };
+            }
+
+            if (!window.playerInfo.player || typeof window.playerInfo.player !== 'object') {
+                const existing = { ...window.playerInfo };
+                window.playerInfo = { player: existing };
+            }
+
+            if (!window.playerInfo.player.appearance && window.playerInfo.player.description) {
+                window.playerInfo.player.appearance = window.playerInfo.player.description;
+            }
+
+            return window.playerInfo.player;
+        }
+
+        function getNpcNotes(npc) {
+            return npc?.notes || npc?.status_or_history || npc?.history_with_player || '';
+        }
+
+        function setNpcNotes(npc, notes) {
+            npc.notes = notes || '';
+            npc.status_or_history = notes || '';
+            if (Object.prototype.hasOwnProperty.call(npc, 'history_with_player')) {
+                npc.history_with_player = notes || '';
+            }
+        }
+
+        function getLocationNotes(location) {
+            return location?.notes || '';
+        }
+
+        function setLocationNotes(location, notes) {
+            if (notes && notes.trim()) {
+                location.notes = notes;
+            } else if (Object.prototype.hasOwnProperty.call(location, 'notes')) {
+                delete location.notes;
+            }
+        }
+
+        function refreshGameSystemPrompt() {
+            if (!window.chatHistory || !window.chatHistory.length || window.chatHistory[0].role !== 'system') return;
+            if (typeof buildGameSystemPrompt !== 'function') return;
+
+            const allData = {
+                worldInfo: window.worldInfo || {},
+                playerInfo: window.playerInfo || {},
+                gameState: window.gamestate || {}
+            };
+            window.chatHistory[0].content = buildGameSystemPrompt(allData, window.gameSummaryText || '', '', '', '', localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter');
+        }
+
+        async function persistMenuEdit() {
+            refreshGameSystemPrompt();
+            if (typeof saveCurrentGame === 'function') {
+                await saveCurrentGame();
+            }
+        }
+
+        function createMiniActionButton(label, title, onClick, danger = false) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = danger ? 'mini-action-btn danger' : 'mini-action-btn';
+            button.textContent = label;
+            button.title = title;
+            button.addEventListener('click', event => {
+                event.stopPropagation();
+                onClick();
+            });
+            return button;
+        }
 
         function updateStatsUI(stats) {
             const container = document.getElementById('stats-container');
@@ -407,20 +554,27 @@
                 if (items.length === 0) {
                     grid.innerHTML = '<div style="color: var(--text-muted); grid-column: 1 / -1; text-align: center; padding: 20px;">Your inventory is empty.</div>';
                 } else {
-                    items.forEach(item => {
+                    items.forEach((item, index) => {
                         const card = document.createElement('div');
                         card.className = 'inventory-card';
+                        card.tabIndex = 0;
 
                         const name = document.createElement('div');
                         name.className = 'inventory-item-name';
-                        name.textContent = item.name;
+                        name.textContent = item.name || 'Unnamed Item';
 
                         const desc = document.createElement('div');
                         desc.className = 'inventory-item-desc';
                         desc.textContent = item.description || '';
 
+                        const actions = document.createElement('div');
+                        actions.className = 'inventory-card-actions';
+                        actions.appendChild(createMiniActionButton('Edit', `Edit ${item.name || 'item'}`, () => openRecordEditor('inventory', index)));
+                        actions.appendChild(createMiniActionButton('Delete', `Delete ${item.name || 'item'}`, () => deleteInventoryItem(index), true));
+
                         card.appendChild(name);
                         card.appendChild(desc);
+                        card.appendChild(actions);
                         grid.appendChild(card);
                     });
 
@@ -444,7 +598,7 @@
             if (infoContainer) {
                 infoContainer.innerHTML = '';
 
-                const pInfo = window.playerInfo?.player || window.playerInfo || {};
+                const pInfo = getMutablePlayerRecord();
 
                 // Try grabbing the player image source if available dynamically in the UI already
                 let imgSrc = '';
@@ -484,17 +638,62 @@
                 const longSectionsNode = document.createElement('div');
                 longSectionsNode.className = 'player-menu-long-sections';
 
-                // Add larger text blobs for appearance, personality, backstory
+                // Add larger text blobs for description, personality, backstory
                 const longProps = ['appearance', 'personality', 'backstory'];
                 longProps.forEach(prop => {
                     if (pInfo[prop]) {
-                        let label = prop.charAt(0).toUpperCase() + prop.slice(1);
+                        let label = prop === 'appearance' ? 'Description' : prop.charAt(0).toUpperCase() + prop.slice(1);
                         const section = document.createElement('div');
-                        section.className = 'player-info-section';
-                        section.innerHTML = `<div class="player-info-section-label">${DOMPurify.sanitize(label)}</div><div class="player-info-section-value">${DOMPurify.sanitize(String(pInfo[prop]))}</div>`;
+                        section.className = 'player-info-section editable-section';
+
+                        const header = document.createElement('div');
+                        header.className = 'ledger-card-header';
+
+                        const labelNode = document.createElement('div');
+                        labelNode.className = 'player-info-section-label';
+                        labelNode.textContent = label;
+
+                        const actions = document.createElement('div');
+                        actions.className = 'ledger-actions';
+                        actions.appendChild(createMiniActionButton('Edit', `Edit ${label.toLowerCase()}`, () => openRecordEditor('player', -1, prop)));
+
+                        const value = document.createElement('div');
+                        value.className = 'player-info-section-value';
+                        value.textContent = String(pInfo[prop]);
+
+                        header.appendChild(labelNode);
+                        header.appendChild(actions);
+                        section.appendChild(header);
+                        section.appendChild(value);
                         longSectionsNode.appendChild(section);
                     }
                 });
+
+                if (!pInfo.appearance) {
+                    const section = document.createElement('div');
+                    section.className = 'player-info-section editable-section';
+
+                    const header = document.createElement('div');
+                    header.className = 'ledger-card-header';
+
+                    const labelNode = document.createElement('div');
+                    labelNode.className = 'player-info-section-label';
+                    labelNode.textContent = 'Description';
+
+                    const actions = document.createElement('div');
+                    actions.className = 'ledger-actions';
+                    actions.appendChild(createMiniActionButton('Edit', 'Edit player description', () => openRecordEditor('player', -1, 'appearance')));
+
+                    const value = document.createElement('div');
+                    value.className = 'player-info-section-value';
+                    value.textContent = 'No description recorded.';
+
+                    header.appendChild(labelNode);
+                    header.appendChild(actions);
+                    section.appendChild(header);
+                    section.appendChild(value);
+                    longSectionsNode.appendChild(section);
+                }
 
                 if (longSectionsNode.children.length > 0) {
                     infoContainer.appendChild(longSectionsNode);
@@ -525,11 +724,8 @@
                 if (npcs.length === 0) {
                     npcContainer.innerHTML = '<div style="color: var(--text-muted); font-style: italic;">No NPC knowledge recorded.</div>';
                 } else {
-                    npcs.forEach(npc => {
-                        const section = document.createElement('div');
-                        section.className = 'player-info-section';
-                        section.innerHTML = `<div class="player-info-section-label">${DOMPurify.sanitize(npc.name)}</div><div class="player-info-section-value">${DOMPurify.sanitize(String(npc.status_or_history || ""))}</div>`;
-                        npcContainer.appendChild(section);
+                    npcs.forEach((npc, index) => {
+                        npcContainer.appendChild(createNpcLedgerSection(npc, index));
                     });
                 }
             }
@@ -541,14 +737,236 @@
                 if (locations.length === 0) {
                     locContainer.innerHTML = '<div style="color: var(--text-muted); font-style: italic;">No location knowledge recorded.</div>';
                 } else {
-                    locations.forEach(loc => {
-                        const section = document.createElement('div');
-                        section.className = 'player-info-section';
-                        section.innerHTML = `<div class="player-info-section-label">${DOMPurify.sanitize(loc.name)}</div><div class="player-info-section-value">${DOMPurify.sanitize(String(loc.description || ""))}</div>`;
-                        locContainer.appendChild(section);
+                    locations.forEach((loc, index) => {
+                        locContainer.appendChild(createLocationLedgerSection(loc, index));
                     });
                 }
             }
+        }
+
+        function createLedgerField(label, value) {
+            const field = document.createElement('div');
+            field.className = 'ledger-field';
+
+            const labelNode = document.createElement('div');
+            labelNode.className = 'ledger-field-label';
+            labelNode.textContent = label;
+
+            const valueNode = document.createElement('div');
+            valueNode.className = 'player-info-section-value';
+            valueNode.textContent = value || '';
+
+            field.appendChild(labelNode);
+            field.appendChild(valueNode);
+            return field;
+        }
+
+        function createNpcLedgerSection(npc, index) {
+            const section = document.createElement('div');
+            section.className = 'player-info-section editable-section';
+
+            const header = document.createElement('div');
+            header.className = 'ledger-card-header';
+
+            const title = document.createElement('div');
+            title.className = 'player-info-section-label ledger-card-title';
+            title.textContent = npc.name || 'Unnamed NPC';
+
+            const actions = document.createElement('div');
+            actions.className = 'ledger-actions';
+            actions.appendChild(createMiniActionButton('Edit', `Edit ${npc.name || 'NPC'}`, () => openRecordEditor('npc', index)));
+            actions.appendChild(createMiniActionButton('Delete', `Delete ${npc.name || 'NPC'}`, () => deleteCodexEntry('npc', index), true));
+
+            header.appendChild(title);
+            header.appendChild(actions);
+            section.appendChild(header);
+
+            const description = npc.description || '';
+            const notes = getNpcNotes(npc);
+            if (description) section.appendChild(createLedgerField('Description', description));
+            section.appendChild(createLedgerField('Notes', notes || 'No notes recorded.'));
+            return section;
+        }
+
+        function createLocationLedgerSection(location, index) {
+            const section = document.createElement('div');
+            section.className = 'player-info-section editable-section';
+
+            const header = document.createElement('div');
+            header.className = 'ledger-card-header';
+
+            const title = document.createElement('div');
+            title.className = 'player-info-section-label ledger-card-title';
+            title.textContent = location.name || 'Unnamed Location';
+
+            const actions = document.createElement('div');
+            actions.className = 'ledger-actions';
+            actions.appendChild(createMiniActionButton('Edit', `Edit ${location.name || 'location'}`, () => openRecordEditor('location', index)));
+            actions.appendChild(createMiniActionButton('Delete', `Delete ${location.name || 'location'}`, () => deleteCodexEntry('location', index), true));
+
+            header.appendChild(title);
+            header.appendChild(actions);
+            section.appendChild(header);
+            section.appendChild(createLedgerField('Description', location.description || 'No description recorded.'));
+
+            const notes = getLocationNotes(location);
+            if (notes) section.appendChild(createLedgerField('Notes', notes));
+            return section;
+        }
+
+        function setEditorFieldVisibility(element, visible) {
+            if (!element) return;
+            element.classList.toggle('hidden', !visible);
+        }
+
+        function openRecordEditor(type, index = -1, field = '') {
+            const modal = document.getElementById('record-editor-modal');
+            const title = document.getElementById('record-editor-title');
+            const nameWrap = document.getElementById('record-editor-name-wrap');
+            const nameLabel = document.getElementById('record-editor-name-label');
+            const nameInput = document.getElementById('record-editor-name');
+            const descLabel = document.getElementById('record-editor-description-label');
+            const descInput = document.getElementById('record-editor-description');
+            const notesWrap = document.getElementById('record-editor-notes-wrap');
+            const notesLabel = document.getElementById('record-editor-notes-label');
+            const notesInput = document.getElementById('record-editor-notes');
+            if (!modal || !title || !nameInput || !descInput || !notesInput) return;
+
+            window.recordEditorState = { type, index, field };
+            setEditorFieldVisibility(nameWrap, type !== 'player');
+            setEditorFieldVisibility(notesWrap, type === 'npc' || type === 'location');
+            nameInput.value = '';
+            descInput.value = '';
+            notesInput.value = '';
+
+            if (type === 'inventory') {
+                const item = window.gamestate?.inventory?.[index] || {};
+                title.textContent = 'Edit Inventory';
+                nameLabel.textContent = 'Item Name';
+                descLabel.textContent = 'Description';
+                nameInput.value = item.name || '';
+                descInput.value = item.description || '';
+            } else if (type === 'npc') {
+                const npc = window.gamestate?.npcs?.[index] || {};
+                title.textContent = 'Edit NPC';
+                nameLabel.textContent = 'NPC Name';
+                descLabel.textContent = 'Description';
+                notesLabel.textContent = 'Notes';
+                nameInput.value = npc.name || '';
+                descInput.value = npc.description || '';
+                notesInput.value = getNpcNotes(npc);
+            } else if (type === 'location') {
+                const location = window.gamestate?.locations?.[index] || {};
+                title.textContent = 'Edit Location';
+                nameLabel.textContent = 'Location Name';
+                descLabel.textContent = 'Description';
+                notesLabel.textContent = 'Notes';
+                nameInput.value = location.name || '';
+                descInput.value = location.description || '';
+                notesInput.value = getLocationNotes(location);
+            } else if (type === 'player') {
+                const player = getMutablePlayerRecord();
+                const labels = {
+                    appearance: 'Player Description',
+                    personality: 'Player Personality',
+                    backstory: 'Player Backstory'
+                };
+                title.textContent = labels[field] || 'Edit Player';
+                descLabel.textContent = labels[field] || 'Player Detail';
+                descInput.value = player[field] || '';
+            }
+
+            modal.classList.remove('hidden');
+            requestAnimationFrame(() => {
+                const focusTarget = type === 'player' ? descInput : nameInput;
+                focusTarget.focus();
+                focusTarget.select();
+            });
+        }
+
+        function closeRecordEditor() {
+            const modal = document.getElementById('record-editor-modal');
+            if (modal) modal.classList.add('hidden');
+            window.recordEditorState = null;
+        }
+
+        async function saveRecordEditor() {
+            const state = window.recordEditorState;
+            if (!state) return;
+
+            const nameInput = document.getElementById('record-editor-name');
+            const descInput = document.getElementById('record-editor-description');
+            const notesInput = document.getElementById('record-editor-notes');
+            const name = (nameInput?.value || '').trim();
+            const description = (descInput?.value || '').trim();
+            const notes = (notesInput?.value || '').trim();
+
+            if (state.type !== 'player' && !name) {
+                alert('Name is required.');
+                return;
+            }
+
+            if (state.type === 'inventory') {
+                const item = window.gamestate?.inventory?.[state.index];
+                if (!item) return;
+                item.name = name;
+                item.description = description;
+                renderPlayerMenuUI();
+            } else if (state.type === 'npc') {
+                const npc = window.gamestate?.npcs?.[state.index];
+                if (!npc) return;
+                npc.name = name;
+                npc.description = description;
+                setNpcNotes(npc, notes);
+                renderCodexUI();
+            } else if (state.type === 'location') {
+                const location = window.gamestate?.locations?.[state.index];
+                if (!location) return;
+                location.name = name;
+                location.description = description;
+                setLocationNotes(location, notes);
+                renderCodexUI();
+            } else if (state.type === 'player') {
+                const player = getMutablePlayerRecord();
+                player[state.field || 'appearance'] = description;
+                if ((state.field || 'appearance') === 'appearance' && Object.prototype.hasOwnProperty.call(player, 'description')) {
+                    player.description = description;
+                }
+                renderPlayerMenuUI();
+            }
+
+            closeRecordEditor();
+            await persistMenuEdit();
+        }
+
+        async function deleteInventoryItem(index) {
+            const item = window.gamestate?.inventory?.[index];
+            if (!item) return;
+            if (!await window.Odyssey.confirm(`Delete "${item.name || 'this item'}" from inventory?`, {
+                title: 'Delete Item',
+                confirmText: 'Delete',
+                danger: true
+            })) return;
+            window.gamestate.inventory.splice(index, 1);
+            renderPlayerMenuUI();
+            await persistMenuEdit();
+        }
+
+        async function deleteCodexEntry(type, index) {
+            const isNpc = type === 'npc';
+            const list = isNpc ? window.gamestate?.npcs : window.gamestate?.locations;
+            const entry = list?.[index];
+            if (!entry) return;
+
+            const label = isNpc ? 'NPC' : 'location';
+            if (!await window.Odyssey.confirm(`Delete ${label} "${entry.name || 'this entry'}" from the codex?`, {
+                title: 'Delete Codex Entry',
+                confirmText: 'Delete',
+                danger: true
+            })) return;
+            list.splice(index, 1);
+            renderCodexUI();
+            await persistMenuEdit();
         }
     </script>
 </body>

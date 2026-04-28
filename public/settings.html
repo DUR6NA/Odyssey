@@ -10,14 +10,16 @@
     <script src="theme.js"></script>
     <script src="titlebar.js"></script>
     <script src="ui-components.js"></script>
+    <script src="theme-icons.js"></script>
+    <script src="devtools.js"></script>
     <script src="retrieval.js?v=1"></script>
     <script src="menu-music.js"></script>
     <meta name="application-name" content="Odyssey">
-    <meta name="description" content="Odyssey v0.6.0-beta.1 - AI-driven text adventure desktop game with retrieval-enhanced lore and memory.">
+    <meta name="description" content="Odyssey v0.6.1-alpha.1 - AI-driven text adventure desktop game with retrieval-enhanced lore and memory.">
     <meta name="theme-color" content="#121212">
-    <meta name="odyssey-version" content="0.6.0-beta.1">
-    <meta name="odyssey-bundle-version" content="0.6.0-1">
-    <meta property="og:title" content="Odyssey v0.6.0-beta.1">
+    <meta name="odyssey-version" content="0.6.1-alpha.1">
+    <meta name="odyssey-bundle-version" content="0.6.1-1">
+    <meta property="og:title" content="Odyssey v0.6.1-alpha.1">
     <meta property="og:description" content="AI-driven text adventure desktop game with retrieval-enhanced lore and memory.">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary">
@@ -30,9 +32,12 @@
             <nav class="sidebar-nav">
                 <button id="nav-btn-general" class="active" onclick="switchSettingsTab('general')">General</button>
                 <button id="nav-btn-api" onclick="switchSettingsTab('api')">API Settings</button>
+                <button id="nav-btn-image" onclick="switchSettingsTab('image')">Image</button>
+                <button id="nav-btn-rag" onclick="switchSettingsTab('rag')">RAG</button>
                 <button id="nav-btn-tts" onclick="switchSettingsTab('tts')">Voice / TTS</button>
                 <button id="nav-btn-appearance" onclick="switchSettingsTab('appearance')">Appearance</button>
                 <button id="nav-btn-prompts" onclick="switchSettingsTab('prompts')">Prompts</button>
+                <button id="nav-btn-developer" onclick="switchSettingsTab('developer')">Developer</button>
             </nav>
         </aside>
 
@@ -58,6 +63,73 @@
                             <input type="range" id="menu-music-volume" class="attribute-slider" min="0" max="100" step="5" value="35" oninput="updateMusicVolumeLabel(this.value); saveMusicVolume(); if (window.setMenuMusicVolume) window.setMenuMusicVolume(this.value);">
                             <div id="music-volume-value" class="attribute-current-label">35%</div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Developer Tab -->
+                <div id="tab-developer" class="settings-tab" style="display: none;">
+                    <h2>Developer Tools</h2>
+                    <p>Enable the diagnostics overlay and choose what it captures.</p>
+
+                    <div class="control-group mt-lg">
+                        <label>Enable DevTools Overlay:</label>
+                        <input type="checkbox" id="devtools-enabled" onchange="saveDevToolsSettings()">
+                        <span class="hint-text">Shows the global Dev button and records diagnostic events.</span>
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Show Floating Button:</label>
+                        <input type="checkbox" id="devtools-show-button" onchange="saveDevToolsSettings()">
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Persist Logs Across Pages:</label>
+                        <input type="checkbox" id="devtools-persist-logs" onchange="saveDevToolsSettings()">
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Max Log Entries:</label>
+                        <input type="number" id="devtools-max-logs" min="100" max="5000" step="100" value="500"
+                            class="input-sm" onchange="saveDevToolsSettings()">
+                    </div>
+
+                    <hr class="divider">
+                    <h3>Capture Sources</h3>
+
+                    <div class="control-group mt-md">
+                        <label>Fetch / API Calls:</label>
+                        <input type="checkbox" id="devtools-capture-fetch" onchange="saveDevToolsSettings()">
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>RAG and Retrieval:</label>
+                        <input type="checkbox" id="devtools-capture-rag" onchange="saveDevToolsSettings()">
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Tauri Bridge / Saves:</label>
+                        <input type="checkbox" id="devtools-capture-bridge" onchange="saveDevToolsSettings()">
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Console Messages:</label>
+                        <input type="checkbox" id="devtools-capture-console" onchange="saveDevToolsSettings()">
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Local Storage Changes:</label>
+                        <input type="checkbox" id="devtools-capture-storage" onchange="saveDevToolsSettings()">
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Redact API Keys and Tokens:</label>
+                        <input type="checkbox" id="devtools-redact-sensitive" onchange="saveDevToolsSettings()">
+                    </div>
+
+                    <div class="control-group mt-lg">
+                        <button onclick="openDevToolsFromSettings()" class="btn btn-compact">Open DevTools</button>
+                        <button onclick="clearDevToolsLogsFromSettings()" class="btn btn-compact">Clear Logs</button>
+                        <button onclick="saveDevToolsSettings(true)" class="btn btn-compact">Save DevTools Settings</button>
                     </div>
                 </div>
 
@@ -117,6 +189,55 @@
                     </div>
 
                     <hr class="divider">
+                    <h3>Model Settings</h3>
+
+                    <div class="control-group mt-md">
+                        <label>Temperature:</label>
+                        <input type="number" id="api-temperature" step="0.1" min="0" max="2" value="0.7"
+                            onchange="saveApiSettings()" class="input-sm">
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Max Tokens:</label>
+                        <input type="number" id="api-max-tokens" step="1" min="1" value="3000"
+                            onchange="saveApiSettings()" class="input-sm">
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Top P:</label>
+                        <input type="number" id="api-top-p" step="0.1" min="0" max="1" value="1.0"
+                            onchange="saveApiSettings()" class="input-sm">
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Presence Penalty:</label>
+                        <input type="number" id="api-presence-penalty" step="0.1" min="-2" max="2" value="0.0"
+                            onchange="saveApiSettings()" class="input-sm">
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Frequency Penalty:</label>
+                        <input type="number" id="api-frequency-penalty" step="0.1" min="-2" max="2" value="0.0"
+                            onchange="saveApiSettings()" class="input-sm">
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Enable Reasoning (if supported):</label>
+                        <input type="checkbox" id="api-enable-reasoning" onchange="saveApiSettings()">
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Reasoning Effort:</label>
+                        <select id="api-reasoning-effort" onchange="saveApiSettings()">
+                            <option value="low">Low</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="high">High</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Image Tab -->
+                <div id="tab-image" class="settings-tab" style="display: none;">
                     <h3>Image Generation Settings</h3>
 
                     <div class="control-group mt-md">
@@ -130,6 +251,114 @@
                         <span class="hint-text">Requires Image
                             Features enabled</span>
                     </div>
+
+                    <hr class="divider">
+                    <h3>Image Prompt Text Model</h3>
+
+                    <div class="control-group mt-md">
+                        <label>Use Game Text Model:</label>
+                        <input type="checkbox" id="image-prompt-use-game-model" onchange="handleImagePromptModelToggle(); saveApiSettings()">
+                        <span class="hint-text">Turn this off to choose a separate text model for image prompt generation.</span>
+                    </div>
+
+                    <div id="image-prompt-model-group">
+                        <div class="control-group mt-md">
+                            <button onclick="fetchModels('imagePrompt')" class="btn btn-compact">Fetch Text Models</button>
+                            <span id="image-prompt-model-fetch-status" class="hint-text"></span>
+                        </div>
+
+                        <div class="control-group mt-md">
+                            <label>Image Prompt Model:</label>
+                            <select id="image-prompt-model-select" onchange="saveApiSettings()" class="input-lg">
+                                <option value="">-- Use selected game model --</option>
+                            </select>
+                        </div>
+
+                        <div class="control-group mt-md">
+                            <label>Manual Prompt Model ID:</label>
+                            <input type="text" id="image-prompt-manual-model-id" placeholder="e.g. moonshotai/kimi-k2.6"
+                                class="input-md" oninput="saveApiSettings()">
+                        </div>
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Prompt Temperature:</label>
+                        <input type="number" id="image-prompt-temperature" step="0.1" min="0" max="2" value="0.7"
+                            class="input-sm" onchange="saveApiSettings()">
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Prompt Max Tokens:</label>
+                        <input type="number" id="image-prompt-max-tokens" step="1" min="1" value="3000"
+                            class="input-sm" onchange="saveApiSettings()">
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Prompt Top P:</label>
+                        <input type="number" id="image-prompt-top-p" step="0.1" min="0" max="1" value="1.0"
+                            class="input-sm" onchange="saveApiSettings()">
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Exclude Reasoning From Prompt:</label>
+                        <input type="checkbox" id="image-prompt-exclude-reasoning" onchange="saveApiSettings()">
+                        <span class="hint-text">Recommended for reasoning models so the prompt answer is returned in <code>content</code>.</span>
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Use Separate Image API:</label>
+                        <input type="checkbox" id="api-image-separate" onchange="handleImageProviderToggle(); saveApiSettings()">
+                        <span class="hint-text">Use a different provider for image generation (e.g. local chat + xAI images)</span>
+                    </div>
+
+                    <div id="image-api-group" style="display: none;">
+                        <div class="control-group mt-md">
+                            <label>Image API Provider:</label>
+                            <select id="image-api-provider-select" onchange="handleImageProviderChange(); saveApiSettings()" class="input-md">
+                                <option value="openrouter">OpenRouter</option>
+                                <option value="xai">XAI</option>
+                                <option value="googleai">Google AI</option>
+                                <option value="lmstudio">LM Studio (Local)</option>
+                                <option value="openai">OpenAI Compatible</option>
+                            </select>
+                        </div>
+
+                        <div class="control-group mt-md" id="image-base-url-group" style="display: none;">
+                            <label>Image Base URL:</label>
+                            <input type="text" id="image-api-base-url" placeholder="http://localhost:1234/v1"
+                                class="input-md" onchange="saveApiSettings()">
+                            <span class="hint-text">LM Studio: http://localhost:1234/v1 (OpenAI compat endpoint /v1/chat/completions). Note: image gen not supported by LM Studio.</span>
+                        </div>
+
+                        <div class="control-group mt-md">
+                            <label>Image API Key:</label>
+                            <input type="password" id="image-api-key" placeholder="sk-..."
+                                class="input-md" onchange="saveApiSettings()">
+                            <button onclick="testImageConnection()" class="btn btn-compact">Test Connection</button>
+                            <span id="image-test-connection-status" class="hint-text"></span>
+                        </div>
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <button onclick="fetchModels('image')" class="btn btn-compact">Fetch Image
+                            Models</button>
+                        <span id="image-model-fetch-status"
+                            class="hint-text"></span>
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Select Image Model:</label>
+                        <select id="openrouter-image-model-select" onchange="saveApiSettings()"
+                            class="input-lg">
+                            <option value="">-- Load models first --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- RAG Tab -->
+                <div id="tab-rag" class="settings-tab" style="display: none;">
+                    <h2>RAG and Retrieval</h2>
+                    <p>Configure web lookup, lore sources, and local vector retrieval.</p>
 
                     <div class="control-group mt-md">
                         <label>Enable Real-World Web Search:</label>
@@ -220,102 +449,6 @@
                         <label>Vector Min Score:</label>
                         <input type="number" id="vector-min-score" min="-1" max="1" step="0.01" value="0.18"
                             class="input-sm" onchange="saveApiSettings()">
-                    </div>
-
-                    <div class="control-group mt-md">
-                        <label>Use Separate Image API:</label>
-                        <input type="checkbox" id="api-image-separate" onchange="handleImageProviderToggle(); saveApiSettings()">
-                        <span class="hint-text">Use a different provider for image generation (e.g. local chat + xAI images)</span>
-                    </div>
-
-                    <div id="image-api-group" style="display: none;">
-                        <div class="control-group mt-md">
-                            <label>Image API Provider:</label>
-                            <select id="image-api-provider-select" onchange="handleImageProviderChange(); saveApiSettings()" class="input-md">
-                                <option value="openrouter">OpenRouter</option>
-                                <option value="xai">XAI</option>
-                                <option value="googleai">Google AI</option>
-                                <option value="lmstudio">LM Studio (Local)</option>
-                                <option value="openai">OpenAI Compatible</option>
-                            </select>
-                        </div>
-
-                        <div class="control-group mt-md" id="image-base-url-group" style="display: none;">
-                            <label>Image Base URL:</label>
-                            <input type="text" id="image-api-base-url" placeholder="http://localhost:1234/v1"
-                                class="input-md" onchange="saveApiSettings()">
-                            <span class="hint-text">LM Studio: http://localhost:1234/v1 (OpenAI compat endpoint /v1/chat/completions). Note: image gen not supported by LM Studio.</span>
-                        </div>
-
-                        <div class="control-group mt-md">
-                            <label>Image API Key:</label>
-                            <input type="password" id="image-api-key" placeholder="sk-..."
-                                class="input-md" onchange="saveApiSettings()">
-                            <button onclick="testImageConnection()" class="btn btn-compact">Test Connection</button>
-                            <span id="image-test-connection-status" class="hint-text"></span>
-                        </div>
-                    </div>
-
-                    <div class="control-group mt-md">
-                        <button onclick="fetchModels('image')" class="btn btn-compact">Fetch Image
-                            Models</button>
-                        <span id="image-model-fetch-status"
-                            class="hint-text"></span>
-                    </div>
-
-                    <div class="control-group mt-md">
-                        <label>Select Image Model:</label>
-                        <select id="openrouter-image-model-select" onchange="saveApiSettings()"
-                            class="input-lg">
-                            <option value="">-- Load models first --</option>
-                        </select>
-                    </div>
-
-                    <hr class="divider">
-                    <h3>Model Settings</h3>
-
-                    <div class="control-group mt-md">
-                        <label>Temperature:</label>
-                        <input type="number" id="api-temperature" step="0.1" min="0" max="2" value="0.7"
-                            onchange="saveApiSettings()" class="input-sm">
-                    </div>
-
-                    <div class="control-group mt-md">
-                        <label>Max Tokens:</label>
-                        <input type="number" id="api-max-tokens" step="1" min="1" value="2048"
-                            onchange="saveApiSettings()" class="input-sm">
-                    </div>
-
-                    <div class="control-group mt-md">
-                        <label>Top P:</label>
-                        <input type="number" id="api-top-p" step="0.1" min="0" max="1" value="1.0"
-                            onchange="saveApiSettings()" class="input-sm">
-                    </div>
-
-                    <div class="control-group mt-md">
-                        <label>Presence Penalty:</label>
-                        <input type="number" id="api-presence-penalty" step="0.1" min="-2" max="2" value="0.0"
-                            onchange="saveApiSettings()" class="input-sm">
-                    </div>
-
-                    <div class="control-group mt-md">
-                        <label>Frequency Penalty:</label>
-                        <input type="number" id="api-frequency-penalty" step="0.1" min="-2" max="2" value="0.0"
-                            onchange="saveApiSettings()" class="input-sm">
-                    </div>
-
-                    <div class="control-group mt-md">
-                        <label>Enable Reasoning (if supported):</label>
-                        <input type="checkbox" id="api-enable-reasoning" onchange="saveApiSettings()">
-                    </div>
-
-                    <div class="control-group mt-md">
-                        <label>Reasoning Effort:</label>
-                        <select id="api-reasoning-effort" onchange="saveApiSettings()">
-                            <option value="low">Low</option>
-                            <option value="medium" selected>Medium</option>
-                            <option value="high">High</option>
-                        </select>
                     </div>
                 </div>
             </div>
@@ -610,10 +743,11 @@
             loadPrompts();
             loadAppearanceSettings();
             loadMusicVolume();
+            loadDevToolsSettings();
             loadTtsSettings();
             // Initialize custom dropdowns and number inputs
             initCustomUIComponents(document.body, {
-                searchSelects: ['openrouter-model-select', 'openrouter-image-model-select', 'embedding-model-select', 'primary-font-select', 'secondary-font-select']
+                searchSelects: ['openrouter-model-select', 'image-prompt-model-select', 'openrouter-image-model-select', 'embedding-model-select', 'primary-font-select', 'secondary-font-select']
             });
 
             // Update back button icon and title if from main menu
@@ -707,7 +841,7 @@
                         body: JSON.stringify({
                             model: manualModel,
                             messages: [{ role: "user", content: "Reply with OK" }],
-                            max_tokens: 8,
+                            max_tokens: 3000,
                             temperature: 0
                         })
                     });
@@ -764,6 +898,42 @@
                 renderThemeCards();
                 initFontDropdowns();
             }
+        }
+
+        function getCachedTextModelsForProvider(provider) {
+            const cachedModels = localStorage.getItem('jsonAdventure_modelsCache_' + provider)
+                || (provider === 'openrouter' ? localStorage.getItem('jsonAdventure_openRouterModelsCache') : null);
+            if (!cachedModels) return null;
+            try {
+                return JSON.parse(cachedModels);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function refreshImagePromptModelSelect() {
+            const provider = document.getElementById('api-provider-select').value;
+            const selectEl = document.getElementById('image-prompt-model-select');
+            const manualModelInput = document.getElementById('image-prompt-manual-model-id');
+            if (!selectEl || !manualModelInput) return;
+
+            manualModelInput.value = localStorage.getItem('jsonAdventure_imagePromptManualModel_' + provider) || '';
+            const savedModel = localStorage.getItem('jsonAdventure_imagePromptModel_' + provider) || '';
+            const parsedModels = getCachedTextModelsForProvider(provider);
+
+            if (parsedModels) {
+                populateModelSelect(parsedModels, savedModel, 'image-prompt-model-select');
+            } else {
+                selectEl.innerHTML = '<option value="">-- Fetch text models or type manually --</option>';
+                if (typeof refreshCustomSelect === 'function') refreshCustomSelect('image-prompt-model-select');
+            }
+        }
+
+        function handleImagePromptModelToggle() {
+            const useGameModel = document.getElementById('image-prompt-use-game-model').checked;
+            const modelGroup = document.getElementById('image-prompt-model-group');
+            if (modelGroup) modelGroup.style.display = useGameModel ? 'none' : 'block';
+            if (!useGameModel) refreshImagePromptModelSelect();
         }
 
         // Image API Provider Logic
@@ -914,6 +1084,9 @@
                     if (typeof refreshCustomSelect === 'function') refreshCustomSelect('openrouter-model-select');
                 }
             }
+
+            refreshImagePromptModelSelect();
+            handleImagePromptModelToggle();
 
             // Update image models dropdown for this provider (only if not using separate image API)
             const useSeparateImage = document.getElementById('api-image-separate').checked;
@@ -1085,12 +1258,24 @@
 
             // Load new model settings with defaults
             document.getElementById('api-temperature').value = localStorage.getItem('jsonAdventure_apiTemperature') || '0.7';
-            document.getElementById('api-max-tokens').value = localStorage.getItem('jsonAdventure_apiMaxTokens') || '2048';
+            const savedMaxTokens = Math.max(parseInt(localStorage.getItem('jsonAdventure_apiMaxTokens'), 10) || 0, 3000);
+            localStorage.setItem('jsonAdventure_apiMaxTokens', String(savedMaxTokens));
+            document.getElementById('api-max-tokens').value = String(savedMaxTokens);
             document.getElementById('api-top-p').value = localStorage.getItem('jsonAdventure_apiTopP') || '1.0';
             document.getElementById('api-presence-penalty').value = localStorage.getItem('jsonAdventure_apiPresencePenalty') || '0.0';
             document.getElementById('api-frequency-penalty').value = localStorage.getItem('jsonAdventure_apiFrequencyPenalty') || '0.0';
             document.getElementById('api-enable-reasoning').checked = localStorage.getItem('jsonAdventure_apiEnableReasoning') === 'true';
             document.getElementById('api-reasoning-effort').value = localStorage.getItem('jsonAdventure_apiReasoningEffort') || 'medium';
+
+            document.getElementById('image-prompt-use-game-model').checked = localStorage.getItem('jsonAdventure_imagePromptUseGameModel') !== 'false';
+            document.getElementById('image-prompt-temperature').value = localStorage.getItem('jsonAdventure_imagePromptTemperature') || '0.7';
+            const savedImagePromptMaxTokens = Math.max(parseInt(localStorage.getItem('jsonAdventure_imagePromptMaxTokens'), 10) || 0, 3000);
+            localStorage.setItem('jsonAdventure_imagePromptMaxTokens', String(savedImagePromptMaxTokens));
+            document.getElementById('image-prompt-max-tokens').value = String(savedImagePromptMaxTokens);
+            document.getElementById('image-prompt-top-p').value = localStorage.getItem('jsonAdventure_imagePromptTopP') || '1.0';
+            document.getElementById('image-prompt-exclude-reasoning').checked = localStorage.getItem('jsonAdventure_imagePromptExcludeReasoning') !== 'false';
+            refreshImagePromptModelSelect();
+            handleImagePromptModelToggle();
 
             const imgCheck = document.getElementById('api-enable-image');
             const autoImgCheck = document.getElementById('api-enable-auto-image');
@@ -1148,6 +1333,13 @@
             const frequencyPenalty = document.getElementById('api-frequency-penalty').value;
             const enableReasoning = document.getElementById('api-enable-reasoning').checked;
             const reasoningEffort = document.getElementById('api-reasoning-effort').value;
+            const imagePromptUseGameModel = document.getElementById('image-prompt-use-game-model').checked;
+            const imagePromptSelectedModel = document.getElementById('image-prompt-model-select').value;
+            const imagePromptManualModel = document.getElementById('image-prompt-manual-model-id').value.trim();
+            const imagePromptTemperature = document.getElementById('image-prompt-temperature').value;
+            const imagePromptMaxTokens = document.getElementById('image-prompt-max-tokens').value;
+            const imagePromptTopP = document.getElementById('image-prompt-top-p').value;
+            const imagePromptExcludeReasoning = document.getElementById('image-prompt-exclude-reasoning').checked;
 
             const enableImage = document.getElementById('api-enable-image').checked;
             const enableAutoImage = document.getElementById('api-enable-auto-image').checked;
@@ -1187,6 +1379,13 @@
             localStorage.setItem('jsonAdventure_apiFrequencyPenalty', frequencyPenalty);
             localStorage.setItem('jsonAdventure_apiEnableReasoning', enableReasoning);
             localStorage.setItem('jsonAdventure_apiReasoningEffort', reasoningEffort);
+            localStorage.setItem('jsonAdventure_imagePromptUseGameModel', imagePromptUseGameModel);
+            localStorage.setItem('jsonAdventure_imagePromptManualModel_' + provider, imagePromptManualModel);
+            localStorage.setItem('jsonAdventure_imagePromptModel_' + provider, imagePromptSelectedModel);
+            localStorage.setItem('jsonAdventure_imagePromptTemperature', imagePromptTemperature);
+            localStorage.setItem('jsonAdventure_imagePromptMaxTokens', imagePromptMaxTokens);
+            localStorage.setItem('jsonAdventure_imagePromptTopP', imagePromptTopP);
+            localStorage.setItem('jsonAdventure_imagePromptExcludeReasoning', imagePromptExcludeReasoning);
 
             localStorage.setItem('jsonAdventure_enableImage', enableImage);
             localStorage.setItem('jsonAdventure_enableAutoImage', enableAutoImage);
@@ -1229,7 +1428,9 @@
         }
 
         async function fetchModels(fetchType = 'text') {
-            const useSeparateImage = fetchType === 'image' && document.getElementById('api-image-separate').checked;
+            const isImageFetch = fetchType === 'image';
+            const isImagePromptFetch = fetchType === 'imagePrompt';
+            const useSeparateImage = isImageFetch && document.getElementById('api-image-separate').checked;
             const provider = useSeparateImage
                 ? document.getElementById('image-api-provider-select').value
                 : document.getElementById('api-provider-select').value;
@@ -1239,12 +1440,12 @@
             const apiKey = useSeparateImage
                 ? document.getElementById('image-api-key').value.trim()
                 : document.getElementById('openrouter-api-key').value.trim();
-            const manualModel = !useSeparateImage && fetchType === 'text'
-                ? document.getElementById('manual-model-id').value.trim()
-                : '';
-            const statusEl = fetchType === 'image'
+            const manualModel = isImagePromptFetch
+                ? document.getElementById('image-prompt-manual-model-id').value.trim()
+                : (!useSeparateImage && fetchType === 'text' ? document.getElementById('manual-model-id').value.trim() : '');
+            const statusEl = isImageFetch
                 ? document.getElementById('image-model-fetch-status')
-                : document.getElementById('model-fetch-status');
+                : (isImagePromptFetch ? document.getElementById('image-prompt-model-fetch-status') : document.getElementById('model-fetch-status'));
 
             if (!apiKey && provider !== 'openai' && provider !== 'lmstudio') {
                 statusEl.textContent = "Please enter and save an API key first.";
@@ -1282,12 +1483,12 @@
                     statusEl.style.color = "#dc3545";
                     return;
                 }
-                if (fetchType === 'text' && usesChatProbeConnectionTest(provider, baseUrl)) {
+                if (!isImageFetch && usesChatProbeConnectionTest(provider, baseUrl)) {
                     const fallbackModels = {};
-                    const savedModel = manualModel || localStorage.getItem('jsonAdventure_savedModel_' + provider) || '';
+                    const savedModel = manualModel || localStorage.getItem(isImagePromptFetch ? 'jsonAdventure_imagePromptModel_' + provider : 'jsonAdventure_savedModel_' + provider) || '';
                     if (savedModel) {
                         fallbackModels["Manual"] = [{ id: savedModel, name: savedModel }];
-                        populateModelSelect(fallbackModels, savedModel);
+                        populateModelSelect(fallbackModels, savedModel, isImagePromptFetch ? 'image-prompt-model-select' : 'openrouter-model-select');
                         statusEl.textContent = "Using the manual model ID.";
                         statusEl.style.color = "#28a745";
                     } else {
@@ -1327,8 +1528,8 @@
 
                 // Filter models that do not support structured outputs to prevent crashes
                 let filteredModels = models;
-                if (fetchType === 'text') {
-                    if (provider === 'openrouter' && Array.isArray(models)) {
+                if (!isImageFetch) {
+                    if (provider === 'openrouter' && fetchType === 'text' && Array.isArray(models)) {
                         filteredModels = models.filter(m => {
                             return m.supported_parameters &&
                                 (m.supported_parameters.includes("structured_outputs") || m.supported_parameters.includes("response_format"));
@@ -1409,13 +1610,20 @@
                         localStorage.setItem('jsonAdventure_openRouterModelsCache', JSON.stringify(organizedModels));
                     }
 
-                    let specificModel = localStorage.getItem('jsonAdventure_savedModel_' + provider);
-                    const activeProvider = localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter';
-                    if (!specificModel && provider === activeProvider) {
-                        specificModel = localStorage.getItem('jsonAdventure_openRouterModel') || '';
+                    let specificModel = '';
+                    let targetSelectId = 'openrouter-model-select';
+                    if (isImagePromptFetch) {
+                        targetSelectId = 'image-prompt-model-select';
+                        specificModel = localStorage.getItem('jsonAdventure_imagePromptModel_' + provider) || '';
+                    } else {
+                        specificModel = localStorage.getItem('jsonAdventure_savedModel_' + provider);
+                        const activeProvider = localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter';
+                        if (!specificModel && provider === activeProvider) {
+                            specificModel = localStorage.getItem('jsonAdventure_openRouterModel') || '';
+                        }
                     }
 
-                    populateModelSelect(organizedModels, specificModel || '');
+                    populateModelSelect(organizedModels, specificModel || '', targetSelectId);
                 }
 
                 statusEl.textContent = "Models loaded successfully!";
@@ -1603,6 +1811,106 @@
             }
         }
 
+        // Developer Tools Logic
+        function loadDevToolsSettings() {
+            const boolSetting = (key, fallback) => {
+                const raw = localStorage.getItem(key);
+                if (raw === null || raw === undefined || raw === '') return fallback;
+                return raw === 'true';
+            };
+
+            const setChecked = (id, key, fallback) => {
+                const el = document.getElementById(id);
+                if (el) el.checked = boolSetting(key, fallback);
+            };
+
+            setChecked('devtools-enabled', 'jsonAdventure_devToolsEnabled', false);
+            setChecked('devtools-show-button', 'jsonAdventure_devToolsShowButton', true);
+            setChecked('devtools-persist-logs', 'jsonAdventure_devToolsPersistLogs', true);
+            setChecked('devtools-capture-fetch', 'jsonAdventure_devToolsCaptureFetch', true);
+            setChecked('devtools-capture-rag', 'jsonAdventure_devToolsCaptureRag', true);
+            setChecked('devtools-capture-bridge', 'jsonAdventure_devToolsCaptureBridge', true);
+            setChecked('devtools-capture-console', 'jsonAdventure_devToolsCaptureConsole', true);
+            setChecked('devtools-capture-storage', 'jsonAdventure_devToolsCaptureStorage', true);
+            setChecked('devtools-redact-sensitive', 'jsonAdventure_devToolsRedactSensitive', true);
+
+            const maxLogsEl = document.getElementById('devtools-max-logs');
+            if (maxLogsEl) maxLogsEl.value = localStorage.getItem('jsonAdventure_devToolsMaxLogs') || '500';
+
+            if (window.OdysseyDevTools) {
+                window.OdysseyDevTools.syncVisibility();
+            }
+        }
+
+        function saveDevToolsSettings(showAlert = false) {
+            const readChecked = (id) => {
+                const el = document.getElementById(id);
+                return !!(el && el.checked);
+            };
+
+            const maxLogsEl = document.getElementById('devtools-max-logs');
+            const maxLogs = Math.max(100, Math.min(parseInt(maxLogsEl?.value || '500', 10) || 500, 5000));
+            if (maxLogsEl) maxLogsEl.value = String(maxLogs);
+
+            const settings = {
+                enabled: readChecked('devtools-enabled'),
+                showButton: readChecked('devtools-show-button'),
+                persistLogs: readChecked('devtools-persist-logs'),
+                captureFetch: readChecked('devtools-capture-fetch'),
+                captureRag: readChecked('devtools-capture-rag'),
+                captureBridge: readChecked('devtools-capture-bridge'),
+                captureConsole: readChecked('devtools-capture-console'),
+                captureStorage: readChecked('devtools-capture-storage'),
+                redactSensitive: readChecked('devtools-redact-sensitive'),
+                maxLogs
+            };
+
+            localStorage.setItem('jsonAdventure_devToolsEnabled', settings.enabled);
+            localStorage.setItem('jsonAdventure_devToolsShowButton', settings.showButton);
+            localStorage.setItem('jsonAdventure_devToolsPersistLogs', settings.persistLogs);
+            localStorage.setItem('jsonAdventure_devToolsCaptureFetch', settings.captureFetch);
+            localStorage.setItem('jsonAdventure_devToolsCaptureRag', settings.captureRag);
+            localStorage.setItem('jsonAdventure_devToolsCaptureBridge', settings.captureBridge);
+            localStorage.setItem('jsonAdventure_devToolsCaptureConsole', settings.captureConsole);
+            localStorage.setItem('jsonAdventure_devToolsCaptureStorage', settings.captureStorage);
+            localStorage.setItem('jsonAdventure_devToolsRedactSensitive', settings.redactSensitive);
+            localStorage.setItem('jsonAdventure_devToolsMaxLogs', settings.maxLogs);
+
+            if (window.OdysseyDevTools) {
+                window.OdysseyDevTools.setEnabled(settings.enabled);
+                window.OdysseyDevTools.setSetting('showButton', settings.showButton);
+                window.OdysseyDevTools.setSetting('persistLogs', settings.persistLogs);
+                window.OdysseyDevTools.setSetting('captureFetch', settings.captureFetch);
+                window.OdysseyDevTools.setSetting('captureRag', settings.captureRag);
+                window.OdysseyDevTools.setSetting('captureBridge', settings.captureBridge);
+                window.OdysseyDevTools.setSetting('captureConsole', settings.captureConsole);
+                window.OdysseyDevTools.setSetting('captureStorage', settings.captureStorage);
+                window.OdysseyDevTools.setSetting('redactSensitive', settings.redactSensitive);
+                window.OdysseyDevTools.setSetting('maxLogs', String(settings.maxLogs));
+            }
+
+            if (showAlert) {
+                alert('DevTools settings saved!');
+            }
+        }
+
+        function openDevToolsFromSettings() {
+            const enabledEl = document.getElementById('devtools-enabled');
+            if (enabledEl && !enabledEl.checked) {
+                enabledEl.checked = true;
+                saveDevToolsSettings();
+            }
+            if (window.OdysseyDevTools) {
+                window.OdysseyDevTools.open();
+            }
+        }
+
+        function clearDevToolsLogsFromSettings() {
+            if (window.OdysseyDevTools) {
+                window.OdysseyDevTools.clearLogs();
+            }
+        }
+
         function saveAppearanceSettings() {
             const reduceMotion = document.getElementById('appearance-reduce-motion').checked;
             const hideFocusRing = document.getElementById('appearance-hide-focus-ring').checked;
@@ -1675,8 +1983,11 @@ Rely on the background JSON systems to handle stats, inventory, and time. Your O
             }
         }
 
-        function resetPrompts() {
-            if (confirm("Are you sure you want to restore the default prompts?")) {
+        async function resetPrompts() {
+            if (await window.Odyssey.confirm("Are you sure you want to restore the default prompts?", {
+                title: 'Restore Defaults',
+                confirmText: 'Restore'
+            })) {
                 document.getElementById('prompt-world').value = defaultWorldPrompt;
                 document.getElementById('prompt-player').value = defaultPlayerPrompt;
                 document.getElementById('prompt-image').value = defaultImagePrompt;

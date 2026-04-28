@@ -12,7 +12,7 @@ import process from 'node:process';
 const STORE_VERSION = 1;
 const DEFAULT_OUTPUT_DIR = path.join('.rag-vector-generation', 'output', 'universe-vector-stores');
 const DEFAULT_CACHE_DIR = path.join('.rag-vector-generation', 'cache');
-const USER_AGENT = 'OdysseyVectorGenerator/0.6.0-beta.1 (https://github.com/DUR6NA/Odyssey)';
+const USER_AGENT = 'OdysseyVectorGenerator/0.6.1-alpha.1 (https://github.com/DUR6NA/Odyssey)';
 const MAX_CHUNK_CHARS = 1200;
 const CHUNK_OVERLAP_CHARS = 180;
 const DEFAULT_SHARD_TARGET_MB = 25;
@@ -710,6 +710,20 @@ function storeMetadataForWrite(store) {
   };
 }
 
+function normalizeStoreStats(store) {
+  const documents = Array.isArray(store.documents) ? store.documents : [];
+  const pageIds = new Set(
+    documents
+      .map(doc => doc.sourcePageId)
+      .filter(value => value !== undefined && value !== null)
+      .map(String)
+  );
+
+  store.stats ||= {};
+  store.stats.pagesProcessed = pageIds.size || store.stats.pagesProcessed || 0;
+  store.stats.chunksEmbedded = documents.length;
+}
+
 async function writeObjectWithDocumentJson(filePath, metadata, documentJsons) {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   const tmpPath = `${filePath}.tmp`;
@@ -800,6 +814,7 @@ async function writeShardedStoreFile(filePath, store, args) {
 async function writeStoreFile(filePath, store, args) {
   store.embedding ||= {};
   store.embedding.precision = args.embeddingDecimals;
+  normalizeStoreStats(store);
   if (args.shardTargetMb > 0) return writeShardedStoreFile(filePath, store, args);
   return writeCompactStoreFile(filePath, store, args);
 }
@@ -854,6 +869,15 @@ function formatEmbeddingInput(text, role, model) {
   return clean;
 }
 
+function buildDocumentEmbeddingText(config, page, chunk) {
+  return [
+    `Title: ${cleanText(page.title)}`,
+    'Type: fandom',
+    config.wikiName ? `Source: ${config.wikiName}` : '',
+    chunk
+  ].filter(Boolean).join('\n');
+}
+
 async function embedTexts(texts, args, role = 'document') {
   if (texts.length === 0) return [];
   const inputs = texts.map(text => formatEmbeddingInput(text, role, args.model));
@@ -894,7 +918,7 @@ function existingPageIds(store) {
 function nextRecordsForPage(config, page, text, embeddings, chunks, args) {
   const now = new Date().toISOString();
   return chunks.map((chunk, chunkIndex) => {
-    const textHash = hashString(chunk);
+    const textHash = hashString(buildDocumentEmbeddingText(config, page, chunk));
     const titleHash = hashString(`${page.pageid}|${page.title}|${chunkIndex}|${textHash}`);
     return {
       id: `${config.key}:${page.pageid}:${chunkIndex}:${titleHash}`,
@@ -955,7 +979,7 @@ async function embedAndAddPages(config, pages, store, args) {
     const embeddings = [];
     for (let i = 0; i < chunks.length; i += args.embeddingBatch) {
       const batch = chunks.slice(i, i + args.embeddingBatch);
-      const batchEmbeddings = await embedTexts(batch, args);
+      const batchEmbeddings = await embedTexts(batch.map(chunk => buildDocumentEmbeddingText(config, page, chunk)), args);
       embeddings.push(...batchEmbeddings);
       process.stdout.write('.');
     }

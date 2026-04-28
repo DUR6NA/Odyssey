@@ -585,11 +585,47 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    min-width: 28px;
+    min-height: 28px;
 }
 
 .msg-action-btn:hover {
     background: var(--bg-tertiary);
     color: var(--text-heading);
+}
+
+.msg-action-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.62;
+}
+
+.msg-action-btn:disabled:hover {
+    background: transparent;
+    color: var(--text-muted);
+}
+
+.tts-button-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tts-button-spinner {
+    display: none;
+    width: 14px;
+    height: 14px;
+    border: 2px solid color-mix(in srgb, currentColor 28%, transparent);
+    border-top-color: var(--accent-color);
+    border-radius: var(--radius-circle);
+    animation: spin 0.75s linear infinite;
+}
+
+.msg-action-btn.is-loading .tts-button-icon {
+    display: none;
+}
+
+.msg-action-btn.is-loading .tts-button-spinner {
+    display: inline-block;
 }
 
 .chat-input-container {
@@ -1751,6 +1787,53 @@ textarea:focus {
     transform: scale(1.02);
 }
 
+.inventory-card-actions {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    gap: 6px;
+    opacity: 0;
+    transform: translateY(-4px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    pointer-events: none;
+}
+
+.inventory-card:hover .inventory-card-actions,
+.inventory-card:focus-within .inventory-card-actions,
+.inventory-card:focus .inventory-card-actions {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.mini-action-btn {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background-color: rgba(0, 0, 0, 0.55);
+    color: var(--text-heading);
+    cursor: pointer;
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1;
+    padding: 6px 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.mini-action-btn:hover {
+    background-color: var(--accent-color);
+    border-color: var(--accent-color);
+    color: var(--bg-main);
+}
+
+.mini-action-btn.danger:hover {
+    background-color: var(--color-danger);
+    border-color: var(--color-danger);
+    color: #ffffff;
+}
+
 .inventory-item-name {
     color: var(--text-heading);
     font-weight: 700;
@@ -2102,6 +2185,44 @@ textarea:focus {
     border-radius: 10px;
 }
 
+.editable-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ledger-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.ledger-card-title {
+    margin-bottom: 0;
+    overflow-wrap: anywhere;
+}
+
+.ledger-actions {
+    display: flex;
+    gap: 6px;
+    flex: 0 0 auto;
+}
+
+.ledger-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.ledger-field-label {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
 .player-info-section-label {
     font-size: 0.95rem;
     color: var(--accent-color);
@@ -2117,6 +2238,61 @@ textarea:focus {
     text-align: left;
     font-size: 0.95rem;
     line-height: 1.6;
+}
+
+.record-editor-content {
+    width: min(620px, calc(100vw - 32px));
+    max-height: min(760px, calc(100vh - 32px));
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.record-editor-body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 22px 24px;
+    overflow-y: auto;
+}
+
+.record-editor-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    color: var(--accent-color);
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.record-editor-field input,
+.record-editor-field textarea {
+    width: 100%;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background-color: var(--bg-tertiary);
+    color: var(--text-main);
+    font: inherit;
+    font-size: 0.95rem;
+    font-weight: 400;
+    letter-spacing: 0;
+    line-height: 1.5;
+    padding: 12px;
+    resize: vertical;
+    text-transform: none;
+}
+
+.record-editor-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 0 24px 24px;
 }
 
 /* ============================================================

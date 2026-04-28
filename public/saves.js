@@ -8,14 +8,16 @@ async function saveCurrentGame() {
     if (!id) return;
     try {
         if (window.tauriBridge) {
-            await window.tauriBridge.updateGame({
+            const payload = {
                 id: id,
                 gameState: window.gamestate || {},
                 chatHistory: window.chatHistory || [],
                 summary: window.gameSummaryText || '',
                 npcLedger: { npcs: window.gamestate?.npcs || [] },
                 locationsLedger: { locations: window.gamestate?.locations || [] }
-            });
+            };
+            if (window.playerInfo) payload.playerInfo = window.playerInfo;
+            await window.tauriBridge.updateGame(payload);
         }
     } catch (e) { console.error("Auto-save failed:", e); }
 }

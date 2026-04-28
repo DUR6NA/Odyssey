@@ -858,7 +858,7 @@ async function autoGenerateForField(fieldInfo, phase) {
     const model = localStorage.getItem('jsonAdventure_openRouterModel') || 'openai/gpt-3.5-turbo';
 
     const temp = parseFloat(localStorage.getItem('jsonAdventure_apiTemperature')) || 0.85;
-    const maxTokens = parseInt(localStorage.getItem('jsonAdventure_apiMaxTokens')) || 2048;
+    const maxTokens = Math.max(parseInt(localStorage.getItem('jsonAdventure_apiMaxTokens'), 10) || 0, 3000);
     const topP = parseFloat(localStorage.getItem('jsonAdventure_apiTopP')) || 1.0;
     const presPen = parseFloat(localStorage.getItem('jsonAdventure_apiPresencePenalty')) || 0.0;
     const freqPen = parseFloat(localStorage.getItem('jsonAdventure_apiFrequencyPenalty')) || 0.0;
@@ -1161,7 +1161,7 @@ async function processWithAI(userInputValue, fieldInfo, phase) {
     const model = localStorage.getItem('jsonAdventure_openRouterModel') || 'openai/gpt-3.5-turbo';
 
     const temp = parseFloat(localStorage.getItem('jsonAdventure_apiTemperature')) || 0.7;
-    const maxTokens = parseInt(localStorage.getItem('jsonAdventure_apiMaxTokens')) || 2048;
+    const maxTokens = Math.max(parseInt(localStorage.getItem('jsonAdventure_apiMaxTokens'), 10) || 0, 3000);
     const topP = parseFloat(localStorage.getItem('jsonAdventure_apiTopP')) || 1.0;
     const presPen = parseFloat(localStorage.getItem('jsonAdventure_apiPresencePenalty')) || 0.0;
     const freqPen = parseFloat(localStorage.getItem('jsonAdventure_apiFrequencyPenalty')) || 0.0;
@@ -1503,7 +1503,7 @@ async function generateSummary() {
     const model = localStorage.getItem('jsonAdventure_openRouterModel') || 'openai/gpt-3.5-turbo';
 
     const temp = parseFloat(localStorage.getItem('jsonAdventure_apiTemperature')) || 0.8;
-    const maxTokens = parseInt(localStorage.getItem('jsonAdventure_apiMaxTokens')) || 2048;
+    const maxTokens = Math.max(parseInt(localStorage.getItem('jsonAdventure_apiMaxTokens'), 10) || 0, 3000);
     const topP = parseFloat(localStorage.getItem('jsonAdventure_apiTopP')) || 1.0;
     const presPen = parseFloat(localStorage.getItem('jsonAdventure_apiPresencePenalty')) || 0.0;
     const freqPen = parseFloat(localStorage.getItem('jsonAdventure_apiFrequencyPenalty')) || 0.0;
@@ -1923,6 +1923,7 @@ async function launchGame(summaryText, allData) {
     window.worldInfo = allData.worldInfo || {};
     window.playerInfo = allData.playerInfo || {};
     window.gameSummaryText = summaryText;
+    window.startingScenarioText = allData.startingScenario || startingScenario || '';
 
     if (window.gamestate.time && typeof updateClock === 'function') {
         updateClock(window.gamestate.time);
@@ -1932,6 +1933,9 @@ async function launchGame(summaryText, allData) {
     }
     if (typeof renderInventoryUI === 'function') {
         renderInventoryUI();
+    }
+    if (typeof renderPlayerMenuUI === 'function') {
+        renderPlayerMenuUI();
     }
 
     // NEW: Ensure Image UI is shown correctly on new game start
@@ -1970,7 +1974,7 @@ async function launchGame(summaryText, allData) {
     const model = localStorage.getItem('jsonAdventure_openRouterModel') || 'openai/gpt-3.5-turbo';
 
     const temp = parseFloat(localStorage.getItem('jsonAdventure_apiTemperature')) || 0.8;
-    const maxTokens = parseInt(localStorage.getItem('jsonAdventure_apiMaxTokens')) || 2048;
+    const maxTokens = Math.max(parseInt(localStorage.getItem('jsonAdventure_apiMaxTokens'), 10) || 0, 3000);
     const topP = parseFloat(localStorage.getItem('jsonAdventure_apiTopP')) || 1.0;
     const presPen = parseFloat(localStorage.getItem('jsonAdventure_apiPresencePenalty')) || 0.0;
     const freqPen = parseFloat(localStorage.getItem('jsonAdventure_apiFrequencyPenalty')) || 0.0;
@@ -2005,8 +2009,8 @@ async function launchGame(summaryText, allData) {
 
         const data = await response.json();
         const aiJson = await parseStructuredModelOutput(data.choices[0].message.content, {
-            requiredKeys: ['time', 'textoutput', 'inventory_changes', 'location_changes', 'npc_changes', 'stats'],
-            jsonExample: '{"time":{"hour":0,"minute":0,"period":"AM","dayOfWeek":"Monday","day":1,"month":1,"year":1,"era":"CE","calendarType":"gregorian"},"textoutput":"Opening scene text","inventory_changes":[],"location_changes":[],"npc_changes":[],"stats":{"health":100,"money":0,"hunger":100,"thirst":100,"energy":100}}',
+            requiredKeys: ['time', 'textoutput', 'inventory_changes', 'location_changes', 'npc_changes', 'player_changes', 'stats'],
+            jsonExample: '{"time":{"hour":0,"minute":0,"period":"AM","dayOfWeek":"Monday","day":1,"month":1,"year":1,"era":"CE","calendarType":"gregorian"},"textoutput":"Opening scene text","inventory_changes":[],"location_changes":[],"npc_changes":[],"player_changes":[],"stats":{"health":100,"money":0,"hunger":100,"thirst":100,"energy":100}}',
             label: 'opening game turn'
         });
         const aiText = JSON.stringify(aiJson);

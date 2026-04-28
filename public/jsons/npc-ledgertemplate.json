@@ -3,6 +3,7 @@
         {
             "name": "NPC Name",
             "description": "Visual and personality description.",
+            "notes": "Current status, disposition, and important notes.",
             "inventory": [],
             "history_with_player": "Summary of their interactions with the player."
         }

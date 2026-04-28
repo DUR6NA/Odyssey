@@ -7,6 +7,15 @@
     const MAX_CHUNK_CHARS = 1200;
     const CHUNK_OVERLAP_CHARS = 180;
     const universeStoreMemoryCache = new Map();
+    const GAME_INFO_SOURCE_TYPES = new Set([
+        'game-world',
+        'game-player',
+        'game-state',
+        'game-summary',
+        'game-inventory',
+        'game-npc',
+        'game-location'
+    ]);
 
     const MEDIA_WIKI_PRESETS = {
         'harry potter': {
@@ -66,6 +75,34 @@
         const text = cleanText(value);
         if (text.length <= maxChars) return text;
         return text.slice(0, maxChars - 1).trimEnd() + '...';
+    }
+
+    function readableValue(value) {
+        if (value === undefined || value === null || value === '') return '';
+        if (Array.isArray(value)) {
+            return value.map(item => readableValue(item)).filter(Boolean).join('; ');
+        }
+        if (typeof value === 'object') {
+            const named = cleanText(value.name || value.title || '');
+            const described = cleanText(value.description || value.notes || value.summary || '');
+            if (named && described) return `${named}: ${described}`;
+            if (named) return named;
+            const parts = Object.entries(value)
+                .map(([key, nestedValue]) => {
+                    const text = readableValue(nestedValue);
+                    return text ? `${key}: ${text}` : '';
+                })
+                .filter(Boolean);
+            return parts.join('; ');
+        }
+        return cleanText(value);
+    }
+
+    function readableLines(fields) {
+        return fields.map(([label, value]) => {
+            const text = readableValue(value);
+            return text ? `${label}: ${text}` : '';
+        }).filter(Boolean).join('\n');
     }
 
     function titleToWikiPath(title) {
@@ -424,29 +461,58 @@
         localStorage.setItem(`jsonAdventure_vectorStore_game_${gameId}`, JSON.stringify(store));
     }
 
+    function mergeStoreDocuments(primaryDocuments, secondaryDocuments) {
+        const byId = new Map();
+        (primaryDocuments || []).forEach(doc => {
+            if (doc?.id) byId.set(doc.id, doc);
+        });
+        (secondaryDocuments || []).forEach(doc => {
+            if (doc?.id) byId.set(doc.id, doc);
+        });
+        return Array.from(byId.values());
+    }
+
+    async function loadStoredUniverseStore(key) {
+        if (window.tauriBridge?.loadUniverseVectorStore) {
+            return await window.tauriBridge.loadUniverseVectorStore(key);
+        }
+        const raw = localStorage.getItem(`jsonAdventure_vectorStore_universe_${key}`);
+        return raw ? JSON.parse(raw) : null;
+    }
+
+    async function loadWritableUniverseVectorStore(presetKey) {
+        const key = cleanStoreKey(normalizePresetKey(presetKey));
+        if (!key) return createEmptyStore('universe:default');
+        return normalizeStore(await loadStoredUniverseStore(key), `universe:${key}`);
+    }
+
     async function loadUniverseVectorStore(presetKey) {
         const key = cleanStoreKey(normalizePresetKey(presetKey));
         if (!key) return createEmptyStore('universe:default');
         if (universeStoreMemoryCache.has(key)) return universeStoreMemoryCache.get(key);
 
-        if (window.tauriBridge?.loadUniverseVectorStore) {
-            const stored = await window.tauriBridge.loadUniverseVectorStore(key);
-            if (stored && Array.isArray(stored.documents) && stored.documents.length > 0) {
-                return normalizeStore(stored, `universe:${key}`);
-            }
-        }
+        const stored = await loadStoredUniverseStore(key);
+        const normalizedStored = stored ? normalizeStore(stored, `universe:${key}`) : null;
 
         try {
             const premade = await loadPremadeUniverseStore(key);
             if (premade && premade.documents.length > 0) {
+                if (normalizedStored?.documents?.length > 0) {
+                    const merged = normalizeStore({
+                        ...premade,
+                        documents: mergeStoreDocuments(premade.documents, normalizedStored.documents)
+                    }, `universe:${key}`);
+                    merged._premadeStore = true;
+                    universeStoreMemoryCache.set(key, merged);
+                    return merged;
+                }
                 universeStoreMemoryCache.set(key, premade);
                 return premade;
             }
         } catch (err) {
         }
 
-        const raw = localStorage.getItem(`jsonAdventure_vectorStore_universe_${key}`);
-        return normalizeStore(raw ? JSON.parse(raw) : null, `universe:${key}`);
+        return normalizedStored || createEmptyStore(`universe:${key}`);
     }
 
     async function saveUniverseVectorStore(presetKey, store) {
@@ -454,6 +520,7 @@
         const key = cleanStoreKey(normalizePresetKey(presetKey));
         if (!key) return;
         store.updatedAt = new Date().toISOString();
+        universeStoreMemoryCache.delete(key);
         if (window.tauriBridge?.saveUniverseVectorStore) {
             await window.tauriBridge.saveUniverseVectorStore(key, store);
             return;
@@ -501,6 +568,29 @@
         return hashString(keyParts.join('|'));
     }
 
+    function documentRecordBaseId(doc) {
+        if (doc?.baseId) return String(doc.baseId);
+        const id = String(doc?.id || '');
+        const lastColon = id.lastIndexOf(':');
+        return lastColon >= 0 ? id.slice(0, lastColon) : id;
+    }
+
+    function embeddingModelMatches(record, settings) {
+        const recordModel = String(record?.embeddingModel || '').trim().toLowerCase();
+        const settingsModel = String(settings?.model || '').trim().toLowerCase();
+        return Boolean(recordModel && settingsModel && recordModel === settingsModel);
+    }
+
+    function buildEmbeddingText(doc, chunk) {
+        return [
+            doc.title ? `Title: ${doc.title}` : '',
+            doc.sourceType ? `Type: ${doc.sourceType}` : '',
+            doc.sourceName ? `Source: ${doc.sourceName}` : '',
+            doc.query ? `Matched query: ${doc.query}` : '',
+            chunk
+        ].filter(Boolean).join('\n');
+    }
+
     async function upsertDocuments(store, documents, settings = getEmbeddingSettings()) {
         if (!settings.enabled || !settings.model) return false;
 
@@ -512,16 +602,20 @@
             const chunks = chunkText(fullText);
             const baseId = documentBaseId({ ...doc, title });
             chunks.forEach((chunk, chunkIndex) => {
-                const textHash = hashString(chunk);
+                const embeddingText = buildEmbeddingText({ ...doc, title }, chunk);
+                const textHash = hashString(embeddingText);
                 const id = `${baseId}:${chunkIndex}`;
                 const existing = store.documents.find(item => item.id === id);
-                if (existing && existing.textHash === textHash && Array.isArray(existing.embedding)) return;
+                if (existing && existing.textHash === textHash && Array.isArray(existing.embedding) && embeddingModelMatches(existing, settings)) return;
                 prepared.push({
                     id,
+                    baseId,
                     textHash,
                     chunk,
+                    embeddingText,
                     record: {
                         id,
+                        baseId,
                         textHash,
                         title,
                         url: doc.url || '',
@@ -541,7 +635,7 @@
 
         if (prepared.length === 0) return false;
 
-        const embeddings = await embedTexts(prepared.map(item => item.chunk), settings, 'document');
+        const embeddings = await embedTexts(prepared.map(item => item.embeddingText), settings, 'document');
         let changed = false;
         prepared.forEach((item, index) => {
             const embedding = embeddings[index];
@@ -560,6 +654,16 @@
         }
 
         return changed;
+    }
+
+    function pruneStoreDocuments(store, scope, sourceTypes, allowedBaseIds) {
+        if (!store || !Array.isArray(store.documents)) return false;
+        const before = store.documents.length;
+        store.documents = store.documents.filter(doc => {
+            if (doc.scope !== scope || !sourceTypes.has(doc.sourceType)) return true;
+            return allowedBaseIds.has(documentRecordBaseId(doc));
+        });
+        return store.documents.length !== before;
     }
 
     function sourceDocFromSearchResult(result, scope) {
@@ -582,9 +686,9 @@
             if (options.scope === 'universe') {
                 const presetKey = options.presetKey || normalizePresetKey(window.worldInfo?.world?.preset);
                 if (!presetKey) return;
-                const store = await loadUniverseVectorStore(presetKey);
-                if (store?._premadeStore) return;
-                const changed = await upsertDocuments(store, results.map(result => sourceDocFromSearchResult(result, `universe:${presetKey}`)), settings);
+                const storeKey = cleanStoreKey(normalizePresetKey(presetKey));
+                const store = await loadWritableUniverseVectorStore(presetKey);
+                const changed = await upsertDocuments(store, results.map(result => sourceDocFromSearchResult(result, `universe:${storeKey}`)), settings);
                 if (changed) await saveUniverseVectorStore(presetKey, store);
                 return;
             }
@@ -606,23 +710,66 @@
         const gameState = allData?.gameState || window.gamestate || {};
         const summary = allData?.summaryText || window.gameSummaryText || '';
         const scope = `game:${gameId}`;
+        const world = worldInfo.world || worldInfo || {};
+        const player = playerInfo.player || playerInfo || {};
 
         if (Object.keys(worldInfo || {}).length > 0) {
+            const worldText = readableLines([
+                ['World', world.name],
+                ['Type', world.type],
+                ['Preset', world.preset],
+                ['Era', world.era],
+                ['Setting', world.setting],
+                ['Tone', world.tone],
+                ['Rules', world.rules],
+                ['Magic or technology', world.magicOrTech],
+                ['Dangers', world.dangers],
+                ['Factions', world.factions],
+                ['Wiki', world.wikiUrl]
+            ]) || JSON.stringify(worldInfo, null, 2);
             docs.push({
                 id: `${scope}:world`,
                 scope,
                 sourceType: 'game-world',
                 title: 'World Info',
-                text: JSON.stringify(worldInfo, null, 2)
+                text: worldText
             });
         }
         if (Object.keys(playerInfo || {}).length > 0) {
+            const playerText = readableLines([
+                ['Player', player.name],
+                ['Age', player.age],
+                ['Gender', player.gender],
+                ['Height', player.height],
+                ['Weight', player.weight],
+                ['Athleticism', player.athleticism],
+                ['Intelligence', player.intelligence],
+                ['Appearance', player.appearance || player.description],
+                ['Personality', player.personality],
+                ['Backstory', player.backstory],
+                ['Family', player.family],
+                ['Friends', player.friends],
+                ['Starting inventory', player.inventory]
+            ]) || JSON.stringify(playerInfo, null, 2);
             docs.push({
                 id: `${scope}:player`,
                 scope,
                 sourceType: 'game-player',
                 title: 'Player Character',
-                text: JSON.stringify(playerInfo, null, 2)
+                text: playerText
+            });
+        }
+        const stateText = readableLines([
+            ['Current time', gameState.time],
+            ['Stats', gameState.stats]
+        ]);
+        if (stateText) {
+            docs.push({
+                id: `${scope}:state`,
+                scope,
+                sourceType: 'game-state',
+                title: 'Current Game State',
+                text: stateText
             });
         }
         if (summary) {
@@ -634,22 +781,63 @@
                 text: summary
             });
         }
-        (gameState.npcs || []).forEach(npc => {
+        (gameState.inventory || []).forEach(item => {
+            const name = cleanText(item?.name || item?.title || item);
+            const itemText = readableLines([
+                ['Item', name],
+                ['Description', item?.description],
+                ['Notes', item?.notes],
+                ['Details', item]
+            ]);
+            if (!itemText) return;
             docs.push({
-                id: `${scope}:npc:${npc.name}`,
+                id: `${scope}:inventory:${name}`,
+                scope,
+                sourceType: 'game-inventory',
+                title: `Inventory - ${name || 'Unknown Item'}`,
+                text: itemText
+            });
+        });
+        (gameState.npcs || []).forEach(npc => {
+            const name = cleanText(npc.name || 'Unknown NPC');
+            const npcText = readableLines([
+                ['NPC', name],
+                ['Description', npc.description],
+                ['Notes', npc.notes],
+                ['Status or history', npc.status_or_history],
+                ['History with player', npc.history_with_player],
+                ['Inventory', npc.inventory]
+            ]);
+            if (!npcText) return;
+            docs.push({
+                id: `${scope}:npc:${name}`,
                 scope,
                 sourceType: 'game-npc',
-                title: `NPC - ${npc.name}`,
-                text: npc.status_or_history || ''
+                title: `NPC - ${name}`,
+                text: npcText
             });
         });
         (gameState.locations || []).forEach(location => {
+            const name = cleanText(location.name || 'Unknown Location');
+            const subrooms = (location.subrooms || []).map(room => readableLines([
+                ['Name', room.name],
+                ['Description', room.description],
+                ['Items', room.items]
+            ])).filter(Boolean);
+            const locationText = readableLines([
+                ['Location', name],
+                ['Description', location.description],
+                ['Notes', location.notes],
+                ['Items', location.items],
+                ['Subrooms', subrooms]
+            ]);
+            if (!locationText) return;
             docs.push({
-                id: `${scope}:location:${location.name}`,
+                id: `${scope}:location:${name}`,
                 scope,
                 sourceType: 'game-location',
-                title: `Location - ${location.name}`,
-                text: location.description || ''
+                title: `Location - ${name}`,
+                text: locationText
             });
         });
 
@@ -660,8 +848,11 @@
         const gameId = getCurrentGameId();
         if (!gameId || !settings.enabled || !settings.model) return;
         const store = await loadGameVectorStore(gameId);
-        const changed = await upsertDocuments(store, buildGameInfoDocuments(allData, gameId), settings);
-        if (changed) await saveGameVectorStore(store, gameId);
+        const docs = buildGameInfoDocuments(allData, gameId);
+        const allowedBaseIds = new Set(docs.map(doc => documentBaseId(doc)));
+        const changed = await upsertDocuments(store, docs, settings);
+        const pruned = pruneStoreDocuments(store, `game:${gameId}`, GAME_INFO_SOURCE_TYPES, allowedBaseIds);
+        if (changed || pruned) await saveGameVectorStore(store, gameId);
     }
 
     function cosineSimilarity(a, b) {
@@ -680,9 +871,24 @@
 
     function searchStore(store, queryVector, settings) {
         return (store?.documents || [])
+            .filter(doc => embeddingModelMatches(doc, settings))
             .map(doc => ({ doc, score: cosineSimilarity(queryVector, doc.embedding) }))
             .filter(item => item.score !== null && item.score >= settings.minScore)
             .sort((a, b) => b.score - a.score);
+    }
+
+    function ragSourceLabel(doc) {
+        if (doc.sourceType === 'fandom') return 'Fandom lore';
+        if (doc.sourceType === 'wikipedia') return 'Wikipedia context';
+        if (doc.sourceType === 'brave') return 'Web context';
+        if (doc.sourceType === 'game-npc') return 'Game NPC';
+        if (doc.sourceType === 'game-location') return 'Game location';
+        if (doc.sourceType === 'game-inventory') return 'Game inventory';
+        if (doc.sourceType === 'game-summary') return 'Adventure summary';
+        if (doc.sourceType === 'game-player') return 'Player memory';
+        if (doc.sourceType === 'game-world') return 'World memory';
+        if (doc.sourceType === 'game-state') return 'Current state';
+        return 'Memory';
     }
 
     function formatRagMatches(matches, topK) {
@@ -693,7 +899,7 @@
             if (used.has(dedupeKey)) continue;
             used.add(dedupeKey);
             const source = match.doc.url ? `\nSource: ${match.doc.url}` : '';
-            lines.push(`Memory ${lines.length + 1} (${match.score.toFixed(2)}) - ${match.doc.title}${source}\n${truncateText(match.doc.text, 900)}`);
+            lines.push(`${ragSourceLabel(match.doc)} ${lines.length + 1} (${match.score.toFixed(2)}) - ${match.doc.title}${source}\n${truncateText(match.doc.text, 900)}`);
             if (lines.length >= topK) break;
         }
         return lines.join('\n\n');
@@ -714,7 +920,9 @@
             if (gameId) stores.push(await loadGameVectorStore(gameId));
 
             const presetKey = normalizePresetKey(allData?.worldInfo?.world?.preset || window.worldInfo?.world?.preset);
-            if (presetKey) stores.push(await loadUniverseVectorStore(presetKey));
+            const wikiConfig = getWorldWikiConfig(presetKey, allData?.worldInfo || window.worldInfo || {});
+            const universeKey = wikiConfig?.key || presetKey;
+            if (universeKey) stores.push(await loadUniverseVectorStore(universeKey));
 
             const matches = stores.flatMap(store => searchStore(store, queryVector, settings))
                 .sort((a, b) => b.score - a.score);

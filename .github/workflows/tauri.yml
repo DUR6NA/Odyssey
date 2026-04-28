@@ -42,10 +42,16 @@ jobs:
               throw new Error(`Release tag ${tagName} does not match release version ${expectedTag}`);
             }
             const isPrerelease = tagName.includes('-');
+            const prereleaseLabel = tagName.includes('-alpha')
+              ? 'Alpha'
+              : tagName.includes('-beta')
+                ? 'Beta'
+                : 'Prerelease';
+            const prereleaseWord = prereleaseLabel.toLowerCase();
             const body = [
               `## Odyssey v${version}`,
               '',
-              'This beta focuses on stronger context retrieval, better lore lookup, and smoother campaign setup. Download the installer for your platform from the assets below.',
+              `This ${prereleaseWord} focuses on stronger context retrieval, better lore lookup, and smoother campaign setup. Download the installer for your platform from the assets below.`,
               '',
               `Bundle version: ${appVersion}`,
               '',
@@ -59,11 +65,11 @@ jobs:
               '- Improved generation feedback with a rotating in-game loading state while Odyssey gathers context and writes the next turn.',
               '- Added generated save names during campaign creation so new adventures are easier to recognize in the load menu.',
               '',
-              '### Beta Notes',
+              `### ${prereleaseLabel} Notes`,
               '',
               '- Vector RAG is opt-in from Settings and requires an embedding model before retrieval context is injected into turns.',
               '- Local embedding backends may require their server to be running before model fetch, embedding tests, or vector retrieval will succeed.',
-              '- This is a beta prerelease, so please expect a few rough edges around provider-specific embedding behavior and large universe-store workflows.',
+              `- This ${prereleaseWord} prerelease may have rough edges around provider-specific embedding behavior and large universe-store workflows.`,
               '',
               '| Platform | Recommended asset |',
               '| --- | --- |',
@@ -78,7 +84,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               tag_name:              tagName,
-              name:                  isPrerelease ? `Odyssey v${version} Beta` : `Odyssey v${version}`,
+              name:                  isPrerelease ? `Odyssey v${version} ${prereleaseLabel}` : `Odyssey v${version}`,
               body,
               draft:                 true,
               prerelease:            isPrerelease,

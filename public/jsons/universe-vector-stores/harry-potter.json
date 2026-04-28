@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "scopeId": "universe:harry-potter",
+  "createdAt": "2026-04-26T05:28:43.017Z",
+  "updatedAt": "2026-04-28T04:45:51.411Z",
+  "generatedBy": "tools/generate-universe-vector-store.mjs",
+  "source": {
+    "type": "mediawiki",
+    "universeKey": "harry-potter",
+    "universeName": "The Wizarding World",
+    "wikiName": "Harry Potter Wiki",
+    "apiUrl": "https://harrypotter.fandom.com/api.php",
+    "pageUrlBase": "https://harrypotter.fandom.com/wiki/"
+  },
+  "embedding": {
+    "provider": "lmstudio",
+    "model": "text-embedding-mxbai-embed-large-v1",
+    "dimensions": 1024,
+    "precision": 6
+  },
+  "stats": {
+    "pagesProcessed": 5846,
+    "pagesSkipped": 450,
+    "chunksEmbedded": 24579,
+    "pagesFiltered": 6017,
+    "chunksRemovedByFilter": 691
+  },
+  "filtering": {
+    "mode": "core-lore",
+    "includeSideMaterial": false
+  },
+  "shardFormat": "odyssey-universe-vector-store-shards-v1",
+  "shardTargetMb": 25,
+  "documentCount": 24579,
+  "shards": [
+    {
+      "file": "harry-potter/part-0001.json",
+      "documents": 2381,
+      "bytes": 26203803
+    },
+    {
+      "file": "harry-potter/part-0002.json",
+      "documents": 2374,
+      "bytes": 26204234
+    },
+    {
+      "file": "harry-potter/part-0003.json",
+      "documents": 2369,
+      "bytes": 26207985
+    },
+    {
+      "file": "harry-potter/part-0004.json",
+      "documents": 2377,
+      "bytes": 26202764
+    },
+    {
+      "file": "harry-potter/part-0005.json",
+      "documents": 2376,
+      "bytes": 26202688
+    },
+    {
+      "file": "harry-potter/part-0006.json",
+      "documents": 2381,
+      "bytes": 26203838
+    },
+    {
+      "file": "harry-potter/part-0007.json",
+      "documents": 2373,
+      "bytes": 26208122
+    },
+    {
+      "file": "harry-potter/part-0008.json",
+      "documents": 2376,
+      "bytes": 26206416
+    },
+    {
+      "file": "harry-potter/part-0009.json",
+      "documents": 2376,
+      "bytes": 26202062
+    },
+    {
+      "file": "harry-potter/part-0010.json",
+      "documents": 2378,
+      "bytes": 26209441
+    },
+    {
+      "file": "harry-potter/part-0011.json",
+      "documents": 818,
+      "bytes": 8999912
+    }
+  ],
+  "documents": []
+}
