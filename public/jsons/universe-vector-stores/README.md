@@ -17,7 +17,7 @@ npm run publish:vectors -- --universe star-wars
 The app loads `<universe-key>.json` files from this folder at runtime. Large stores may be manifests with shard folders, for example:
 
 ```text
-harry-potter.json
-harry-potter/part-0001.json
-harry-potter/part-0002.json
+star-wars.json
+star-wars/part-0001.json
+star-wars/part-0002.json
 ```
