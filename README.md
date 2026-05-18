@@ -17,6 +17,7 @@
 - [Screenshots](#screenshots)
 - [Themes](#themes)
 - [Voice Narration (TTS)](#voice-narration-tts)
+- [Retrieval and World Knowledge](#retrieval-and-world-knowledge)
 - [How It Works](#how-it-works)
 - [Connecting an AI Model](#connecting-an-ai-model)
 - [Building from Source](#building-from-source)
@@ -47,6 +48,7 @@ After installing, launch Odyssey and follow the in-app welcome screen to configu
 - **Universal AI backend** — Works with any OpenAI-compatible API: OpenAI, Google Gemini (via compatibility endpoint), xAI, OpenRouter, Ollama, LM Studio, or any self-hosted endpoint. Requests go directly from the app to the provider; nothing is routed through a middleman.
 - **Guided setup wizard** — A five-step flow (World &rarr; Player &rarr; Scenario &rarr; Player Image &rarr; Summary) gets you into a new campaign in minutes.
 - **Real or custom universes** — Start your adventure in the real world with any date you choose, or choose from a list of pre-made universes.
+- **World wiki search and RAG** - Pull relevant live wiki/search context for the active world, optionally combine it with local vector memory, and keep large experimental universe stores separate from the stable app package.
 - **Character presets** — Save reusable characters (stats, appearance, personality, gear) and load them into any new campaign.
 - **AI-generated portraits** — Character and scene artwork generated on demand from detailed, editable prompts.
 - **Live game state** — Health, Money, Hunger, Thirst, and Energy are tracked every turn and surfaced in the sidebar.
@@ -167,12 +169,25 @@ The Kokoro provider includes a **voice mixer**: add multiple voices, drag weight
 
 ---
 
+## Retrieval and World Knowledge
+
+Odyssey has two separate knowledge paths:
+
+1. **World wiki search** - During setup and play, Odyssey can look up relevant world context from Wikipedia-style and Fandom/MediaWiki sources. Built-in and custom worlds can carry wiki metadata, and the retrieved passages are used as live context for the current turn when the related search/RAG settings are enabled.
+2. **Vector RAG stores** - Odyssey can index local game memory and curated universe knowledge into vector stores. These stores are opt-in from **Settings &rarr; RAG** and require a configured embedding provider before retrieval context is injected into turns.
+
+The Harry Potter universe vector store is intentionally separate from the v0.6.0 stable app package. It was validated as an alpha/prerelease vector-store artifact, but it is large and experimental, so the stable release keeps the generator/publisher workflow without bundling that store into the installer.
+
+For maintainers, generation happens in the ignored `.rag-vector-generation/` workspace and curated stores are published intentionally into `public/jsons/universe-vector-stores/`.
+
+---
+
 ## How It Works
 
 Odyssey is a client-side adventure engine wrapped in a native Tauri shell.
 
 1. **Setup** — You pick a universe, define a character, write a starting scenario, and generate a portrait.
-2. **Turn loop** — Each turn, Odyssey assembles a contextual prompt from your current state (stats, inventory, recent narration, codex entries, and — for built-in universes — retrieved Fandom wiki passages) and sends it to your configured model.
+2. **Turn loop** — Each turn, Odyssey assembles a contextual prompt from your current state (stats, inventory, recent narration, codex entries, optional live wiki/search passages, and optional vector-RAG results) and sends it to your configured model.
 3. **Structured response** — The model's reply is parsed into narration, state updates, codex additions, and optional image-generation prompts.
 4. **Persistence** — Saves, presets, and settings live on disk via Tauri's native FS plugin. Your API key stays on your machine.
 
