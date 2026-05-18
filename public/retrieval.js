@@ -310,20 +310,41 @@
         }).join('\n\n');
     }
 
+    function isOpenRouterEmbeddingBaseUrl(baseUrl) {
+        try {
+            return new URL(baseUrl).hostname.toLowerCase().includes('openrouter.ai');
+        } catch (err) {
+            return String(baseUrl || '').toLowerCase().includes('openrouter.ai');
+        }
+    }
+
+    function getEmbeddingApiKey(provider, baseUrl) {
+        const explicitKey = localStorage.getItem('jsonAdventure_embeddingApiKey') || '';
+        if (explicitKey.trim()) return explicitKey;
+        if (provider === 'openrouter' || isOpenRouterEmbeddingBaseUrl(baseUrl)) {
+            return localStorage.getItem('jsonAdventure_openRouterApiKey')
+                || localStorage.getItem('jsonAdventure_apiKey_openrouter')
+                || '';
+        }
+        return '';
+    }
+
     function getEmbeddingSettings() {
         const provider = localStorage.getItem('jsonAdventure_embeddingProvider') || 'lmstudio';
         const defaults = {
             lmstudio: 'http://localhost:1234/v1',
+            openrouter: 'https://openrouter.ai/api/v1',
             openai: 'https://api.openai.com/v1',
             openai_compatible: 'http://localhost:1234/v1',
             ollama: 'http://localhost:11434'
         };
+        const baseUrl = (localStorage.getItem('jsonAdventure_embeddingBaseUrl') || defaults[provider] || defaults.lmstudio).trim();
 
         return {
             enabled: localStorage.getItem('jsonAdventure_enableVectorRag') === 'true',
             provider,
-            baseUrl: (localStorage.getItem('jsonAdventure_embeddingBaseUrl') || defaults[provider] || defaults.lmstudio).trim(),
-            apiKey: localStorage.getItem('jsonAdventure_embeddingApiKey') || '',
+            baseUrl,
+            apiKey: getEmbeddingApiKey(provider, baseUrl),
             model: (localStorage.getItem('jsonAdventure_embeddingModel') || '').trim(),
             topK: Math.max(1, Math.min(Number(localStorage.getItem('jsonAdventure_vectorTopK') || 5), 12)),
             minScore: Math.max(-1, Math.min(Number(localStorage.getItem('jsonAdventure_vectorMinScore') || 0.18), 1))

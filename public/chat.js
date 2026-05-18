@@ -2,8 +2,22 @@
 // CHAT.JS - AI prompting, in-game chat, image runtime, and TTS
 // ============================================================
 
-const DEFAULT_MAX_TOKENS = 3000;
-const HELPER_MAX_TOKENS = 3000;
+const DEFAULT_MAX_TOKENS = 8000;
+const HELPER_MAX_TOKENS = 8000;
+const SUMMARY_MAX_TOKENS = 8000;
+const OPENROUTER_MAX_COMPLETION_TOKENS = 32000;
+const MIN_MAIN_RESPONSE_TOKENS = 3500;
+const MIN_HELPER_RESPONSE_TOKENS = 1200;
+const MIN_SUMMARY_RESPONSE_TOKENS = 2500;
+const REASONING_EFFORT_ORDER = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'];
+const REASONING_EFFORT_RATIOS = {
+    none: 0,
+    minimal: 0.1,
+    low: 0.2,
+    medium: 0.5,
+    high: 0.8,
+    xhigh: 0.95
+};
 
 function formatErrorForUser(err) {
     if (!err || !err.message) return "An unknown error occurred.";
@@ -36,6 +50,74 @@ function buildAuthHeaders(apiKey) {
         headers['Authorization'] = `Bearer ${apiKey}`;
     }
     return headers;
+}
+
+function normalizeReasoningEffort(value, fallback = 'low') {
+    const normalized = String(value || '').trim().toLowerCase();
+    return REASONING_EFFORT_ORDER.includes(normalized) ? normalized : fallback;
+}
+
+function capReasoningEffort(effort, maxEffort) {
+    const normalized = normalizeReasoningEffort(effort);
+    const max = normalizeReasoningEffort(maxEffort);
+    const index = REASONING_EFFORT_ORDER.indexOf(normalized);
+    const maxIndex = REASONING_EFFORT_ORDER.indexOf(max);
+    return REASONING_EFFORT_ORDER[Math.min(index, maxIndex)];
+}
+
+function getReasoningPayloadOptions(provider, purpose = 'main') {
+    if (provider !== 'openrouter') return {};
+
+    const configuredEffort = normalizeReasoningEffort(
+        localStorage.getItem('jsonAdventure_apiReasoningEffort'),
+        'medium'
+    );
+
+    if (purpose === 'helper' || purpose === 'summary' || purpose === 'repair') {
+        return { reasoning: { effort: capReasoningEffort(configuredEffort, 'low'), exclude: true } };
+    }
+
+    const enabled = localStorage.getItem('jsonAdventure_apiEnableReasoning') === 'true';
+    return {
+        reasoning: {
+            effort: enabled ? configuredEffort : 'low',
+            exclude: true
+        }
+    };
+}
+
+function getCompletionBudget(maxTokens, provider, payloadOptions = {}, minFinalTokens = MIN_HELPER_RESPONSE_TOKENS) {
+    const requested = Math.max(Number(maxTokens) || 0, minFinalTokens);
+    if (provider !== 'openrouter' || !payloadOptions?.reasoning) return requested;
+
+    const reasoning = payloadOptions.reasoning;
+    let needed = requested;
+
+    if (Number.isFinite(Number(reasoning.max_tokens))) {
+        needed = Math.max(needed, Math.ceil(Number(reasoning.max_tokens) + minFinalTokens));
+    } else {
+        const effort = normalizeReasoningEffort(reasoning.effort, 'low');
+        const reasoningRatio = REASONING_EFFORT_RATIOS[effort] ?? REASONING_EFFORT_RATIOS.low;
+        const finalRatio = Math.max(0.05, 1 - reasoningRatio);
+        needed = Math.max(needed, Math.ceil(minFinalTokens / finalRatio));
+    }
+
+    return Math.min(needed, OPENROUTER_MAX_COMPLETION_TOKENS);
+}
+
+function getChoiceContentOrThrow(data, label = 'response') {
+    const choice = data?.choices?.[0];
+    const content = choice?.message?.content;
+    if (typeof content === 'string' && content.trim()) return content;
+
+    const finishReason = choice?.finish_reason || choice?.native_finish_reason || '';
+    const hasReasoning = !!(choice?.message?.reasoning || choice?.message?.reasoning_details);
+    const finishHint = finishReason ? ` Finish reason: ${finishReason}.` : '';
+    const reasoningHint = hasReasoning ? ' The model returned reasoning but no final content.' : '';
+    const budgetHint = finishReason === 'length'
+        ? ' Increase max tokens or lower reasoning effort for this model.'
+        : '';
+    throw new Error(`The AI returned no ${label} content.${finishHint}${reasoningHint}${budgetHint}`);
 }
 
 function getChatCompletionsUrl(provider, baseUrl) {
@@ -183,7 +265,7 @@ ${rawContent}`;
     }
 
     const data = await response.json();
-    return data?.choices?.[0]?.message?.content || '';
+    return getChoiceContentOrThrow(data, `${label} JSON repair`);
 }
 
 async function parseStructuredModelOutput(rawContent, options = {}) {
@@ -389,12 +471,13 @@ CRITICAL RULES:
     }
 
     const payloadOptions = provider === 'openrouter' && excludeReasoning
-        ? { reasoning: { effort: 'none', exclude: true } }
+        ? getReasoningPayloadOptions(provider, 'helper')
         : {};
+    const promptCompletionBudget = getCompletionBudget(promptMaxTokens, provider, payloadOptions, MIN_HELPER_RESPONSE_TOKENS);
     const res = await fetch(fetchUrl, {
         method: 'POST',
         headers: buildAuthHeaders(apiKey),
-        body: buildFetchPayload(model, [{ role: 'user', content: promptText }], promptTemperature, promptMaxTokens, promptTopP, 0, 0, provider, false, payloadOptions)
+        body: buildFetchPayload(model, [{ role: 'user', content: promptText }], promptTemperature, promptCompletionBudget, promptTopP, 0, 0, provider, false, payloadOptions)
     });
     if (!res.ok) {
         const errText = await res.text();
@@ -1107,21 +1190,24 @@ CRITICAL: Output ONLY a JSON object:
             fetchUrl = baseUrl.endsWith('/') ? `${baseUrl}chat/completions` : `${baseUrl}/chat/completions`;
         }
 
+        const payloadOptions = getReasoningPayloadOptions(provider, 'helper');
+        const maxTokens = getCompletionBudget(HELPER_MAX_TOKENS, provider, payloadOptions, MIN_HELPER_RESPONSE_TOKENS);
         const response = await fetch(fetchUrl, {
             method: 'POST',
             headers: buildAuthHeaders(apiKey),
             body: buildFetchPayload(model, [
                 { role: 'system', content: promptInstructions }
-            ], 0.1, HELPER_MAX_TOKENS, 1.0, 0, 0, provider,
+            ], 0.1, maxTokens, 1.0, 0, 0, provider,
                 provider === 'lmstudio'
                     ? { type: "object", properties: { relevant: { type: "boolean" }, context_string: { type: "string" } }, required: ["relevant", "context_string"], additionalProperties: false }
-                    : null
+                    : null,
+                payloadOptions
             )
         });
 
         if (response.ok) {
             const data = await response.json();
-            const parsed = await parseStructuredModelOutput(data.choices[0].message.content, {
+            const parsed = await parseStructuredModelOutput(getChoiceContentOrThrow(data, 'prompt context precheck'), {
                 requiredKeys: ['relevant', 'context_string'],
                 jsonExample: '{"relevant":true,"context_string":"Known lore details"}',
                 label: 'prompt context precheck'
@@ -1186,6 +1272,177 @@ const chatInputPrompts = [
     'What will you leave behind...'
 ];
 
+const CHAT_DRAFT_STORAGE_PREFIX = 'jsonAdventure_chatDraft_';
+const CHAT_PENDING_TURN_STORAGE_PREFIX = 'jsonAdventure_pendingTurn_';
+const chatGenerationState = {
+    isGenerating: false
+};
+
+function getCurrentGameIdForChatState() {
+    const activeId = typeof currentGameFolder !== 'undefined' && currentGameFolder
+        ? currentGameFolder
+        : window.currentGameFolder;
+    if (activeId) return String(activeId);
+
+    try {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('id') || 'global';
+    } catch (e) {
+        return 'global';
+    }
+}
+
+function getChatStorageKey(prefix, gameId = getCurrentGameIdForChatState()) {
+    return prefix + encodeURIComponent(String(gameId || 'global'));
+}
+
+function resizeChatInput(chatInput) {
+    if (!chatInput) return;
+    chatInput.style.height = 'auto';
+    if (chatInput.value) {
+        chatInput.style.height = chatInput.scrollHeight + 'px';
+    }
+}
+
+function setChatInputText(value, focus = false) {
+    const chatInput = document.getElementById('chat-input');
+    if (!chatInput) return;
+    chatInput.value = value || '';
+    resizeChatInput(chatInput);
+    persistChatDraft(chatInput.value);
+    if (focus) chatInput.focus();
+}
+
+function persistChatDraft(value) {
+    const chatInput = document.getElementById('chat-input');
+    const text = value !== undefined ? String(value || '') : (chatInput ? chatInput.value : '');
+    const key = getChatStorageKey(CHAT_DRAFT_STORAGE_PREFIX);
+    if (text) {
+        localStorage.setItem(key, text);
+    } else {
+        localStorage.removeItem(key);
+    }
+}
+
+function persistChatDraftOnPageHide() {
+    persistChatDraft();
+}
+
+function clearChatDraft() {
+    localStorage.removeItem(getChatStorageKey(CHAT_DRAFT_STORAGE_PREFIX));
+}
+
+function restoreChatDraft() {
+    const chatInput = document.getElementById('chat-input');
+    if (!chatInput || chatInput.value) return;
+
+    const draft = localStorage.getItem(getChatStorageKey(CHAT_DRAFT_STORAGE_PREFIX));
+    if (draft) {
+        chatInput.value = draft;
+        resizeChatInput(chatInput);
+    }
+}
+
+function getOriginalUserPrompt(content) {
+    const text = String(content || '');
+    const marker = 'Player action: ';
+    if (text.includes(marker)) {
+        return text.split(marker).pop().trim();
+    }
+    return text.trim();
+}
+
+function storePendingChatTurn(message) {
+    const gameId = getCurrentGameIdForChatState();
+    const pending = {
+        gameId,
+        message,
+        createdAt: Date.now()
+    };
+    localStorage.setItem(getChatStorageKey(CHAT_PENDING_TURN_STORAGE_PREFIX, gameId), JSON.stringify(pending));
+}
+
+function getPendingChatTurn() {
+    const key = getChatStorageKey(CHAT_PENDING_TURN_STORAGE_PREFIX);
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+
+    try {
+        const pending = JSON.parse(raw);
+        if (!pending || typeof pending.message !== 'string' || !pending.message.trim()) {
+            localStorage.removeItem(key);
+            return null;
+        }
+        return pending;
+    } catch (e) {
+        localStorage.removeItem(key);
+        return null;
+    }
+}
+
+function clearPendingChatTurn() {
+    localStorage.removeItem(getChatStorageKey(CHAT_PENDING_TURN_STORAGE_PREFIX));
+}
+
+function removeLastVisibleUserMessage(message) {
+    const chatMessages = document.getElementById('chat-messages');
+    if (!chatMessages) return false;
+
+    const userMessages = Array.from(chatMessages.querySelectorAll('.user-message'));
+    const lastUserMessage = userMessages[userMessages.length - 1];
+    if (!lastUserMessage) return false;
+
+    const text = (lastUserMessage.querySelector('.message-content')?.textContent || '').trim();
+    if (text !== String(message || '').trim()) return false;
+
+    lastUserMessage.remove();
+    return true;
+}
+
+function rollbackUnansweredUserTurn(message) {
+    let removedHistory = false;
+    if (Array.isArray(window.chatHistory) && window.chatHistory.length > 0) {
+        const last = window.chatHistory[window.chatHistory.length - 1];
+        if (last?.role === 'user' && getOriginalUserPrompt(last.content) === String(message || '').trim()) {
+            window.chatHistory.pop();
+            removedHistory = true;
+        }
+    }
+
+    const removedDom = removeLastVisibleUserMessage(message);
+    return removedHistory || removedDom;
+}
+
+function setChatGenerationActive(isGenerating) {
+    chatGenerationState.isGenerating = isGenerating;
+
+    const sendBtn = document.querySelector('.send-btn');
+    if (sendBtn) {
+        sendBtn.disabled = isGenerating;
+        sendBtn.setAttribute('aria-busy', isGenerating ? 'true' : 'false');
+        sendBtn.title = isGenerating ? 'Generating...' : 'Send message';
+    }
+}
+
+function restoreFailedPromptToInput(message) {
+    const chatInput = document.getElementById('chat-input');
+    if (!chatInput) return;
+
+    if (!chatInput.value.trim()) {
+        setChatInputText(message, true);
+    } else {
+        persistChatDraft(chatInput.value);
+    }
+}
+
+async function resumePendingChatTurnIfNeeded() {
+    const pending = getPendingChatTurn();
+    if (!pending || chatGenerationState.isGenerating) return;
+
+    rollbackUnansweredUserTurn(pending.message);
+    await sendChatMessageFromText(pending.message, { fromPending: true });
+}
+
 function startChatPlaceholderLoop() {
     const chatInput = document.getElementById('chat-input');
     if (!chatInput) return;
@@ -1241,11 +1498,14 @@ function setupChatInput() {
         }
     });
     newChatInput.addEventListener('input', function () {
-        this.style.height = 'auto';
-        this.style.height = (this.scrollHeight) + 'px';
-        if (this.value === '') this.style.height = 'auto';
+        resizeChatInput(this);
+        persistChatDraft(this.value);
     });
+    newChatInput.addEventListener('blur', () => persistChatDraft(newChatInput.value));
 
+    restoreChatDraft();
+    window.removeEventListener('pagehide', persistChatDraftOnPageHide);
+    window.addEventListener('pagehide', persistChatDraftOnPageHide);
     startChatPlaceholderLoop();
 }
 
@@ -1275,19 +1535,22 @@ CRITICAL: Output ONLY valid JSON:
         else if (provider === 'googleai') fetchUrl = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
         else if (provider === 'lmstudio' || provider === 'openai') fetchUrl = baseUrl.endsWith('/') ? `${baseUrl}chat/completions` : `${baseUrl}/chat/completions`;
 
+        const payloadOptions = getReasoningPayloadOptions(provider, 'helper');
+        const maxTokens = getCompletionBudget(HELPER_MAX_TOKENS, provider, payloadOptions, MIN_HELPER_RESPONSE_TOKENS);
         const response = await fetch(fetchUrl, {
             method: 'POST',
             headers: buildAuthHeaders(apiKey),
-            body: buildFetchPayload(model, [{ role: 'system', content: promptInstructions }], 0.1, HELPER_MAX_TOKENS, 1.0, 0, 0, provider,
+            body: buildFetchPayload(model, [{ role: 'system', content: promptInstructions }], 0.1, maxTokens, 1.0, 0, 0, provider,
                 provider === 'lmstudio' || provider === 'openai'
                     ? { type: "object", properties: { needs_search: { type: "boolean" }, search_query: { type: "string" } }, required: ["needs_search", "search_query"], additionalProperties: false }
-                    : null
+                    : null,
+                payloadOptions
             )
         });
 
         if (response.ok) {
             const data = await response.json();
-            const parsed = await parseStructuredModelOutput(data.choices[0].message.content, {
+            const parsed = await parseStructuredModelOutput(getChoiceContentOrThrow(data, 'Wikipedia precheck'), {
                 requiredKeys: ['needs_search', 'search_query'],
                 jsonExample: '{"needs_search":true,"search_query":"CEO of Apple"}',
                 label: 'Wikipedia precheck'
@@ -1357,19 +1620,22 @@ CRITICAL: Output ONLY valid JSON:
         else if (provider === 'googleai') fetchUrl = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
         else if (provider === 'lmstudio' || provider === 'openai') fetchUrl = baseUrl.endsWith('/') ? `${baseUrl}chat/completions` : `${baseUrl}/chat/completions`;
 
+        const payloadOptions = getReasoningPayloadOptions(provider, 'helper');
+        const maxTokens = getCompletionBudget(HELPER_MAX_TOKENS, provider, payloadOptions, MIN_HELPER_RESPONSE_TOKENS);
         const response = await fetch(fetchUrl, {
             method: 'POST',
             headers: buildAuthHeaders(apiKey),
-            body: buildFetchPayload(model, [{ role: 'system', content: promptInstructions }], 0.1, HELPER_MAX_TOKENS, 1.0, 0, 0, provider,
+            body: buildFetchPayload(model, [{ role: 'system', content: promptInstructions }], 0.1, maxTokens, 1.0, 0, 0, provider,
                 provider === 'lmstudio' || provider === 'openai'
                     ? { type: "object", properties: { needs_search: { type: "boolean" }, search_query: { type: "string" } }, required: ["needs_search", "search_query"], additionalProperties: false }
-                    : null
+                    : null,
+                payloadOptions
             )
         });
 
         if (response.ok) {
             const data = await response.json();
-            const parsed = await parseStructuredModelOutput(data.choices[0].message.content, {
+            const parsed = await parseStructuredModelOutput(getChoiceContentOrThrow(data, 'Fandom precheck'), {
                 requiredKeys: ['needs_search', 'search_query'],
                 jsonExample: '{"needs_search":true,"search_query":"Darth Vader"}',
                 label: 'Fandom precheck'
@@ -1454,7 +1720,7 @@ async function retrieveVectorRagContext(userInput) {
 }
 
 
-async function sendChatMessage() {
+async function sendChatMessageLegacy() {
     const chatInput = document.getElementById('chat-input');
     const message = chatInput.value.trim();
     if (!message) return;
@@ -1537,10 +1803,12 @@ async function sendChatMessage() {
             fetchUrl = baseUrl.endsWith('/') ? `${baseUrl}chat/completions` : `${baseUrl}/chat/completions`;
         }
 
+        const payloadOptions = getReasoningPayloadOptions(provider, 'main');
+        const completionBudget = getCompletionBudget(maxTokens, provider, payloadOptions, MIN_MAIN_RESPONSE_TOKENS);
         const response = await fetch(fetchUrl, {
             method: 'POST',
             headers: buildAuthHeaders(apiKey),
-            body: buildFetchPayload(model, window.chatHistory, temp, maxTokens, topP, presPen, freqPen, provider, gameOutputSchema)
+            body: buildFetchPayload(model, window.chatHistory, temp, completionBudget, topP, presPen, freqPen, provider, gameOutputSchema, payloadOptions)
         });
 
         if (!response.ok) {
@@ -1549,7 +1817,7 @@ async function sendChatMessage() {
         }
 
         const data = await response.json();
-        const aiJson = await parseStructuredModelOutput(data.choices[0].message.content, {
+        const aiJson = await parseStructuredModelOutput(getChoiceContentOrThrow(data, 'game turn'), {
             requiredKeys: ['time', 'textoutput', 'inventory_changes', 'location_changes', 'npc_changes', 'player_changes', 'stats'],
             jsonExample: '{"time":{"hour":0,"minute":0,"period":"AM","dayOfWeek":"Monday","day":1,"month":1,"year":1,"era":"CE","calendarType":"gregorian"},"textoutput":"Narrative text","inventory_changes":[],"location_changes":[],"npc_changes":[],"player_changes":[],"stats":{"health":100,"money":0,"hunger":100,"thirst":100,"energy":100}}',
             label: 'game turn'
@@ -1578,6 +1846,163 @@ async function sendChatMessage() {
         removeGenerationLoader(loadingMsg);
         const errorMsg = createChatMessage('ai', `<div class="error-card" style="background: var(--bg-tertiary); border-left: 4px solid var(--accent-color); padding: 15px; border-radius: 8px; margin: 10px 0;"><strong>⚠️ Connection Error</strong><p style="margin-top: 5px; color: var(--text-muted);">${formatErrorForUser(err)}</p></div>`);
         chatMessages.appendChild(errorMsg);
+    }
+}
+
+async function sendChatMessage() {
+    const chatInput = document.getElementById('chat-input');
+    const message = chatInput.value.trim();
+    if (!message || chatGenerationState.isGenerating) return;
+
+    await sendChatMessageFromText(message);
+}
+
+async function sendChatMessageFromText(message, options = {}) {
+    const cleanMessage = String(message || '').trim();
+    if (!cleanMessage || chatGenerationState.isGenerating) return;
+
+    const chatInput = document.getElementById('chat-input');
+    const chatMessages = document.getElementById('chat-messages');
+    if (!chatMessages) return;
+
+    let loadingMsg = null;
+    let userHistoryAdded = false;
+    let assistantHistoryAdded = false;
+
+    setChatGenerationActive(true);
+    storePendingChatTurn(cleanMessage);
+
+    if (chatInput && chatInput.value.trim() === cleanMessage) {
+        chatInput.value = '';
+        resizeChatInput(chatInput);
+        clearChatDraft();
+    } else if (!chatInput || !chatInput.value.trim()) {
+        clearChatDraft();
+    }
+
+    const userMsg = createChatMessage('user', cleanMessage);
+    chatMessages.appendChild(userMsg);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    loadingMsg = createGenerationLoader(options.fromPending ? 'Resuming the last turn...' : 'Checking notes...');
+    chatMessages.appendChild(loadingMsg);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    try {
+        const promptedMessage = await runPrompter(cleanMessage);
+
+        const loaderContent = loadingMsg.querySelector('.generation-loader-text');
+        if (loaderContent) loaderContent.textContent = 'Building story threads...';
+
+        const internalLore = retrieveInternalLore(cleanMessage);
+        const ragData = await retrieveVectorRagContext(cleanMessage);
+
+        let wikiData = '';
+        let braveData = '';
+        const searchContext = await runWikipediaPreCheck(cleanMessage);
+        if (searchContext && searchContext.needs_search && searchContext.query) {
+            const [wikiResult, braveResult] = await Promise.all([
+                performWikipediaSearch(searchContext.query),
+                performBraveSearch(searchContext.query)
+            ]);
+            wikiData = wikiResult;
+            braveData = braveResult;
+        }
+
+        const fandomData = await retrieveFandomLoreForMessage(cleanMessage);
+
+        window.chatHistory.push({ role: 'user', content: promptedMessage });
+        userHistoryAdded = true;
+
+        if (window.chatHistory.length > 0 && window.chatHistory[0].role === 'system') {
+            const allData = {
+                worldInfo: window.worldInfo || {},
+                playerInfo: window.playerInfo || {},
+                gameState: window.gamestate || {}
+            };
+            window.chatHistory[0].content = buildGameSystemPrompt(allData, window.gameSummaryText || '', internalLore, wikiData, fandomData, localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter', ragData, braveData);
+        }
+
+        const provider = localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter';
+        const baseUrl = localStorage.getItem('jsonAdventure_apiBaseUrl') || '';
+        const apiKey = localStorage.getItem('jsonAdventure_openRouterApiKey');
+        const model = localStorage.getItem('jsonAdventure_openRouterModel') || 'openai/gpt-3.5-turbo';
+
+        const temp = parseFloat(localStorage.getItem('jsonAdventure_apiTemperature')) || 0.8;
+        const maxTokens = Math.max(parseInt(localStorage.getItem('jsonAdventure_apiMaxTokens'), 10) || 0, DEFAULT_MAX_TOKENS);
+        const topP = parseFloat(localStorage.getItem('jsonAdventure_apiTopP')) || 1.0;
+        const presPen = parseFloat(localStorage.getItem('jsonAdventure_apiPresencePenalty')) || 0.0;
+        const freqPen = parseFloat(localStorage.getItem('jsonAdventure_apiFrequencyPenalty')) || 0.0;
+
+        let fetchUrl = "https://openrouter.ai/api/v1/chat/completions";
+        if (provider === 'xai') {
+            fetchUrl = "https://api.x.ai/v1/chat/completions";
+        } else if (provider === 'googleai') {
+            fetchUrl = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+        } else if (provider === 'lmstudio' || provider === 'openai') {
+            fetchUrl = baseUrl.endsWith('/') ? `${baseUrl}chat/completions` : `${baseUrl}/chat/completions`;
+        }
+
+        const payloadOptions = getReasoningPayloadOptions(provider, 'main');
+        const completionBudget = getCompletionBudget(maxTokens, provider, payloadOptions, MIN_MAIN_RESPONSE_TOKENS);
+        const response = await fetch(fetchUrl, {
+            method: 'POST',
+            headers: buildAuthHeaders(apiKey),
+            body: buildFetchPayload(model, window.chatHistory, temp, completionBudget, topP, presPen, freqPen, provider, gameOutputSchema, payloadOptions)
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`API returned status ${response.status}: ${errText}`);
+        }
+
+        const data = await response.json();
+        const aiJson = await parseStructuredModelOutput(getChoiceContentOrThrow(data, 'game turn'), {
+            requiredKeys: ['time', 'textoutput', 'inventory_changes', 'location_changes', 'npc_changes', 'player_changes', 'stats'],
+            jsonExample: '{"time":{"hour":0,"minute":0,"period":"AM","dayOfWeek":"Monday","day":1,"month":1,"year":1,"era":"CE","calendarType":"gregorian"},"textoutput":"Narrative text","inventory_changes":[],"location_changes":[],"npc_changes":[],"player_changes":[],"stats":{"health":100,"money":0,"hunger":100,"thirst":100,"energy":100}}',
+            label: 'game turn'
+        });
+        const aiText = JSON.stringify(aiJson);
+
+        window.chatHistory.push({ role: 'assistant', content: aiText });
+        assistantHistoryAdded = true;
+
+        removeGenerationLoader(loadingMsg);
+        loadingMsg = null;
+        const displayText = processGameTurnJson(aiText);
+        const aiMsg = createChatMessage('ai', displayText);
+        chatMessages.appendChild(aiMsg);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        clearPendingChatTurn();
+        saveCurrentGame();
+
+        setTimeout(() => summarizeOldMessages(), 100);
+
+        if (localStorage.getItem('jsonAdventure_enableAutoImage') === 'true') {
+            triggerImageGeneration();
+        }
+
+    } catch (err) {
+        if (loadingMsg) removeGenerationLoader(loadingMsg);
+
+        if (assistantHistoryAdded && window.chatHistory?.[window.chatHistory.length - 1]?.role === 'assistant') {
+            window.chatHistory.pop();
+        }
+        if (userHistoryAdded) {
+            rollbackUnansweredUserTurn(cleanMessage);
+        } else {
+            removeLastVisibleUserMessage(cleanMessage);
+        }
+
+        clearPendingChatTurn();
+        restoreFailedPromptToInput(cleanMessage);
+
+        const errorMsg = createChatMessage('ai', `<div class="error-card" style="background: var(--bg-tertiary); border-left: 4px solid var(--accent-color); padding: 15px; border-radius: 8px; margin: 10px 0;"><strong>Connection Error</strong><p style="margin-top: 5px; color: var(--text-muted);">${formatErrorForUser(err)}</p></div>`);
+        chatMessages.appendChild(errorMsg);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    } finally {
+        setChatGenerationActive(false);
     }
 }
 
@@ -1665,10 +2090,12 @@ async function regenerateLastAI() {
             fetchUrl = baseUrl.endsWith('/') ? `${baseUrl}chat/completions` : `${baseUrl}/chat/completions`;
         }
 
+        const payloadOptions = getReasoningPayloadOptions(provider, 'main');
+        const completionBudget = getCompletionBudget(maxTokens, provider, payloadOptions, MIN_MAIN_RESPONSE_TOKENS);
         const response = await fetch(fetchUrl, {
             method: 'POST',
             headers: buildAuthHeaders(apiKey),
-            body: buildFetchPayload(model, window.chatHistory, temp, maxTokens, topP, presPen, freqPen, provider, gameOutputSchema)
+            body: buildFetchPayload(model, window.chatHistory, temp, completionBudget, topP, presPen, freqPen, provider, gameOutputSchema, payloadOptions)
         });
 
         if (!response.ok) {
@@ -1677,7 +2104,7 @@ async function regenerateLastAI() {
         }
 
         const data = await response.json();
-        const aiJson = await parseStructuredModelOutput(data.choices[0].message.content, {
+        const aiJson = await parseStructuredModelOutput(getChoiceContentOrThrow(data, 'regenerated game turn'), {
             requiredKeys: ['time', 'textoutput', 'inventory_changes', 'location_changes', 'npc_changes', 'player_changes', 'stats'],
             jsonExample: '{"time":{"hour":0,"minute":0,"period":"AM","dayOfWeek":"Monday","day":1,"month":1,"year":1,"era":"CE","calendarType":"gregorian"},"textoutput":"Narrative text","inventory_changes":[],"location_changes":[],"npc_changes":[],"player_changes":[],"stats":{"health":100,"money":0,"hunger":100,"thirst":100,"energy":100}}',
             label: 'regenerated game turn'

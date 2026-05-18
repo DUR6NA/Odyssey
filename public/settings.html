@@ -12,7 +12,7 @@
     <script src="ui-components.js"></script>
     <script src="theme-icons.js"></script>
     <script src="devtools.js"></script>
-    <script src="retrieval.js?v=1"></script>
+    <script src="retrieval.js?v=2"></script>
     <script src="menu-music.js"></script>
     <meta name="application-name" content="Odyssey">
     <meta name="description" content="Odyssey v0.6.1-alpha.1 - AI-driven text adventure desktop game with retrieval-enhanced lore and memory.">
@@ -199,7 +199,7 @@
 
                     <div class="control-group mt-md">
                         <label>Max Tokens:</label>
-                        <input type="number" id="api-max-tokens" step="1" min="1" value="3000"
+                        <input type="number" id="api-max-tokens" step="1" min="1" value="8000"
                             onchange="saveApiSettings()" class="input-sm">
                     </div>
 
@@ -289,7 +289,7 @@
 
                     <div class="control-group mt-md">
                         <label>Prompt Max Tokens:</label>
-                        <input type="number" id="image-prompt-max-tokens" step="1" min="1" value="3000"
+                        <input type="number" id="image-prompt-max-tokens" step="1" min="1" value="8000"
                             class="input-sm" onchange="saveApiSettings()">
                     </div>
 
@@ -411,6 +411,7 @@
                         <select id="embedding-provider-select" onchange="handleEmbeddingProviderChange(); saveApiSettings()" class="input-md">
                             <option value="lmstudio">LM Studio (Local)</option>
                             <option value="ollama">Ollama (Local)</option>
+                            <option value="openrouter">OpenRouter</option>
                             <option value="openai">OpenAI</option>
                             <option value="openai_compatible">OpenAI Compatible</option>
                         </select>
@@ -1116,6 +1117,7 @@
             const defaults = {
                 lmstudio: { baseUrl: 'http://localhost:1234/v1', model: 'text-embedding-nomic-embed-text-v1.5' },
                 ollama: { baseUrl: 'http://localhost:11434', model: 'embeddinggemma' },
+                openrouter: { baseUrl: 'https://openrouter.ai/api/v1', model: 'qwen/qwen3-embedding-8b' },
                 openai: { baseUrl: 'https://api.openai.com/v1', model: 'text-embedding-3-small' },
                 openai_compatible: { baseUrl: 'http://localhost:1234/v1', model: 'text-embedding-nomic-embed-text-v1.5' }
             };
@@ -1179,7 +1181,12 @@
             const statusEl = document.getElementById('embedding-model-fetch-status');
             const provider = document.getElementById('embedding-provider-select').value;
             const rawBaseUrl = document.getElementById('embedding-base-url').value.trim();
-            const apiKey = document.getElementById('embedding-api-key').value.trim();
+            let apiKey = document.getElementById('embedding-api-key').value.trim();
+            if (!apiKey && provider === 'openrouter') {
+                apiKey = document.getElementById('openrouter-api-key').value.trim()
+                    || localStorage.getItem('jsonAdventure_openRouterApiKey')
+                    || '';
+            }
             statusEl.textContent = 'Fetching...';
             statusEl.style.color = 'var(--text-muted)';
 
@@ -1191,6 +1198,13 @@
                 if (provider === 'ollama') {
                     const base = (rawBaseUrl || 'http://localhost:11434').replace(/\/api\/?$/, '').replace(/\/+$/, '');
                     url = `${base}/api/tags`;
+                } else if (provider === 'openrouter') {
+                    const base = (rawBaseUrl || 'https://openrouter.ai/api/v1')
+                        .replace(/\/embeddings\/models\/?$/, '')
+                        .replace(/\/models\/embeddings\/?$/, '')
+                        .replace(/\/models\/?$/, '')
+                        .replace(/\/+$/, '');
+                    url = `${base}/embeddings/models`;
                 } else {
                     const base = (rawBaseUrl || 'http://localhost:1234/v1')
                         .replace(/\/models\/?$/, '')
@@ -1258,7 +1272,7 @@
 
             // Load new model settings with defaults
             document.getElementById('api-temperature').value = localStorage.getItem('jsonAdventure_apiTemperature') || '0.7';
-            const savedMaxTokens = Math.max(parseInt(localStorage.getItem('jsonAdventure_apiMaxTokens'), 10) || 0, 3000);
+            const savedMaxTokens = Math.max(parseInt(localStorage.getItem('jsonAdventure_apiMaxTokens'), 10) || 0, 8000);
             localStorage.setItem('jsonAdventure_apiMaxTokens', String(savedMaxTokens));
             document.getElementById('api-max-tokens').value = String(savedMaxTokens);
             document.getElementById('api-top-p').value = localStorage.getItem('jsonAdventure_apiTopP') || '1.0';
@@ -1269,7 +1283,7 @@
 
             document.getElementById('image-prompt-use-game-model').checked = localStorage.getItem('jsonAdventure_imagePromptUseGameModel') !== 'false';
             document.getElementById('image-prompt-temperature').value = localStorage.getItem('jsonAdventure_imagePromptTemperature') || '0.7';
-            const savedImagePromptMaxTokens = Math.max(parseInt(localStorage.getItem('jsonAdventure_imagePromptMaxTokens'), 10) || 0, 3000);
+            const savedImagePromptMaxTokens = Math.max(parseInt(localStorage.getItem('jsonAdventure_imagePromptMaxTokens'), 10) || 0, 8000);
             localStorage.setItem('jsonAdventure_imagePromptMaxTokens', String(savedImagePromptMaxTokens));
             document.getElementById('image-prompt-max-tokens').value = String(savedImagePromptMaxTokens);
             document.getElementById('image-prompt-top-p').value = localStorage.getItem('jsonAdventure_imagePromptTopP') || '1.0';

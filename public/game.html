@@ -16,9 +16,9 @@
     <script src="ui-components.js?v=2"></script>
     <script src="theme-icons.js"></script>
     <script src="creation.js?v=2"></script>
-    <script src="retrieval.js?v=1"></script>
-    <script src="chat.js?v=2"></script>
-    <script src="saves.js?v=2"></script>
+    <script src="retrieval.js?v=2"></script>
+    <script src="chat.js?v=3"></script>
+    <script src="saves.js?v=3"></script>
     <script src="menu-music.js"></script>
     <meta name="application-name" content="Odyssey">
     <meta name="description" content="Odyssey v0.6.1-alpha.1 - AI-driven text adventure desktop game with retrieval-enhanced lore and memory.">
@@ -367,6 +367,9 @@
 
                 if (typeof setupChatInput === 'function') setupChatInput();
                 if (loader) loader.style.display = 'none';
+                if (typeof resumePendingChatTurnIfNeeded === 'function') {
+                    resumePendingChatTurnIfNeeded().catch(err => console.error('Failed to resume pending turn:', err));
+                }
 
             } catch (err) {
                 console.error(err);

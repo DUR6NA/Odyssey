@@ -62,17 +62,30 @@ Output ONLY the new merged narrative summary. Do not include introductory text l
             fetchUrl = baseUrl.endsWith('/') ? `${baseUrl}chat/completions` : `${baseUrl}/chat/completions`;
         }
 
+        const summaryMaxTokens = typeof SUMMARY_MAX_TOKENS === 'number' ? SUMMARY_MAX_TOKENS : 8000;
+        const minSummaryTokens = typeof MIN_SUMMARY_RESPONSE_TOKENS === 'number' ? MIN_SUMMARY_RESPONSE_TOKENS : 2500;
+        const payloadOptions = typeof getReasoningPayloadOptions === 'function'
+            ? getReasoningPayloadOptions(provider, 'summary')
+            : {};
+        const maxTokens = typeof getCompletionBudget === 'function'
+            ? getCompletionBudget(summaryMaxTokens, provider, payloadOptions, minSummaryTokens)
+            : summaryMaxTokens;
+
         const response = await fetch(fetchUrl, {
             method: 'POST',
             headers: buildAuthHeaders(apiKey),
             body: buildFetchPayload(model, [
                 { role: 'user', content: summarizePrompt }
-            ], 0.3, 1000, 1.0, 0, 0, provider, null)
+            ], 0.3, maxTokens, 1.0, 0, 0, provider, null, payloadOptions)
         });
 
         if (response.ok) {
             const data = await response.json();
-            const newSummary = data.choices[0].message.content.trim();
+            const newSummary = (typeof getChoiceContentOrThrow === 'function'
+                ? getChoiceContentOrThrow(data, 'summary')
+                : data?.choices?.[0]?.message?.content || ''
+            ).trim();
+            if (!newSummary) throw new Error('The AI returned an empty summary.');
 
             // Update the running game summary
             window.gameSummaryText = newSummary;
