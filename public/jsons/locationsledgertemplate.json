@@ -3,6 +3,7 @@
         {
             "name": "Starting Location",
             "description": "A detailed description of the location.",
+            "notes": "Optional notes about changes, clues, or unresolved threads.",
             "items": [],
             "subrooms": [
                 {

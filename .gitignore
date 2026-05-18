@@ -25,12 +25,11 @@ logs
 log.md
 error_log.txt
 
-# User data (do not commit saves/presets by default)
+
 games/
 presets/
 
-# Secrets / Environment
-# Copy .env.example to .env and add your keys
+
 .env
 .env.local
 .env.*.local
@@ -52,7 +51,7 @@ __pycache__/
 *.AppImage
 *.rpm
 
-# Old Node server files
+
 server.js
 install*.*
 run*.*
@@ -63,13 +62,32 @@ todo.md
 # Always include readme assets (overrides start*.* above)
 !readme images/**
 
-# Exclude large demo videos from the repo (README links to YouTube instead)
+
 readme images/theme demo video.mp4
 readme images/theme demo video.webm
 
-# Claude Code
-.claude/
-memory/
 
-# Keep these if you want initial presets in repo
-# !presets/cd_18.json
+.claude/
+.codex/
+memory/
+.codex-jacquard.css
+
+# Local RAG/vector generation workspace. Generated checkpoints, smoke outputs,
+# and intermediate vector stores live here until intentionally published.
+.rag-vector-generation/
+
+# Legacy local vector generation cache from early CLI smoke tests.
+.vector-cache/
+
+# Keep only curated distributable vector stores in the app tree.
+public/jsons/universe-vector-stores/*.tmp
+public/jsons/universe-vector-stores/*.partial
+public/jsons/universe-vector-stores/*.bak
+public/jsons/universe-vector-stores/*.checkpoint.json
+
+# Local icon generation helpers and extra mobile icon outputs.
+src-tauri/icons/fonts/
+src-tauri/icons/android/
+src-tauri/icons/ios/
+src-tauri/icons/64x64.png
+

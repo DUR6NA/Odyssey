@@ -243,7 +243,9 @@ Odyssey/
 │   ├── presets.html    Character preset management
 │   ├── settings.html   Provider, appearance, and prompt settings
 │   ├── infowiki.html   In-app Info & Wiki
-│   ├── setup.js        Core game logic, world presets, AI orchestration
+│   ├── creation.js     New game setup, world presets, launch flow
+│   ├── chat.js         AI prompting, in-game chat, image runtime, TTS
+│   ├── saves.js        Autosaves and chat history persistence
 │   ├── theme.js        Theme definitions
 │   ├── ui-components.js Custom inputs and interactive elements
 │   ├── tauri-bridge.js Native FS operations (presets, saves, games)
