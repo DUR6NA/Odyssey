@@ -9,7 +9,9 @@
     "generate:vectors": "node tools/generate-universe-vector-store.mjs",
     "generate:vectors:lmstudio": "node tools/generate-universe-vector-store.mjs --provider lmstudio --base-url http://localhost:1234/v1 --model text-embedding-nomic-embed-text-v1.5",
     "generate:vectors:mxbai": "node tools/generate-universe-vector-store.mjs --provider lmstudio --base-url http://127.0.0.1:1231/v1 --model text-embedding-mxbai-embed-large-v1",
-    "publish:vectors": "node tools/publish-universe-vector-stores.mjs"
+    "publish:vectors": "node tools/publish-universe-vector-stores.mjs",
+    "odyssey:cli": "node tools/odyssey-cli.mjs",
+    "odyssey:telegram": "node tools/odyssey-telegram-bot.mjs"
   },
   "keywords": ["tauri", "desktop", "game", "ai", "text-adventure"],
   "author": "Dur6na",

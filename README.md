@@ -18,6 +18,7 @@
 - [Themes](#themes)
 - [Voice Narration (TTS)](#voice-narration-tts)
 - [Retrieval and World Knowledge](#retrieval-and-world-knowledge)
+- [Terminal and Telegram Play](#terminal-and-telegram-play)
 - [How It Works](#how-it-works)
 - [Connecting an AI Model](#connecting-an-ai-model)
 - [Building from Source](#building-from-source)
@@ -53,6 +54,7 @@ After installing, launch Odyssey and follow the in-app welcome screen to configu
 - **AI-generated portraits** — Character and scene artwork generated on demand from detailed, editable prompts.
 - **Live game state** — Health, Money, Hunger, Thirst, and Energy are tracked every turn and surfaced in the sidebar.
 - **Automatic Game Codex** — An NPC Ledger and Location Ledger populate themselves as your story unfolds, giving you a durable reference for every person and place you encounter.
+- **Text-only CLI and Telegram bot** - Play Odyssey without images through an ASCII terminal UI or a BotFather-created Telegram bot backed by the same local saves.
 - **Multiple themes** — Dark Mode, Light Mode, Frutiger Aero, Starry Night, and Matrix, plus configurable typography and accessibility options.
 - **Voice narration (TTS)** — Listen to every turn of narration. Plug in any of four providers — a self-hosted [Kokoro-FastAPI](https://github.com/remsky/Kokoro-FastAPI) server, OpenAI, Google Cloud TTS, or xAI Grok — with a shared control for playback speed (0.5x–2.0x) and per-provider voice selection. Kokoro additionally supports **weighted voice blending**, letting you mix multiple voices into a single custom narrator.
 - **Save management** — Named saves, plus one-click Import and Export for sharing or backing up campaigns.
@@ -182,6 +184,63 @@ For maintainers, generation happens in the ignored `.rag-vector-generation/` wor
 
 ---
 
+## Terminal and Telegram Play
+
+Odyssey also ships with a text-only Node runtime for terminal and Telegram play. These modes use the same save folder as the Tauri desktop app:
+
+```bash
+npm run odyssey:cli
+```
+
+The CLI is arrow-key navigable for loading games, creating new campaigns, going back or editing the last turn, and opening the Player Menu, Game Codex, and stats views. It does not generate or display images. Preset loading still walks through the normal setup questions with preset answers filled in, so every field can be kept or changed. It also reads the desktop app's local WebView settings by default, so the terminal and Telegram runtimes can reuse your existing Odyssey provider, model, API key, token limits, reasoning setting, and game prompt. Explicit CLI settings and `ODYSSEY_*` environment variables override the desktop settings.
+
+To run Odyssey through Telegram:
+
+1. Message [BotFather](https://core.telegram.org/bots/features#botfather) in Telegram and create a bot.
+2. Open Odyssey, go to **Settings -> Telegram**, paste the bot token, and save.
+3. Keep private pairing enabled unless you intentionally want a public bot. Odyssey generates a local four-word pairing phrase from the standard 2048-word BIP-39 English list.
+4. Run setup once so Telegram updates the bot command menu:
+
+```powershell
+npm run odyssey:telegram -- --setup
+```
+
+5. Start long polling and leave the runner open while playing:
+
+```powershell
+npm run odyssey:telegram
+```
+
+6. In Telegram, open your bot, send `/start`, tap **Verify account** or send `/verify`, then reply with the pairing words shown in **Settings -> Telegram**.
+
+The bot token, pairing phrase, optional allowed Telegram IDs, and optional Mini App URL are stored locally in Odyssey app data as `telegram-settings.json`. The runner also loads `.env.local` and `.env` from the repo root, so power users can still override settings with environment variables:
+
+```env
+TELEGRAM_BOT_TOKEN=123456:your-token
+ODYSSEY_TELEGRAM_PAIRING_PHRASE=lamp tiger shoelace hairpin
+ODYSSEY_TELEGRAM_AUTH_ENABLED=true
+```
+
+Optional explicit allow list:
+
+```powershell
+$env:ODYSSEY_TELEGRAM_ALLOWED_USERS="123456789"
+```
+
+Telegram commands include `/verify`, `/load`, `/new`, `/back`, `/edit`, `/history`, `/player`, `/codex`, `/stats`, `/settings`, `/menu`, and `/cancel`. After a verified account loads a game, normal chat messages are treated as player actions. New turns create local rewind snapshots, so `/back` restores the previous game state and `/edit` rewinds then regenerates from your replacement action.
+
+The Telegram bot uses Telegram's native rich surfaces where the platform allows them: emoji labels, HTML-formatted narration and status cards, styled inline buttons, quick action callbacks, force-reply setup prompts, message reactions, and an optional Mini App button. Telegram bot messages do not support arbitrary CSS-like text colors inside normal chat text; the practical color options are styled buttons, emoji/status symbols, custom emoji, media, and Mini Apps.
+
+Optional Mini App button:
+
+```env
+ODYSSEY_TELEGRAM_WEB_APP_URL=https://your-hosted-odyssey-mini-app.example
+```
+
+Mini Apps must be served over HTTPS. If that variable is set, `/setup` registers an "Open Odyssey" Telegram menu button and the bot adds an inline app button to its menus.
+
+---
+
 ## How It Works
 
 Odyssey is a client-side adventure engine wrapped in a native Tauri shell.
@@ -267,12 +326,15 @@ Odyssey/
 │   ├── titlebar.js     Custom window titlebar
 │   ├── menu-music.js   Main menu audio
 │   ├── models.json     Built-in model metadata
+│   ├── openrouter-attribution.js OpenRouter app attribution headers
 │   ├── style.css       Global design system
 │   ├── assets/         Images, audio, fonts
-│   └── jsons/          Built-in templates (player, world, NPC ledger, etc.)
+│   └── jsons/          Built-in templates, pairing words, and universe stores
+├── tools/              Text-only CLI, Telegram bot, and shared Node runtime
 ├── readme images/      Assets for this document
 ├── devdocs.html        Developer documentation
 ├── CONTRIBUTING.md     Contribution guide
+├── OdysseyTelegram.bat Convenience launcher for the Telegram bot
 └── package.json
 ```
 

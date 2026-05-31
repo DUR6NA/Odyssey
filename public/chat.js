@@ -44,10 +44,20 @@ function formatErrorForUser(err) {
 // Some OpenAI-compatible local servers (llama.cpp-server, LiteLLM proxies, LM Studio
 // with auth enabled, etc.) return 401 when they see a malformed empty Bearer token,
 // so an empty header is worse than no header.
-function buildAuthHeaders(apiKey) {
+function buildAuthHeaders(apiKey, providerOrUrl = localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter') {
+    if (window.OdysseyOpenRouter && typeof window.OdysseyOpenRouter.buildAuthHeaders === 'function') {
+        return window.OdysseyOpenRouter.buildAuthHeaders(apiKey, providerOrUrl);
+    }
+
     const headers = { 'Content-Type': 'application/json' };
     if (apiKey && String(apiKey).trim()) {
         headers['Authorization'] = `Bearer ${apiKey}`;
+    }
+    if (String(providerOrUrl || '').trim().toLowerCase() === 'openrouter' || String(providerOrUrl || '').toLowerCase().includes('openrouter.ai')) {
+        headers['HTTP-Referer'] = 'https://github.com/DUR6NA/Odyssey';
+        headers['X-OpenRouter-Title'] = 'Odyssey';
+        headers['X-Title'] = 'Odyssey';
+        headers['X-OpenRouter-Categories'] = 'game,roleplay';
     }
     return headers;
 }
@@ -256,7 +266,7 @@ ${rawContent}`;
 
     const response = await fetch(fetchUrl, {
         method: 'POST',
-        headers: buildAuthHeaders(apiKey),
+        headers: buildAuthHeaders(apiKey, provider),
         body: buildFetchPayload(model, [{ role: 'system', content: repairPrompt }], 0.1, 2500, 1.0, 0, 0, provider, null)
     });
 
@@ -476,7 +486,7 @@ CRITICAL RULES:
     const promptCompletionBudget = getCompletionBudget(promptMaxTokens, provider, payloadOptions, MIN_HELPER_RESPONSE_TOKENS);
     const res = await fetch(fetchUrl, {
         method: 'POST',
-        headers: buildAuthHeaders(apiKey),
+        headers: buildAuthHeaders(apiKey, provider),
         body: buildFetchPayload(model, [{ role: 'user', content: promptText }], promptTemperature, promptCompletionBudget, promptTopP, 0, 0, provider, false, payloadOptions)
     });
     if (!res.ok) {
@@ -567,6 +577,9 @@ async function performImageGeneration(promptText, aspect_ratio = "2:3", baseImag
     let reqHeaders = { 'Content-Type': 'application/json' };
     if (provider !== 'googleai' && apiKey && String(apiKey).trim()) {
         reqHeaders['Authorization'] = `Bearer ${apiKey}`;
+    }
+    if (window.OdysseyOpenRouter && typeof window.OdysseyOpenRouter.applyAttributionHeaders === 'function') {
+        reqHeaders = window.OdysseyOpenRouter.applyAttributionHeaders(reqHeaders, provider);
     }
 
     const res = await fetch(fetchUrl, {
@@ -1194,7 +1207,7 @@ CRITICAL: Output ONLY a JSON object:
         const maxTokens = getCompletionBudget(HELPER_MAX_TOKENS, provider, payloadOptions, MIN_HELPER_RESPONSE_TOKENS);
         const response = await fetch(fetchUrl, {
             method: 'POST',
-            headers: buildAuthHeaders(apiKey),
+            headers: buildAuthHeaders(apiKey, provider),
             body: buildFetchPayload(model, [
                 { role: 'system', content: promptInstructions }
             ], 0.1, maxTokens, 1.0, 0, 0, provider,
@@ -1539,7 +1552,7 @@ CRITICAL: Output ONLY valid JSON:
         const maxTokens = getCompletionBudget(HELPER_MAX_TOKENS, provider, payloadOptions, MIN_HELPER_RESPONSE_TOKENS);
         const response = await fetch(fetchUrl, {
             method: 'POST',
-            headers: buildAuthHeaders(apiKey),
+            headers: buildAuthHeaders(apiKey, provider),
             body: buildFetchPayload(model, [{ role: 'system', content: promptInstructions }], 0.1, maxTokens, 1.0, 0, 0, provider,
                 provider === 'lmstudio' || provider === 'openai'
                     ? { type: "object", properties: { needs_search: { type: "boolean" }, search_query: { type: "string" } }, required: ["needs_search", "search_query"], additionalProperties: false }
@@ -1624,7 +1637,7 @@ CRITICAL: Output ONLY valid JSON:
         const maxTokens = getCompletionBudget(HELPER_MAX_TOKENS, provider, payloadOptions, MIN_HELPER_RESPONSE_TOKENS);
         const response = await fetch(fetchUrl, {
             method: 'POST',
-            headers: buildAuthHeaders(apiKey),
+            headers: buildAuthHeaders(apiKey, provider),
             body: buildFetchPayload(model, [{ role: 'system', content: promptInstructions }], 0.1, maxTokens, 1.0, 0, 0, provider,
                 provider === 'lmstudio' || provider === 'openai'
                     ? { type: "object", properties: { needs_search: { type: "boolean" }, search_query: { type: "string" } }, required: ["needs_search", "search_query"], additionalProperties: false }
@@ -1807,7 +1820,7 @@ async function sendChatMessageLegacy() {
         const completionBudget = getCompletionBudget(maxTokens, provider, payloadOptions, MIN_MAIN_RESPONSE_TOKENS);
         const response = await fetch(fetchUrl, {
             method: 'POST',
-            headers: buildAuthHeaders(apiKey),
+            headers: buildAuthHeaders(apiKey, provider),
             body: buildFetchPayload(model, window.chatHistory, temp, completionBudget, topP, presPen, freqPen, provider, gameOutputSchema, payloadOptions)
         });
 
@@ -1947,7 +1960,7 @@ async function sendChatMessageFromText(message, options = {}) {
         const completionBudget = getCompletionBudget(maxTokens, provider, payloadOptions, MIN_MAIN_RESPONSE_TOKENS);
         const response = await fetch(fetchUrl, {
             method: 'POST',
-            headers: buildAuthHeaders(apiKey),
+            headers: buildAuthHeaders(apiKey, provider),
             body: buildFetchPayload(model, window.chatHistory, temp, completionBudget, topP, presPen, freqPen, provider, gameOutputSchema, payloadOptions)
         });
 
@@ -2094,7 +2107,7 @@ async function regenerateLastAI() {
         const completionBudget = getCompletionBudget(maxTokens, provider, payloadOptions, MIN_MAIN_RESPONSE_TOKENS);
         const response = await fetch(fetchUrl, {
             method: 'POST',
-            headers: buildAuthHeaders(apiKey),
+            headers: buildAuthHeaders(apiKey, provider),
             body: buildFetchPayload(model, window.chatHistory, temp, completionBudget, topP, presPen, freqPen, provider, gameOutputSchema, payloadOptions)
         });
 

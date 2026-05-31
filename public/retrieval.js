@@ -318,6 +318,19 @@
         }
     }
 
+    function applyOpenRouterAttributionHeaders(headers, provider, baseUrl) {
+        if (window.OdysseyOpenRouter && typeof window.OdysseyOpenRouter.applyAttributionHeaders === 'function') {
+            return window.OdysseyOpenRouter.applyAttributionHeaders(headers, provider === 'openrouter' ? provider : baseUrl);
+        }
+        if (provider === 'openrouter' || isOpenRouterEmbeddingBaseUrl(baseUrl)) {
+            headers['HTTP-Referer'] = 'https://github.com/DUR6NA/Odyssey';
+            headers['X-OpenRouter-Title'] = 'Odyssey';
+            headers['X-Title'] = 'Odyssey';
+            headers['X-OpenRouter-Categories'] = 'game,roleplay';
+        }
+        return headers;
+    }
+
     function getEmbeddingApiKey(provider, baseUrl) {
         const explicitKey = localStorage.getItem('jsonAdventure_embeddingApiKey') || '';
         if (explicitKey.trim()) return explicitKey;
@@ -404,6 +417,7 @@
         if (settings.apiKey && String(settings.apiKey).trim()) {
             headers.Authorization = `Bearer ${settings.apiKey}`;
         }
+        applyOpenRouterAttributionHeaders(headers, settings.provider, settings.baseUrl);
 
         const data = await fetchJson(buildOpenAiEmbeddingUrl(settings.baseUrl), {
             method: 'POST',

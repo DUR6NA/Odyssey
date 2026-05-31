@@ -322,6 +322,71 @@ function errMsg(e) {
       }
     },
 
+    async loadTelegramSettings() {
+      try {
+        const base = await getBaseDir();
+        const settingsPath = await path.join(base, 'telegram-settings.json');
+        const statePath = await path.join(base, 'telegram-sessions.json');
+        let settings = {};
+        let state = {};
+
+        if (await fs.exists(settingsPath)) {
+          settings = JSON.parse(await fs.readTextFile(settingsPath));
+        }
+        if (await fs.exists(statePath)) {
+          state = JSON.parse(await fs.readTextFile(statePath));
+        }
+
+        return { success: true, settings, state, folder: base };
+      } catch (e) {
+        console.error('loadTelegramSettings error:', e);
+        return { success: false, error: errMsg(e) };
+      }
+    },
+
+    async saveTelegramSettings(settings) {
+      try {
+        const base = await getBaseDir();
+        const settingsPath = await path.join(base, 'telegram-settings.json');
+        const allowedUsers = Array.isArray(settings?.allowedUsers)
+          ? settings.allowedUsers.map(value => String(value || '').trim()).filter(Boolean)
+          : String(settings?.allowedUsers || '').split(/[\s,;]+/).map(value => value.trim()).filter(Boolean);
+        const clean = {
+          botToken: String(settings?.botToken || '').trim(),
+          authEnabled: settings?.authEnabled !== false,
+          pairingPhrase: String(settings?.pairingPhrase || '').toLowerCase().match(/[a-z0-9]+/g)?.join(' ') || '',
+          allowedUsers,
+          webAppUrl: String(settings?.webAppUrl || '').trim(),
+          updatedAt: new Date().toISOString()
+        };
+        await fs.writeTextFile(settingsPath, JSON.stringify(clean, null, 2));
+        return { success: true, settings: clean, folder: base };
+      } catch (e) {
+        console.error('saveTelegramSettings error:', e);
+        return { success: false, error: errMsg(e) };
+      }
+    },
+
+    async clearTelegramPairings() {
+      try {
+        const base = await getBaseDir();
+        const statePath = await path.join(base, 'telegram-sessions.json');
+        let state = { offset: 0, chats: {}, pairedUsers: {}, verifiedUsers: {} };
+        if (await fs.exists(statePath)) {
+          try {
+            state = JSON.parse(await fs.readTextFile(statePath));
+          } catch (e) {}
+        }
+        state.pairedUsers = {};
+        state.verifiedUsers = {};
+        await fs.writeTextFile(statePath, JSON.stringify(state, null, 2));
+        return { success: true };
+      } catch (e) {
+        console.error('clearTelegramPairings error:', e);
+        return { success: false, error: errMsg(e) };
+      }
+    },
+
     async renameGame(id, requestedName) {
       try {
         const base = await getBaseDir();
