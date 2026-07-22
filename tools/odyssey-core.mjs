@@ -26,7 +26,21 @@ export const DEFAULT_SETTINGS = {
   frequencyPenalty: 0,
   enableReasoning: false,
   reasoningEffort: 'low',
-  promptGame: ''
+  promptGame: '',
+  enableVectorRag: false,
+  embeddingProvider: 'lmstudio',
+  embeddingBaseUrl: '',
+  embeddingApiKey: '',
+  embeddingModel: '',
+  vectorTopK: 5,
+  vectorMinScore: 0.18,
+  enableWebSearch: false,
+  enableFandomSearch: false,
+  enableBraveSearch: false,
+  braveSearchApiKey: '',
+  braveSearchCount: 3,
+  braveSearchCountry: 'us',
+  braveSearchLang: 'en'
 };
 
 export const DEFAULT_TELEGRAM_SETTINGS = {
@@ -348,6 +362,17 @@ export async function loadSettings() {
   if (process.env.ODYSSEY_FREQUENCY_PENALTY) settings.frequencyPenalty = Number(process.env.ODYSSEY_FREQUENCY_PENALTY);
   if (process.env.ODYSSEY_ENABLE_REASONING) settings.enableReasoning = process.env.ODYSSEY_ENABLE_REASONING === 'true';
   if (process.env.ODYSSEY_REASONING_EFFORT) settings.reasoningEffort = process.env.ODYSSEY_REASONING_EFFORT;
+  if (process.env.ODYSSEY_ENABLE_VECTOR_RAG) settings.enableVectorRag = process.env.ODYSSEY_ENABLE_VECTOR_RAG === 'true';
+  if (process.env.ODYSSEY_ENABLE_WEB_SEARCH) settings.enableWebSearch = process.env.ODYSSEY_ENABLE_WEB_SEARCH === 'true';
+  if (process.env.ODYSSEY_ENABLE_FANDOM_SEARCH) settings.enableFandomSearch = process.env.ODYSSEY_ENABLE_FANDOM_SEARCH === 'true';
+  if (process.env.ODYSSEY_ENABLE_BRAVE_SEARCH) settings.enableBraveSearch = process.env.ODYSSEY_ENABLE_BRAVE_SEARCH === 'true';
+  if (process.env.ODYSSEY_EMBEDDING_PROVIDER) settings.embeddingProvider = process.env.ODYSSEY_EMBEDDING_PROVIDER;
+  if (process.env.ODYSSEY_EMBEDDING_BASE_URL) settings.embeddingBaseUrl = process.env.ODYSSEY_EMBEDDING_BASE_URL;
+  if (process.env.ODYSSEY_EMBEDDING_API_KEY) settings.embeddingApiKey = process.env.ODYSSEY_EMBEDDING_API_KEY;
+  if (process.env.ODYSSEY_EMBEDDING_MODEL) settings.embeddingModel = process.env.ODYSSEY_EMBEDDING_MODEL;
+  if (process.env.ODYSSEY_VECTOR_TOP_K) settings.vectorTopK = Number(process.env.ODYSSEY_VECTOR_TOP_K);
+  if (process.env.ODYSSEY_VECTOR_MIN_SCORE) settings.vectorMinScore = Number(process.env.ODYSSEY_VECTOR_MIN_SCORE);
+  if (process.env.ODYSSEY_BRAVE_SEARCH_API_KEY) settings.braveSearchApiKey = process.env.ODYSSEY_BRAVE_SEARCH_API_KEY;
 
   settings.temperature = finiteNumber(settings.temperature, DEFAULT_SETTINGS.temperature);
   settings.maxTokens = Math.max(finiteNumber(settings.maxTokens, DEFAULT_SETTINGS.maxTokens), 1200);
@@ -360,6 +385,20 @@ export async function loadSettings() {
   settings.apiKey = String(settings.apiKey || '').trim();
   settings.reasoningEffort = normalizeReasoningEffort(settings.reasoningEffort);
   settings.promptGame = String(settings.promptGame || '');
+  settings.enableVectorRag = Boolean(settings.enableVectorRag);
+  settings.enableWebSearch = Boolean(settings.enableWebSearch);
+  settings.enableFandomSearch = Boolean(settings.enableFandomSearch);
+  settings.enableBraveSearch = Boolean(settings.enableBraveSearch);
+  settings.embeddingProvider = String(settings.embeddingProvider || DEFAULT_SETTINGS.embeddingProvider).trim().toLowerCase();
+  settings.embeddingBaseUrl = String(settings.embeddingBaseUrl || '').trim();
+  settings.embeddingApiKey = String(settings.embeddingApiKey || '').trim();
+  settings.embeddingModel = String(settings.embeddingModel || '').trim();
+  settings.vectorTopK = Math.max(1, Math.min(finiteNumber(settings.vectorTopK, DEFAULT_SETTINGS.vectorTopK), 12));
+  settings.vectorMinScore = Math.max(-1, Math.min(finiteNumber(settings.vectorMinScore, DEFAULT_SETTINGS.vectorMinScore), 1));
+  settings.braveSearchApiKey = String(settings.braveSearchApiKey || '').trim();
+  settings.braveSearchCount = Math.max(1, Math.min(finiteNumber(settings.braveSearchCount, DEFAULT_SETTINGS.braveSearchCount), 10));
+  settings.braveSearchCountry = String(settings.braveSearchCountry || DEFAULT_SETTINGS.braveSearchCountry).trim() || 'us';
+  settings.braveSearchLang = String(settings.braveSearchLang || DEFAULT_SETTINGS.braveSearchLang).trim() || 'en';
   return settings;
 }
 
@@ -391,6 +430,12 @@ export async function loadDesktopWebViewSettings() {
     || storage.jsonAdventure_openRouterApiKey
     || '';
 
+  const embeddingProvider = (storage.jsonAdventure_embeddingProvider || DEFAULT_SETTINGS.embeddingProvider).trim().toLowerCase();
+  let embeddingApiKey = storage.jsonAdventure_embeddingApiKey || '';
+  if (!embeddingApiKey && (embeddingProvider === 'openrouter')) {
+    embeddingApiKey = storage.jsonAdventure_openRouterApiKey || storage.jsonAdventure_apiKey_openrouter || apiKey || '';
+  }
+
   return {
     provider,
     baseUrl: storage.jsonAdventure_apiBaseUrl || '',
@@ -403,7 +448,21 @@ export async function loadDesktopWebViewSettings() {
     frequencyPenalty: parseSettingNumber(storage.jsonAdventure_apiFrequencyPenalty, DEFAULT_SETTINGS.frequencyPenalty),
     enableReasoning: parseSettingBoolean(storage.jsonAdventure_apiEnableReasoning, DEFAULT_SETTINGS.enableReasoning),
     reasoningEffort: storage.jsonAdventure_apiReasoningEffort || DEFAULT_SETTINGS.reasoningEffort,
-    promptGame: storage.jsonAdventure_promptGame || ''
+    promptGame: storage.jsonAdventure_promptGame || '',
+    enableVectorRag: parseSettingBoolean(storage.jsonAdventure_enableVectorRag, DEFAULT_SETTINGS.enableVectorRag),
+    embeddingProvider,
+    embeddingBaseUrl: storage.jsonAdventure_embeddingBaseUrl || '',
+    embeddingApiKey,
+    embeddingModel: storage.jsonAdventure_embeddingModel || '',
+    vectorTopK: parseSettingNumber(storage.jsonAdventure_vectorTopK, DEFAULT_SETTINGS.vectorTopK),
+    vectorMinScore: parseSettingNumber(storage.jsonAdventure_vectorMinScore, DEFAULT_SETTINGS.vectorMinScore),
+    enableWebSearch: parseSettingBoolean(storage.jsonAdventure_enableWebSearch, DEFAULT_SETTINGS.enableWebSearch),
+    enableFandomSearch: parseSettingBoolean(storage.jsonAdventure_enableFandomSearch, DEFAULT_SETTINGS.enableFandomSearch),
+    enableBraveSearch: parseSettingBoolean(storage.jsonAdventure_enableBraveSearch, DEFAULT_SETTINGS.enableBraveSearch),
+    braveSearchApiKey: storage.jsonAdventure_braveSearchApiKey || '',
+    braveSearchCount: parseSettingNumber(storage.jsonAdventure_braveSearchCount, DEFAULT_SETTINGS.braveSearchCount),
+    braveSearchCountry: storage.jsonAdventure_braveSearchCountry || DEFAULT_SETTINGS.braveSearchCountry,
+    braveSearchLang: storage.jsonAdventure_braveSearchLang || DEFAULT_SETTINGS.braveSearchLang
   };
 }
 
@@ -1151,8 +1210,12 @@ export async function createGameFromAnswers({ worldAnswers, playerAnswers, start
   return createNewGame(payload);
 }
 
-export function buildGameSystemPrompt(allData, summaryText, relevantLore = '', settings = {}) {
+export function buildGameSystemPrompt(allData, summaryText, relevantLore = '', settings = {}, extraContext = {}) {
   const provider = settings.provider || '';
+  const ragData = extraContext.ragData || '';
+  const wikipediaData = extraContext.wikipediaData || '';
+  const braveData = extraContext.braveData || '';
+  const fandomData = extraContext.fandomData || '';
   const defaultGamePrompt = `You are now a seasoned novelist acting as the Game Master. Write a dynamic, immersive, and grounded text-based adventure.
 
 CRITICAL NARRATIVE RULES:
@@ -1178,8 +1241,8 @@ INVENTORY UPDATE RULE: When an existing inventory item changes, use the update a
 - If nothing changed for a system, output an empty array for that system.`;
 
   const contextUseRules = `CONTEXT USE RULES:
-- Use codex entries only when relevant to the player's current action.
-- Current game state and player/world facts override older memory if they conflict.
+- Use retrieved memory, codex entries, web results, and fandom lore as references only when they are relevant to the player's current action.
+- Current game state and player/world facts override older retrieved memory if they conflict.
 - Keep canon/lore references natural; do not dump unrelated facts.`;
 
   const baseParts = `${customBase}
@@ -1201,7 +1264,19 @@ ${JSON.stringify(allData.gameState || {}, null, 2)}
 ${summaryText || ''}
 
 === RELEVANT CODEX ENTRIES ===
-${relevantLore || ''}`;
+${relevantLore || ''}
+
+=== RETRIEVED MEMORY ===
+${ragData}
+
+=== WIKIPEDIA ===
+${wikipediaData}
+
+=== BRAVE WEB SEARCH ===
+${braveData}
+
+=== LORE WIKI ===
+${fandomData}`;
 
   if (provider === 'openai') {
     return `${baseParts}
@@ -1212,6 +1287,34 @@ Your entire response must be valid JSON only. No markdown, no prose outside the 
   }
 
   return baseParts;
+}
+
+async function buildTurnSystemPrompt(session, userInput, settings) {
+  const allData = {
+    worldInfo: session.worldInfo,
+    playerInfo: session.playerInfo,
+    gameState: session.gameState
+  };
+  let retrieval = {
+    relevantLore: '',
+    ragData: '',
+    wikipediaData: '',
+    braveData: '',
+    fandomData: ''
+  };
+  try {
+    const mod = await import('./odyssey-retrieval.mjs');
+    retrieval = await mod.buildTurnRetrievalContext(userInput, session, settings);
+  } catch (err) {
+    console.warn(`Retrieval context failed: ${err.message}`);
+  }
+  const relevantLore = retrieval.relevantLore || buildRelevantLore(session);
+  return buildGameSystemPrompt(allData, session.summary, relevantLore, settings, {
+    ragData: retrieval.ragData,
+    wikipediaData: retrieval.wikipediaData,
+    braveData: retrieval.braveData,
+    fandomData: retrieval.fandomData
+  });
 }
 
 export function isOpenRouterProvider(value) {
@@ -1793,21 +1896,17 @@ function compactHistoryForTurn(history, maxMessages = 24) {
   return nonSystem.slice(Math.max(0, nonSystem.length - maxMessages));
 }
 
-export async function runOpeningTurn(gameId, settings = null) {
-  const activeSettings = settings || await loadSettings();
+export async function runOpeningTurn(gameId, _settings = null) {
+  // Always refresh so Telegram/CLI pick up desktop RAG and model changes mid-session.
+  const activeSettings = await loadSettings();
   if (!canUseAi(activeSettings)) {
     throw new Error('AI settings are not configured. Run `npm run odyssey:cli`, open Settings, and save a provider/model/API key first.');
   }
 
   const session = await loadGameSession(gameId);
   const snapshot = createTurnSnapshot(session, 'Opening scene', 'opening');
-  const allData = {
-    worldInfo: session.worldInfo,
-    playerInfo: session.playerInfo,
-    gameState: session.gameState
-  };
-  const system = buildGameSystemPrompt(allData, session.summary, buildRelevantLore(session), activeSettings);
   const opening = `Begin the adventure. Here is the opening scenario:\n\n${session.startingScenario}\n\nNarrate this opening scene immersively and then present the player with their first choice or opportunity to act.`;
+  const system = await buildTurnSystemPrompt(session, opening, activeSettings);
   const messages = [
     { role: 'system', content: system },
     { role: 'user', content: opening }
@@ -1827,8 +1926,9 @@ export async function runOpeningTurn(gameId, settings = null) {
   return { session, text: displayText, aiJson };
 }
 
-export async function runGameTurn(gameId, playerAction, settings = null) {
-  const activeSettings = settings || await loadSettings();
+export async function runGameTurn(gameId, playerAction, _settings = null) {
+  // Always refresh so Telegram/CLI pick up desktop RAG and model changes mid-session.
+  const activeSettings = await loadSettings();
   if (!canUseAi(activeSettings)) {
     throw new Error('AI settings are not configured. Run `npm run odyssey:cli`, open Settings, and save a provider/model/API key first.');
   }
@@ -1836,12 +1936,7 @@ export async function runGameTurn(gameId, playerAction, settings = null) {
   const session = await loadGameSession(gameId);
   const cleanAction = String(playerAction || '').trim();
   const snapshot = createTurnSnapshot(session, cleanAction, 'turn');
-  const allData = {
-    worldInfo: session.worldInfo,
-    playerInfo: session.playerInfo,
-    gameState: session.gameState
-  };
-  const system = buildGameSystemPrompt(allData, session.summary, buildRelevantLore(session), activeSettings);
+  const system = await buildTurnSystemPrompt(session, cleanAction, activeSettings);
   const prior = compactHistoryForTurn(session.chatHistory);
   const userMessage = { role: 'user', content: cleanAction };
   const messages = [

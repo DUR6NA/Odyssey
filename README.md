@@ -178,7 +178,7 @@ Odyssey has two separate knowledge paths:
 1. **World wiki search** - During setup and play, Odyssey can look up relevant world context from Wikipedia-style and Fandom/MediaWiki sources. Built-in and custom worlds can carry wiki metadata, and the retrieved passages are used as live context for the current turn when the related search/RAG settings are enabled.
 2. **Vector RAG stores** - Odyssey can index local game memory and curated universe knowledge into vector stores. These stores are opt-in from **Settings &rarr; RAG** and require a configured embedding provider before retrieval context is injected into turns.
 
-The Harry Potter universe vector store is intentionally separate from the v0.6.0 stable app package. It was validated as an alpha/prerelease vector-store artifact, but it is large and experimental, so the stable release keeps the generator/publisher workflow without bundling that store into the installer.
+The Harry Potter universe vector store is intentionally separate from the v0.6.1 stable app package. It was validated as an alpha/prerelease vector-store artifact, but it is large and experimental, so the stable release keeps the generator/publisher workflow without bundling that store into the installer.
 
 For maintainers, generation happens in the ignored `.rag-vector-generation/` workspace and curated stores are published intentionally into `public/jsons/universe-vector-stores/`.
 
@@ -192,7 +192,9 @@ Odyssey also ships with a text-only Node runtime for terminal and Telegram play.
 npm run odyssey:cli
 ```
 
-The CLI is arrow-key navigable for loading games, creating new campaigns, going back or editing the last turn, and opening the Player Menu, Game Codex, and stats views. It does not generate or display images. Preset loading still walks through the normal setup questions with preset answers filled in, so every field can be kept or changed. It also reads the desktop app's local WebView settings by default, so the terminal and Telegram runtimes can reuse your existing Odyssey provider, model, API key, token limits, reasoning setting, and game prompt. Explicit CLI settings and `ODYSSEY_*` environment variables override the desktop settings.
+The CLI is arrow-key navigable for loading games, creating new campaigns, going back or editing the last turn, and opening the Player Menu, Game Codex, and stats views. It does not generate or display images. Preset loading still walks through the normal setup questions with preset answers filled in, so every field can be kept or changed. It also reads the desktop app's local WebView settings by default, so the terminal and Telegram runtimes can reuse your existing Odyssey provider, model, API key, token limits, reasoning setting, game prompt, and retrieval flags. Explicit CLI settings and `ODYSSEY_*` environment variables override the desktop settings.
+
+**Retrieval in terminal/Telegram (opt-in from desktop Settings):** when Vector RAG, web/wiki, Fandom, or Brave search are enabled in the desktop app, the Node runtimes use the same flags. Game-memory vector RAG embeds and searches the per-save `vector_store.json` via your embedding API (shared with the desktop app). Live Wikipedia, world-wiki/Fandom MediaWiki search, and Brave Search run over HTTP when enabled. Premade universe vector packs (for example the separate Harry Potter store under `public/jsons/universe-vector-stores/`) are **not** loaded in CLI/Telegram.
 
 To run Odyssey through Telegram:
 

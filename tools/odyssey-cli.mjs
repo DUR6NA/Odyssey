@@ -6,6 +6,8 @@ import {
   buildFallbackSaveName,
   buildGameStateJson,
   buildPlayerJson,
+  buildPlayerText,
+  buildCodexText,
   buildStatsText,
   buildWorldJson,
   canUseAi,
@@ -608,12 +610,10 @@ async function gameLoop(gameId) {
 }
 
 async function playerText(gameId) {
-  const { buildPlayerText } = await import('./odyssey-core.mjs');
   return buildPlayerText(await loadGameSession(gameId));
 }
 
 async function codexText(gameId) {
-  const { buildCodexText } = await import('./odyssey-core.mjs');
   return buildCodexText(await loadGameSession(gameId));
 }
 

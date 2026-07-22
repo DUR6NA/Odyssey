@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Odyssey - Developer Documentation</title>
     <meta name="application-name" content="Odyssey">
-    <meta name="description" content="Developer documentation for Odyssey v0.6.0 and its Tauri-based desktop architecture.">
+    <meta name="description" content="Developer documentation for Odyssey v0.6.1 and its Tauri-based desktop architecture.">
     <meta name="theme-color" content="#121212">
-    <meta name="odyssey-version" content="0.6.0">
-    <meta name="odyssey-bundle-version" content="0.6.0">
-    <meta property="og:title" content="Odyssey v0.6.0 Developer Documentation">
+    <meta name="odyssey-version" content="0.6.1">
+    <meta name="odyssey-bundle-version" content="0.6.1">
+    <meta property="og:title" content="Odyssey v0.6.1 Developer Documentation">
     <meta property="og:description" content="Developer documentation for Odyssey's Tauri-based desktop architecture.">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary">
@@ -833,7 +833,7 @@
 
                 <section class="doc-section" id="terminal-telegram">
                     <h2>Terminal and Telegram Runtimes</h2>
-                    <p>The text-only runtimes live under <code>tools/</code> and reuse the same local save, preset, settings, rewind, and model-call code through <code>tools/odyssey-core.mjs</code>.</p>
+                    <p>The text-only runtimes live under <code>tools/</code> and reuse the same local save, preset, settings, rewind, and model-call code through <code>tools/odyssey-core.mjs</code>. Retrieval helpers live in <code>tools/odyssey-retrieval.mjs</code>.</p>
 
                     <h3>Entry points</h3>
                     <ul>
@@ -842,12 +842,22 @@
                         <li><code>npm run odyssey:telegram -- --setup</code> registers bot commands, description, and the optional menu button.</li>
                     </ul>
 
+                    <h3>Retrieval (API / live search only)</h3>
+                    <ul>
+                        <li>Turns call <code>buildTurnRetrievalContext</code> before the model request when desktop/env flags allow it.</li>
+                        <li><strong>Game vector RAG:</strong> embeds game world/player/state/summary/NPC/location docs into the save's <code>vector_store.json</code> and cosine-searches with the player action. Uses the same embedding provider settings as the desktop RAG tab.</li>
+                        <li><strong>Live search:</strong> optional Wikipedia, world MediaWiki/Fandom search, and Brave Search over HTTP (with small AI prechecks), matching desktop feature flags.</li>
+                        <li><strong>Not used:</strong> premade universe vector packs under <code>public/jsons/universe-vector-stores/</code> and offline <code>vector-stores/universes</code> caches. CLI/Telegram never load those.</li>
+                        <li>Retrieval failures are soft: turns continue without injected context.</li>
+                    </ul>
+
                     <h3>Telegram surface</h3>
                     <ul>
                         <li><code>tools/odyssey-telegram-bot.mjs</code> renders Telegram-specific HTML cards for narration, player, codex, stats, setup prompts, and error states.</li>
                         <li>The bot uses inline keyboards, styled button hints, force replies, quick action callbacks, message reactions, and optional Mini App buttons.</li>
                         <li>Telegram normal chat text does not support arbitrary CSS-style colors. Use emoji, styled buttons, custom emoji, media, or a Mini App for color/theming beyond HTML text emphasis.</li>
                         <li>If <code>ODYSSEY_TELEGRAM_WEB_APP_URL</code> is set to an HTTPS URL, setup registers an <code>Open Odyssey</code> menu button and bot messages include a Mini App launcher.</li>
+                        <li>Each turn reloads Odyssey settings from disk/desktop so RAG and model changes apply without restarting the bot process.</li>
                     </ul>
                 </section>
 
