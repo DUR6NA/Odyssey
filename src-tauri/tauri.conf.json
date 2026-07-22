@@ -37,6 +37,11 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "resources": [
+      "../tools/odyssey-telegram-bot.mjs",
+      "../tools/odyssey-core.mjs",
+      "../tools/odyssey-retrieval.mjs"
+    ],
     "copyright": "© Dur6na 2025"
   }
 }

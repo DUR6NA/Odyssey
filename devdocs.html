@@ -837,9 +837,16 @@
 
                     <h3>Entry points</h3>
                     <ul>
-                        <li><code>npm run odyssey:cli</code> starts the keyboard-driven terminal UI.</li>
-                        <li><code>npm run odyssey:telegram</code> starts the Telegram long-polling bot.</li>
-                        <li><code>npm run odyssey:telegram -- --setup</code> registers bot commands, description, and the optional menu button.</li>
+                        <li><code>npm run odyssey:cli</code> starts the keyboard-driven terminal UI (terminal only).</li>
+                        <li>Telegram is started from <strong>Settings → Telegram → Start Bot</strong> via Tauri commands <code>telegram_bot_start</code> / <code>telegram_bot_stop</code> / <code>telegram_bot_status</code> (spawns Node <code>tools/odyssey-telegram-bot.mjs</code>).</li>
+                        <li>The bot always registers Telegram commands on process start (no separate setup step). <code>npm run odyssey:telegram</code> remains a power-user CLI fallback.</li>
+                    </ul>
+
+                    <h3>Telegram auth enforcement</h3>
+                    <ul>
+                        <li>Each update reloads <code>telegram-settings.json</code> and <code>verifiedUsers</code> from disk so Settings → Reset Verified Users applies without restarting the bot.</li>
+                        <li>Verified records store a <code>pairingFingerprint</code>; changing pairing words (and Save) clears verified users and rejects stale fingerprints.</li>
+                        <li>Explicit Allowed Telegram IDs still bypass pairing and are not cleared by Reset.</li>
                     </ul>
 
                     <h3>Retrieval (API / live search only)</h3>

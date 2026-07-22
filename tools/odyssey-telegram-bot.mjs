@@ -113,6 +113,39 @@ async function reloadTelegramSettings() {
   refreshAuthConfig();
 }
 
+/** Disk is source of truth for verified users (Settings reset / new pairing words). */
+async function reloadAuthStateFromDisk() {
+  await reloadTelegramSettings();
+  const disk = await readJsonFile(await getTelegramStatePath(), {
+    offset: 0,
+    chats: {},
+    pairedUsers: {},
+    verifiedUsers: {}
+  });
+  state.verifiedUsers = disk.verifiedUsers && typeof disk.verifiedUsers === 'object' ? disk.verifiedUsers : {};
+  state.pairedUsers = disk.pairedUsers && typeof disk.pairedUsers === 'object' ? disk.pairedUsers : {};
+
+  // Drop verifications that do not match the current pairing phrase (includes legacy records without a fingerprint).
+  if (authEnabled && pairingPhrase) {
+    let pruned = false;
+    for (const [id, record] of Object.entries(state.verifiedUsers)) {
+      const fingerprint = String(record?.pairingFingerprint || '').trim();
+      if (fingerprint !== pairingPhrase) {
+        delete state.verifiedUsers[id];
+        pruned = true;
+      }
+    }
+    if (pruned) {
+      await writeJsonFile(await getTelegramStatePath(), {
+        offset: Number(state.offset || disk.offset || 0),
+        chats: state.chats || disk.chats || {},
+        pairedUsers: state.pairedUsers,
+        verifiedUsers: state.verifiedUsers
+      });
+    }
+  }
+}
+
 class TelegramBotApi {
   constructor(botToken) {
     this.baseUrl = `https://api.telegram.org/bot${botToken}`;
@@ -180,14 +213,16 @@ class TelegramBotApi {
 
 const api = new TelegramBotApi(token);
 
-if (process.argv.includes('--setup')) {
-  await setupBot();
-  process.exit(0);
-}
-
 let state = await loadState();
 let settings = await loadSettings();
 let offset = Number(state.offset || 0);
+
+// Always register commands/description on start so the app never needs a separate terminal setup step.
+await setupBot();
+
+if (process.argv.includes('--setup')) {
+  process.exit(0);
+}
 
 console.log('Odyssey Telegram bot is polling. Press Ctrl+C to stop.');
 
@@ -287,7 +322,12 @@ function isVerified(from) {
   if (!isVerificationRequired()) return true;
   const id = getTelegramUserId(from);
   if (!id) return false;
-  return allowedUsers.has(id) || Boolean(state.verifiedUsers?.[id]);
+  if (allowedUsers.has(id)) return true;
+  const record = state.verifiedUsers?.[id];
+  if (!record) return false;
+  // Must match the current pairing phrase so reset / new words revoke access.
+  if (!pairingPhrase) return false;
+  return String(record.pairingFingerprint || '') === pairingPhrase;
 }
 
 function verifyTelegramUser(from) {
@@ -299,7 +339,8 @@ function verifyTelegramUser(from) {
     username: from?.username || '',
     firstName: from?.first_name || '',
     lastName: from?.last_name || '',
-    verifiedAt: new Date().toISOString()
+    verifiedAt: new Date().toISOString(),
+    pairingFingerprint: pairingPhrase
   };
   return state.verifiedUsers[id];
 }
@@ -307,7 +348,18 @@ function verifyTelegramUser(from) {
 function verificationKeyboard() {
   return {
     reply_markup: {
-      inline_keyboard: [[button('Verify account', 'verify', 'primary')]]
+      inline_keyboard: [[button('🔑 Verify account', 'verify', 'primary')]]
+    }
+  };
+}
+
+function postVerifyKeyboard() {
+  return {
+    reply_markup: {
+      inline_keyboard: [
+        [button('📂 Load game', 'load', 'primary'), button('✨ New campaign', 'new', 'success')],
+        [button('❓ Help', 'menu')]
+      ]
     }
   };
 }
@@ -315,33 +367,75 @@ function verificationKeyboard() {
 async function sendVerificationRequired(chatId, chat, reason = '') {
   if (chat) {
     chat.mode = 'verify';
-    chat.step = 'pairingPhrase';
+    chat.step = 'awaitingVerifyButton';
   }
   const body = pairingPhrase
     ? [
-        reason || 'This Odyssey bot is private.',
-        'Send /verify, then reply with the pairing words shown in Odyssey Settings > Telegram.'
+        escapeHtml(reason || 'This Odyssey bot is private and only works with the Odyssey app on the owner’s PC.'),
+        '',
+        '<b>Step 1 of 2 — Get ready</b>',
+        '1. Open <b>Odyssey → Settings → Telegram</b>',
+        '2. Confirm the bot status shows <b>Running</b>',
+        '3. Copy the <b>Pairing Words</b> shown there',
+        '4. Tap <b>Verify account</b> below, then paste those words'
       ].join('\n')
-    : 'This Odyssey bot is private, but no pairing phrase is configured yet. Open Odyssey Settings > Telegram and save a pairing phrase.';
-  await api.sendHtml(chatId, statusHtml('LOCK', 'Verification required', body), verificationKeyboard());
+    : [
+        'This Odyssey bot is private, but no pairing words are saved yet.',
+        '',
+        'Ask the owner to open <b>Odyssey → Settings → Telegram</b>, generate pairing words, and press <b>Save</b>.'
+      ].join('\n');
+  await api.sendHtml(
+    chatId,
+    statusHtml('🔒', 'Step 1 of 2 — Verification required', body, { rawBody: true }),
+    verificationKeyboard()
+  );
 }
 
 async function startVerification(chatId, chat, from = null) {
+  await reloadAuthStateFromDisk();
+
   if (!isVerificationRequired()) {
     resetChatFlow(chat);
-    await api.sendHtml(chatId, statusHtml('OK', 'Verification off', 'This bot is not currently requiring verification.'), mainKeyboard());
+    await api.sendHtml(
+      chatId,
+      statusHtml('✅', 'Open access', 'Private pairing is turned off in Odyssey Settings, so anyone can use this bot.'),
+      mainKeyboard()
+    );
     return;
   }
 
   if (from && isVerified(from)) {
     resetChatFlow(chat);
-    await api.sendHtml(chatId, statusHtml('OK', 'Already verified', 'This Telegram account is already allowed to use this Odyssey bot.'), mainKeyboard());
+    await api.sendHtml(
+      chatId,
+      statusHtml(
+        '✅',
+        'Already verified',
+        [
+          'This Telegram account is allowed to use the bot with the current pairing words.',
+          '',
+          '<b>Next steps</b>',
+          '1. Tap <b>Load game</b> or <b>New campaign</b>',
+          '2. After a scene, type what your character does'
+        ].join('\n'),
+        { rawBody: true }
+      ),
+      postVerifyKeyboard()
+    );
     return;
   }
 
   if (!pairingPhrase) {
     resetChatFlow(chat);
-    await api.sendHtml(chatId, statusHtml('LOCK', 'No pairing phrase', 'Open Odyssey Settings > Telegram and save a pairing phrase before verifying accounts.'));
+    await api.sendHtml(
+      chatId,
+      statusHtml(
+        '🔒',
+        'No pairing words',
+        'Open <b>Odyssey → Settings → Telegram</b>, generate pairing words, Save, then try Verify again.',
+        { rawBody: true }
+      )
+    );
     return;
   }
 
@@ -350,29 +444,63 @@ async function startVerification(chatId, chat, from = null) {
   chat.draft = {};
   await sendPrompt(
     chatId,
-    'KEY',
-    'Verify Odyssey bot',
-    'Reply with the pairing words from Odyssey Settings > Telegram. This account will stay verified until pairings are reset.',
+    '🔑',
+    'Step 2 of 2 — Enter pairing words',
+    [
+      'Copy the pairing words from Odyssey → Settings → Telegram.',
+      'They look like: lamp tiger shoelace hairpin',
+      '',
+      'Reply to this message with those exact words (order matters).',
+      'You will stay verified until the owner resets users or changes the words.'
+    ].join('\n'),
     'pairing words'
   );
 }
 
 async function handleVerificationText(chatId, chat, from, text) {
+  await reloadAuthStateFromDisk();
   if (canPairWithText(text)) {
     verifyTelegramUser(from);
     resetChatFlow(chat);
     await saveState();
-    await api.sendHtml(chatId, statusHtml('OK', 'Verified', 'This Telegram account can now use the Odyssey bot.'), mainKeyboard());
+    await api.sendHtml(
+      chatId,
+      statusHtml(
+        '✅',
+        'Verified',
+        [
+          'This Telegram account can use Odyssey on this PC.',
+          '',
+          '<b>Next steps</b>',
+          '1. Tap <b>Load game</b> or <b>New campaign</b>',
+          '2. After a scene, type what your character does as a normal message'
+        ].join('\n'),
+        { rawBody: true }
+      ),
+      postVerifyKeyboard()
+    );
     return;
   }
 
   chat.mode = 'verify';
   chat.step = 'pairingPhrase';
-  await api.sendHtml(chatId, errorHtml('Verification failed', 'Those words did not match. Send /verify to try again, then copy the pairing words exactly from Settings > Telegram.'), verificationKeyboard());
+  await api.sendHtml(
+    chatId,
+    errorHtml(
+      'Those words did not match',
+      [
+        '1. Open Odyssey → Settings → Telegram',
+        '2. Press Copy next to Pairing Words (or copy carefully)',
+        '3. Tap Verify account again',
+        '4. Paste the words as a reply — no extra text'
+      ].join('\n')
+    ),
+    verificationKeyboard()
+  );
 }
 
 async function handleUpdate(update) {
-  await reloadTelegramSettings();
+  await reloadAuthStateFromDisk();
   if (update.message) return handleMessage(update.message);
   if (update.callback_query) return handleCallback(update.callback_query);
   return null;
@@ -421,7 +549,7 @@ async function handleMessage(message) {
   settings = await loadSettings();
 
   if (command) {
-    return handleCommand(chatId, chat, command);
+    return handleCommand(chatId, chat, command, message.from);
   }
 
   if (chat.mode === 'new') {
@@ -452,7 +580,7 @@ async function playTurn(chatId, chat, action) {
   }
 }
 
-async function handleCommand(chatId, chat, command) {
+async function handleCommand(chatId, chat, command, from = null) {
   if (command === '/start' || command === '/menu' || command === '/help') {
     resetChatFlow(chat);
     await api.sendHtml(chatId, helpText(), mainKeyboard());
@@ -460,9 +588,7 @@ async function handleCommand(chatId, chat, command) {
   }
 
   if (command === '/verify') {
-    resetChatFlow(chat);
-    await api.sendHtml(chatId, statusHtml('OK', 'Already verified', 'This Telegram account is already allowed to use this Odyssey bot.'), mainKeyboard());
-    return;
+    return startVerification(chatId, chat, from);
   }
 
   if (command === '/cancel') {
@@ -948,22 +1074,18 @@ function helpText() {
   return [
     '🌌 <b>Odyssey Telegram</b>',
     '',
-    'Play your local Odyssey saves through Telegram with rich controls, styled buttons, rewind/edit tools, and status cards.',
+    'Play local Odyssey saves from this chat. The bot runs on the owner’s PC.',
     '',
-    '<b>Commands</b>',
-    'KEY /verify - verify this Telegram account',
-    '📂 /load - choose an existing save',
-    '✨ /new - create a campaign',
-    '↩️ /back - go back one turn',
-    '✏️ /edit - edit and regenerate the last turn',
-    '📜 /history - show rewind points',
-    '🧍 /player - player and inventory',
-    '📚 /codex - NPC and location ledger',
-    '📊 /stats - clock and tracked stats',
-    '⚙️ /settings - show provider and Telegram runtime settings',
-    '✖️ /cancel - cancel setup',
+    '<b>How to play</b>',
+    '1. If private mode is on, verify with the pairing words from the app',
+    '2. Tap <b>Load game</b> or <b>New campaign</b>',
+    '3. Read the scene, then type what your character does',
+    '4. Use <b>Back</b> / <b>Edit last</b> if you want to undo or rewrite a turn',
     '',
-    '<i>Once a game is loaded, send any normal message as your player action.</i>'
+    '<b>Useful commands</b>',
+    '/verify · /load · /new · /back · /edit · /player · /codex · /stats · /menu · /cancel',
+    '',
+    '<i>Buttons do the same things as the commands above.</i>'
   ].join('\n');
 }
 
@@ -1055,7 +1177,7 @@ function formatTelegramSettingsHtml(chat) {
     `🖥️ <b>Mini App URL:</b> ${escapeHtml(webAppUrl || 'Not configured')}`,
     `📁 <b>Data folder:</b> ${escapeHtml(getOdysseyBaseDir())}`,
     '',
-    '<i>Edit model and Telegram settings in the desktop app. Restart this runner after changing the bot token.</i>'
+    '<i>Edit model and Telegram settings in Odyssey → Settings. Start/stop the bot from the app. Change the token, then Stop and Start the bot again.</i>'
   ].join('\n');
 }
 
@@ -1224,15 +1346,18 @@ function formatRewindResult(result) {
   ].join('\n\n');
 }
 
-function statusHtml(icon, title, body = '') {
+function statusHtml(icon, title, body = '', options = {}) {
+  const bodyHtml = body
+    ? (options.rawBody ? String(body) : escapeHtml(body))
+    : '';
   return [
     `${icon} <b>${escapeHtml(title)}</b>`,
-    body ? escapeHtml(body) : ''
+    bodyHtml
   ].filter(Boolean).join('\n');
 }
 
-function errorHtml(title, body = '') {
-  return statusHtml('⚠️', title, body || 'Something went wrong.');
+function errorHtml(title, body = '', options = {}) {
+  return statusHtml('⚠️', title, body || 'Something went wrong.', options);
 }
 
 function noActiveGameHtml() {

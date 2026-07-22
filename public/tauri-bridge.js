@@ -23,6 +23,15 @@ function errMsg(e) {
   const path   = window.__TAURI__.path;
   const dialog = window.__TAURI__.dialog;
   const shell  = window.__TAURI__.shell;
+  const core   = window.__TAURI__.core;
+
+  function getInvoke() {
+    const t = window.__TAURI__;
+    if (!t) return null;
+    if (t.core && typeof t.core.invoke === 'function') return t.core.invoke.bind(t.core);
+    if (typeof t.invoke === 'function') return t.invoke.bind(t);
+    return null;
+  }
 
   if (!fs || !path) {
     console.error(
@@ -348,6 +357,7 @@ function errMsg(e) {
       try {
         const base = await getBaseDir();
         const settingsPath = await path.join(base, 'telegram-settings.json');
+        const statePath = await path.join(base, 'telegram-sessions.json');
         const allowedUsers = Array.isArray(settings?.allowedUsers)
           ? settings.allowedUsers.map(value => String(value || '').trim()).filter(Boolean)
           : String(settings?.allowedUsers || '').split(/[\s,;]+/).map(value => value.trim()).filter(Boolean);
@@ -359,8 +369,36 @@ function errMsg(e) {
           webAppUrl: String(settings?.webAppUrl || '').trim(),
           updatedAt: new Date().toISOString()
         };
+
+        let previousPhrase = '';
+        if (await fs.exists(settingsPath)) {
+          try {
+            const previous = JSON.parse(await fs.readTextFile(settingsPath));
+            previousPhrase = String(previous?.pairingPhrase || '').trim();
+          } catch (e) {}
+        }
+
         await fs.writeTextFile(settingsPath, JSON.stringify(clean, null, 2));
-        return { success: true, settings: clean, folder: base };
+
+        // Changing pairing words revokes existing verified accounts (allow-list IDs stay).
+        if (previousPhrase && clean.pairingPhrase && previousPhrase !== clean.pairingPhrase) {
+          let state = { offset: 0, chats: {}, pairedUsers: {}, verifiedUsers: {} };
+          if (await fs.exists(statePath)) {
+            try {
+              state = JSON.parse(await fs.readTextFile(statePath));
+            } catch (e) {}
+          }
+          state.pairedUsers = {};
+          state.verifiedUsers = {};
+          await fs.writeTextFile(statePath, JSON.stringify(state, null, 2));
+        }
+
+        return {
+          success: true,
+          settings: clean,
+          folder: base,
+          clearedVerifiedUsers: Boolean(previousPhrase && clean.pairingPhrase && previousPhrase !== clean.pairingPhrase)
+        };
       } catch (e) {
         console.error('saveTelegramSettings error:', e);
         return { success: false, error: errMsg(e) };
@@ -384,6 +422,42 @@ function errMsg(e) {
       } catch (e) {
         console.error('clearTelegramPairings error:', e);
         return { success: false, error: errMsg(e) };
+      }
+    },
+
+    async startTelegramBot() {
+      try {
+        const invoke = getInvoke();
+        if (!invoke) return { success: false, error: 'Desktop invoke unavailable.' };
+        const status = await invoke('telegram_bot_start');
+        return { success: true, status };
+      } catch (e) {
+        console.error('startTelegramBot error:', e);
+        return { success: false, error: errMsg(e) };
+      }
+    },
+
+    async stopTelegramBot() {
+      try {
+        const invoke = getInvoke();
+        if (!invoke) return { success: false, error: 'Desktop invoke unavailable.' };
+        const status = await invoke('telegram_bot_stop');
+        return { success: true, status };
+      } catch (e) {
+        console.error('stopTelegramBot error:', e);
+        return { success: false, error: errMsg(e) };
+      }
+    },
+
+    async getTelegramBotStatus() {
+      try {
+        const invoke = getInvoke();
+        if (!invoke) return { success: false, running: false, error: 'Desktop invoke unavailable.' };
+        const status = await invoke('telegram_bot_status');
+        return { success: true, ...status };
+      } catch (e) {
+        console.error('getTelegramBotStatus error:', e);
+        return { success: false, running: false, error: errMsg(e) };
       }
     },
 

@@ -196,38 +196,16 @@ The CLI is arrow-key navigable for loading games, creating new campaigns, going 
 
 **Retrieval in terminal/Telegram (opt-in from desktop Settings):** when Vector RAG, web/wiki, Fandom, or Brave search are enabled in the desktop app, the Node runtimes use the same flags. Game-memory vector RAG embeds and searches the per-save `vector_store.json` via your embedding API (shared with the desktop app). Live Wikipedia, world-wiki/Fandom MediaWiki search, and Brave Search run over HTTP when enabled. Premade universe vector packs (for example the separate Harry Potter store under `public/jsons/universe-vector-stores/`) are **not** loaded in CLI/Telegram.
 
-To run Odyssey through Telegram:
+To run Odyssey through Telegram (all in the app — no terminal):
 
 1. Message [BotFather](https://core.telegram.org/bots/features#botfather) in Telegram and create a bot.
-2. Open Odyssey, go to **Settings -> Telegram**, paste the bot token, and save.
-3. Keep private pairing enabled unless you intentionally want a public bot. Odyssey generates a local four-word pairing phrase from the standard 2048-word BIP-39 English list.
-4. Run setup once so Telegram updates the bot command menu:
+2. Open Odyssey → **Settings → Telegram**, paste the bot token, keep private pairing on, generate pairing words, and **Save**.
+3. Press **Start Bot** and wait until status shows **Running** (requires Node.js 18+ on PATH).
+4. Open your bot in Telegram, send `/start`, and follow the step-by-step verify prompts using the pairing words from Settings.
 
-```powershell
-npm run odyssey:telegram -- --setup
-```
+**Reset / security:** **Reset Verified Users** clears paired accounts immediately for the running bot (no restart). Saving new pairing words also revokes previous verifications. Optional **Allowed Telegram IDs** are separate and are not cleared by Reset.
 
-5. Start long polling and leave the runner open while playing:
-
-```powershell
-npm run odyssey:telegram
-```
-
-6. In Telegram, open your bot, send `/start`, tap **Verify account** or send `/verify`, then reply with the pairing words shown in **Settings -> Telegram**.
-
-The bot token, pairing phrase, optional allowed Telegram IDs, and optional Mini App URL are stored locally in Odyssey app data as `telegram-settings.json`. The runner also loads `.env.local` and `.env` from the repo root, so power users can still override settings with environment variables:
-
-```env
-TELEGRAM_BOT_TOKEN=123456:your-token
-ODYSSEY_TELEGRAM_PAIRING_PHRASE=lamp tiger shoelace hairpin
-ODYSSEY_TELEGRAM_AUTH_ENABLED=true
-```
-
-Optional explicit allow list:
-
-```powershell
-$env:ODYSSEY_TELEGRAM_ALLOWED_USERS="123456789"
-```
+Settings are stored in Odyssey app data as `telegram-settings.json`. Power users can still run `npm run odyssey:telegram` or set env overrides (`TELEGRAM_BOT_TOKEN`, `ODYSSEY_TELEGRAM_PAIRING_PHRASE`, etc.).
 
 Telegram commands include `/verify`, `/load`, `/new`, `/back`, `/edit`, `/history`, `/player`, `/codex`, `/stats`, `/settings`, `/menu`, and `/cancel`. After a verified account loads a game, normal chat messages are treated as player actions. New turns create local rewind snapshots, so `/back` restores the previous game state and `/edit` rewinds then regenerates from your replacement action.
 

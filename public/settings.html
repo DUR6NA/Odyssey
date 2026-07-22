@@ -242,13 +242,13 @@
                 <!-- Telegram Tab -->
                 <div id="tab-telegram" class="settings-tab" style="display: none;">
                     <h2>Telegram Bot</h2>
-                    <p>Pair a private Telegram bot with Odyssey saves on this computer.</p>
+                    <p>Pair a private Telegram bot with Odyssey saves on this computer. Setup stays in the app — no terminal required.</p>
 
                     <ol class="telegram-setup-steps">
                         <li>In Telegram, message <a href="https://t.me/BotFather" target="_blank" rel="noopener">BotFather</a> and send <code>/newbot</code>.</li>
-                        <li>Copy the token BotFather gives you, paste it below, then save.</li>
-                        <li>Run the setup command once after changing tokens so Telegram updates the command menu.</li>
-                        <li>Start the bot runner, open your bot in Telegram, send <code>/start</code>, then send the pairing words shown here.</li>
+                        <li>Paste the token below, set pairing words, then press <strong>Save Telegram Settings</strong>.</li>
+                        <li>Press <strong>Start Bot</strong> (status should show Running).</li>
+                        <li>Open your bot in Telegram, send <code>/start</code>, and follow the step-by-step verify prompts with the pairing words below.</li>
                     </ol>
 
                     <div class="control-group mt-lg">
@@ -271,7 +271,7 @@
                         <button onclick="generateTelegramPairingPhrase()" class="btn btn-compact">Generate Words</button>
                         <button onclick="copyTelegramPairingPhrase()" class="btn btn-compact">Copy</button>
                     </div>
-                    <p class="telegram-note">Anyone who completes /verify with these words can use the bot. Generate new words whenever you want to stop new accounts from verifying.</p>
+                    <p class="telegram-note">Share these words only with people you trust. Saving new words revokes previously verified accounts. Explicit Allowed IDs below are separate and are not cleared by Reset.</p>
 
                     <div class="control-group mt-md">
                         <label>Allowed Telegram IDs:</label>
@@ -286,17 +286,14 @@
                     </div>
 
                     <hr class="divider">
-                    <h3>Run the Bot</h3>
+                    <h3>Bot Runner</h3>
+                    <p class="telegram-note">Requires Node.js 18+ on this PC (same as the terminal CLI). The app starts the bot in the background.</p>
 
-                    <div class="telegram-command-row">
-                        <code id="telegram-setup-command">npm run odyssey:telegram -- --setup</code>
-                        <button onclick="copyTelegramCommand('telegram-setup-command')" class="btn btn-compact">Copy Setup</button>
+                    <div class="control-group mt-md telegram-runner-row">
+                        <button type="button" id="telegram-start-btn" onclick="startTelegramBotFromSettings()" class="btn btn-compact">Start Bot</button>
+                        <button type="button" id="telegram-stop-btn" onclick="stopTelegramBotFromSettings()" class="btn btn-compact">Stop Bot</button>
+                        <span id="telegram-bot-status" class="hint-text" data-state="stopped">Status: Stopped</span>
                     </div>
-                    <div class="telegram-command-row">
-                        <code id="telegram-run-command">npm run odyssey:telegram</code>
-                        <button onclick="copyTelegramCommand('telegram-run-command')" class="btn btn-compact">Copy Start</button>
-                    </div>
-                    <p class="telegram-note">Leave the bot runner open while playing from Telegram. If you change the token, restart the runner.</p>
 
                     <div class="control-group mt-lg">
                         <button onclick="saveTelegramSettings(true)" class="btn btn-compact">Save Telegram Settings</button>
@@ -942,6 +939,8 @@
             }
 
             renderTelegramRuntimeSummary(bridgeResult);
+            await refreshTelegramBotStatus();
+            ensureTelegramBotStatusPolling();
         }
 
         function getTelegramSettingsFromForm() {
@@ -973,12 +972,110 @@
             }
 
             if (result.success) {
-                notifyTelegramStatus('Telegram settings saved.', 'success');
-                if (showAlert && window.Odyssey?.notify) window.Odyssey.notify('Telegram settings saved.', { type: 'success' });
+                const extra = result.clearedVerifiedUsers
+                    ? ' New pairing words saved — previously verified accounts must verify again.'
+                    : '';
+                notifyTelegramStatus(`Telegram settings saved.${extra}`, 'success');
+                if (showAlert && window.Odyssey?.notify) {
+                    window.Odyssey.notify(`Telegram settings saved.${extra}`, { type: 'success' });
+                }
             } else {
                 notifyTelegramStatus(`Saved to browser storage only: ${result.error}`, 'warning');
             }
             await loadTelegramSettings();
+            await refreshTelegramBotStatus();
+        }
+
+        let telegramBotStatusTimer = null;
+
+        function setTelegramBotStatusUi(status) {
+            const el = document.getElementById('telegram-bot-status');
+            if (!el) return;
+            if (!status || status.success === false && !status.running) {
+                const err = status?.error || status?.lastError || '';
+                el.textContent = err ? `Status: Error — ${err}` : 'Status: Stopped';
+                el.dataset.state = err ? 'error' : 'stopped';
+                return;
+            }
+            if (status.running) {
+                el.textContent = status.pid
+                    ? `Status: Running (pid ${status.pid})`
+                    : 'Status: Running';
+                el.dataset.state = 'running';
+            } else if (status.lastError) {
+                el.textContent = `Status: Error — ${status.lastError}`;
+                el.dataset.state = 'error';
+            } else {
+                el.textContent = 'Status: Stopped';
+                el.dataset.state = 'stopped';
+            }
+        }
+
+        async function refreshTelegramBotStatus() {
+            try {
+                if (window.tauriBridgeReady) await window.tauriBridgeReady;
+                if (!window.tauriBridge?.getTelegramBotStatus) {
+                    setTelegramBotStatusUi({ success: false, error: 'Start/Stop available in the desktop app only.' });
+                    return;
+                }
+                const status = await window.tauriBridge.getTelegramBotStatus();
+                setTelegramBotStatusUi(status);
+            } catch (e) {
+                setTelegramBotStatusUi({ success: false, error: e.message || String(e) });
+            }
+        }
+
+        function ensureTelegramBotStatusPolling() {
+            if (telegramBotStatusTimer) return;
+            telegramBotStatusTimer = setInterval(() => {
+                const tab = document.getElementById('tab-telegram');
+                if (tab && tab.style.display !== 'none') refreshTelegramBotStatus();
+            }, 3000);
+        }
+
+        async function startTelegramBotFromSettings() {
+            const token = document.getElementById('telegram-bot-token')?.value?.trim();
+            if (!token) {
+                notifyTelegramStatus('Save a BotFather token first.', 'error');
+                return;
+            }
+            await saveTelegramSettings(false);
+            notifyTelegramStatus('Starting Telegram bot…', 'info');
+            setTelegramBotStatusUi({ running: false, lastError: null });
+            const el = document.getElementById('telegram-bot-status');
+            if (el) {
+                el.textContent = 'Status: Starting…';
+                el.dataset.state = 'starting';
+            }
+            try {
+                if (window.tauriBridgeReady) await window.tauriBridgeReady;
+                if (!window.tauriBridge?.startTelegramBot) {
+                    throw new Error('Desktop bot runner unavailable.');
+                }
+                const result = await window.tauriBridge.startTelegramBot();
+                if (!result.success) throw new Error(result.error || 'Start failed.');
+                setTelegramBotStatusUi({ success: true, ...result.status });
+                notifyTelegramStatus('Telegram bot started. Open your bot in Telegram and send /start.', 'success');
+                ensureTelegramBotStatusPolling();
+            } catch (e) {
+                setTelegramBotStatusUi({ success: false, error: e.message || String(e) });
+                notifyTelegramStatus(e.message || String(e), 'error');
+            }
+        }
+
+        async function stopTelegramBotFromSettings() {
+            try {
+                if (window.tauriBridgeReady) await window.tauriBridgeReady;
+                if (!window.tauriBridge?.stopTelegramBot) {
+                    throw new Error('Desktop bot runner unavailable.');
+                }
+                const result = await window.tauriBridge.stopTelegramBot();
+                if (!result.success) throw new Error(result.error || 'Stop failed.');
+                setTelegramBotStatusUi({ success: true, running: false });
+                notifyTelegramStatus('Telegram bot stopped.', 'success');
+            } catch (e) {
+                notifyTelegramStatus(e.message || String(e), 'error');
+            }
         }
 
         async function generateTelegramPairingPhrase() {
@@ -1015,7 +1112,10 @@
 
         async function clearTelegramPairings() {
             const ok = window.odysseyConfirm
-                ? await window.odysseyConfirm('Reset all verified Telegram accounts? The bot token and pairing words stay saved.', { confirmLabel: 'Reset Verification', danger: true })
+                ? await window.odysseyConfirm(
+                    'Reset all verified Telegram accounts? They must pair again with the current words.\n\nNote: Allowed Telegram IDs are not cleared — those accounts still have access until you remove them from the list.',
+                    { confirmLabel: 'Reset Verification', danger: true }
+                )
                 : true;
             if (!ok) return;
 
@@ -1026,7 +1126,7 @@
                 }
                 const result = await window.tauriBridge.clearTelegramPairings();
                 if (!result.success) throw new Error(result.error || 'Reset failed.');
-                notifyTelegramStatus('Verified Telegram users reset.', 'success');
+                notifyTelegramStatus('Verified Telegram users reset. The running bot will enforce this on the next message.', 'success');
                 await loadTelegramSettings();
             } catch (e) {
                 notifyTelegramStatus(`Could not reset pairings: ${e.message || e}`, 'error');
@@ -1213,6 +1313,10 @@
             if (tabName === 'appearance') {
                 renderThemeCards();
                 initFontDropdowns();
+            }
+            if (tabName === 'telegram') {
+                refreshTelegramBotStatus();
+                ensureTelegramBotStatusPolling();
             }
         }
 
