@@ -1,6 +1,6 @@
 # Odyssey
 
-> A native desktop AI-driven text adventure engine. Choose a universe, craft a character, and shape your own story with any AI model you connect.
+> An AI-driven text adventure engine for desktop, terminal, and Telegram. Choose a universe, craft a character, and shape your own story with any AI model you connect.
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](#download)
@@ -30,7 +30,7 @@
 
 ## Download
 
-**The recommended way to install Odyssey is through GitHub Releases.** Prebuilt installers are available for Windows, macOS, and Linux, and are signed artifacts produced by the project's GitHub Actions workflow.
+**The recommended way to install Odyssey is through GitHub Releases.** Prebuilt installers for Windows, macOS, and Linux are produced automatically by the project's [Tauri Build & Release](.github/workflows/tauri.yml) workflow when a version tag (for example `v0.6.1`) is pushed.
 
 ### [Download the latest release &rarr;](https://github.com/DUR6NA/Odyssey/releases/latest)
 
@@ -40,7 +40,7 @@
 | macOS   | `Odyssey_x.y.z_aarch64.dmg` / `Odyssey_x.y.z_x64.dmg` |
 | Linux   | `odyssey_x.y.z_amd64.deb` or `odyssey_x.y.z_amd64.AppImage` |
 
-After installing, launch Odyssey and follow the in-app welcome screen to configure an AI provider.
+After installing, launch Odyssey and follow the in-app welcome screen to configure an AI provider. Text-only play is also available via the [terminal CLI and Telegram bot](#terminal-and-telegram-play) without using the installers.
 
 ---
 
@@ -54,7 +54,7 @@ After installing, launch Odyssey and follow the in-app welcome screen to configu
 - **AI-generated portraits** — Character and scene artwork generated on demand from detailed, editable prompts.
 - **Live game state** — Health, Money, Hunger, Thirst, and Energy are tracked every turn and surfaced in the sidebar.
 - **Automatic Game Codex** — An NPC Ledger and Location Ledger populate themselves as your story unfolds, giving you a durable reference for every person and place you encounter.
-- **Text-only CLI and Telegram bot** - Play Odyssey without images through an ASCII terminal UI or a BotFather-created Telegram bot backed by the same local saves.
+- **Text-only CLI and Telegram bot** — Play Odyssey without images through an ASCII terminal UI (`npm run odyssey:cli`) or a BotFather-created Telegram bot (`npm run odyssey:telegram` / **Settings → Telegram → Start Bot**). Both share the desktop app’s local saves and provider settings.
 - **Multiple themes** — Dark Mode, Light Mode, Frutiger Aero, Starry Night, and Matrix, plus configurable typography and accessibility options.
 - **Voice narration (TTS)** — Listen to every turn of narration. Plug in any of four providers — a self-hosted [Kokoro-FastAPI](https://github.com/remsky/Kokoro-FastAPI) server, OpenAI, Google Cloud TTS, or xAI Grok — with a shared control for playback speed (0.5x–2.0x) and per-provider voice selection. Kokoro additionally supports **weighted voice blending**, letting you mix multiple voices into a single custom narrator.
 - **Save management** — Named saves, plus one-click Import and Export for sharing or backing up campaigns.
@@ -186,32 +186,51 @@ For maintainers, generation happens in the ignored `.rag-vector-generation/` wor
 
 ## Terminal and Telegram Play
 
-Odyssey also ships with a text-only Node runtime for terminal and Telegram play. These modes use the same save folder as the Tauri desktop app:
+Odyssey ships with a text-only Node runtime shared by the terminal CLI and Telegram bot. Both use the same Odyssey app-data folder as the Tauri desktop app (saves, presets, and provider settings).
+
+### Terminal CLI
 
 ```bash
+# From a clone (after npm install)
 npm run odyssey:cli
 ```
 
-The CLI is arrow-key navigable for loading games, creating new campaigns, going back or editing the last turn, and opening the Player Menu, Game Codex, and stats views. It does not generate or display images. Preset loading still walks through the normal setup questions with preset answers filled in, so every field can be kept or changed. It also reads the desktop app's local WebView settings by default, so the terminal and Telegram runtimes can reuse your existing Odyssey provider, model, API key, token limits, reasoning setting, game prompt, and retrieval flags. Explicit CLI settings and `ODYSSEY_*` environment variables override the desktop settings.
+The CLI is arrow-key navigable for Continue / Load / New Game, going back or editing the last turn, and opening the Player Menu, Game Codex, and stats views. It does not generate or display images. Preset loading still walks through the normal setup questions with preset answers filled in, so every field can be kept or changed.
 
-**Retrieval in terminal/Telegram (opt-in from desktop Settings):** when Vector RAG, web/wiki, Fandom, or Brave search are enabled in the desktop app, the Node runtimes use the same flags. Game-memory vector RAG embeds and searches the per-save `vector_store.json` via your embedding API (shared with the desktop app). Live Wikipedia, world-wiki/Fandom MediaWiki search, and Brave Search run over HTTP when enabled. Premade universe vector packs (for example the separate Harry Potter store under `public/jsons/universe-vector-stores/`) are **not** loaded in CLI/Telegram.
+Provider settings default to the desktop app’s local WebView storage (provider, model, API key, token limits, reasoning, game prompt, and retrieval flags). Values you save from the CLI live in `cli-settings.json` under the Odyssey data folder and override desktop defaults for CLI/Telegram only — they do not rewrite the desktop WebView settings. `ODYSSEY_*` environment variables override both.
 
-To run Odyssey through Telegram (all in the app — no terminal):
+### Telegram bot
+
+**From the desktop app (recommended):**
 
 1. Message [BotFather](https://core.telegram.org/bots/features#botfather) in Telegram and create a bot.
 2. Open Odyssey → **Settings → Telegram**, paste the bot token, keep private pairing on, generate pairing words, and **Save**.
-3. Press **Start Bot** and wait until status shows **Running** (requires Node.js 18+ on PATH).
-4. Open your bot in Telegram, send `/start`, and follow the step-by-step verify prompts using the pairing words from Settings.
+3. Press **Start Bot** and wait until status shows **Running** (requires **Node.js 18+** on your PATH; the bot scripts are bundled with the app installer).
+4. Open your bot in Telegram, send `/start`, and follow the verify prompts using the pairing words from Settings.
+
+**From a clone / terminal:**
+
+```bash
+npm run odyssey:telegram
+# Windows convenience launcher:
+# OdysseyTelegram.bat
+```
 
 **Reset / security:** **Reset Verified Users** clears paired accounts immediately for the running bot (no restart). Saving new pairing words also revokes previous verifications. Optional **Allowed Telegram IDs** are separate and are not cleared by Reset. Private pairing is on by default; turn it off only if you intentionally want an open bot.
 
 **Saves:** Prefer one writer at a time. Simultaneous desktop play and Telegram/CLI turns on the **same** save can conflict; use separate saves or pause one client.
 
-Settings are stored in Odyssey app data as `telegram-settings.json`. Power users can still run `npm run odyssey:telegram` or set env overrides (`TELEGRAM_BOT_TOKEN`, `ODYSSEY_TELEGRAM_PAIRING_PHRASE`, etc.).
+Telegram settings are stored in Odyssey app data as `telegram-settings.json`. Env overrides include `TELEGRAM_BOT_TOKEN` / `ODYSSEY_TELEGRAM_BOT_TOKEN`, `ODYSSEY_TELEGRAM_PAIRING_PHRASE`, and related `ODYSSEY_*` flags.
 
 Telegram commands include `/verify`, `/load`, `/new`, `/back`, `/edit`, `/history`, `/player`, `/codex`, `/stats`, `/settings`, `/menu`, and `/cancel`. After a verified account loads a game, normal chat messages are treated as player actions. New turns create local rewind snapshots, so `/back` restores the previous game state and `/edit` rewinds then regenerates from your replacement action.
 
-The Telegram bot uses Telegram's native rich surfaces where the platform allows them: emoji labels, HTML-formatted narration and status cards, styled inline buttons, quick action callbacks, force-reply setup prompts, message reactions, and an optional Mini App button. Telegram bot messages do not support arbitrary CSS-like text colors inside normal chat text; the practical color options are styled buttons, emoji/status symbols, custom emoji, media, and Mini Apps.
+### Retrieval in terminal / Telegram
+
+When Vector RAG, web/wiki, Fandom, or Brave search are enabled in the desktop app, the Node runtimes use the same flags. Game-memory vector RAG embeds and searches the per-save `vector_store.json` via your embedding API (shared with the desktop app). Live Wikipedia, world-wiki/Fandom MediaWiki search, and Brave Search run over HTTP when enabled. Premade universe vector packs (for example the separate Harry Potter store under `public/jsons/universe-vector-stores/`) are **not** loaded in CLI/Telegram.
+
+### Telegram UI and optional Mini App
+
+The bot uses Telegram’s native surfaces where available: emoji labels, HTML-formatted narration and status cards, styled inline buttons, quick action callbacks, force-reply setup prompts, message reactions, and an optional Mini App button. Normal chat text does not support arbitrary CSS-like colors.
 
 Optional Mini App button:
 
@@ -219,18 +238,18 @@ Optional Mini App button:
 ODYSSEY_TELEGRAM_WEB_APP_URL=https://your-hosted-odyssey-mini-app.example
 ```
 
-Mini Apps must be served over HTTPS. If that variable is set, `/setup` registers an "Open Odyssey" Telegram menu button and the bot adds an inline app button to its menus.
+Mini Apps must be served over HTTPS. If that variable is set, `/setup` registers an “Open Odyssey” Telegram menu button and the bot adds an inline app button to its menus.
 
 ---
 
 ## How It Works
 
-Odyssey is a client-side adventure engine wrapped in a native Tauri shell.
+Odyssey is a client-side adventure engine. The desktop UI is a Tauri shell around the same save format and AI turn loop used by the text-only CLI and Telegram bot.
 
-1. **Setup** — You pick a universe, define a character, write a starting scenario, and generate a portrait.
+1. **Setup** — You pick a universe, define a character, write a starting scenario, and (on desktop) generate a portrait.
 2. **Turn loop** — Each turn, Odyssey assembles a contextual prompt from your current state (stats, inventory, recent narration, codex entries, optional live wiki/search passages, and optional vector-RAG results) and sends it to your configured model.
-3. **Structured response** — The model's reply is parsed into narration, state updates, codex additions, and optional image-generation prompts.
-4. **Persistence** — Saves, presets, and settings live on disk via Tauri's native FS plugin. Your API key stays on your machine.
+3. **Structured response** — The model's reply is parsed into narration, state updates, codex additions, and optional image-generation prompts (desktop only).
+4. **Persistence** — Saves, presets, and settings live on disk in the Odyssey app-data folder (via Tauri’s FS plugin on desktop, or the shared Node core for CLI/Telegram). Your API key stays on your machine.
 
 ---
 
@@ -251,13 +270,13 @@ API keys are stored locally and are only transmitted directly to the provider yo
 
 ## Building from Source
 
-Building from source is primarily for contributors; most users should [download a release](#download) instead.
+Building from source is primarily for contributors; most users should [download a release](#download) instead. Installers are built in CI when a matching `v*` tag is pushed (see [`.github/workflows/tauri.yml`](.github/workflows/tauri.yml)); the tag must equal `v` + `package.json` / `src-tauri/tauri.conf.json` version (for this release: `v0.6.1`).
 
 ### Prerequisites
 
-- **Rust** (stable toolchain) — [install via rustup](https://rustup.rs/)
-- **Node.js 18+** — required for the Tauri CLI
-- **System webview**
+- **Rust** (stable toolchain) — [install via rustup](https://rustup.rs/) — required for the desktop app
+- **Node.js 18+** — required for the Tauri CLI, text CLI, and Telegram bot
+- **System webview** (desktop only)
   - Windows: WebView2 (preinstalled on Windows 11; auto-installed on Windows 10)
   - macOS: WKWebView (preinstalled)
   - Linux: WebKitGTK (`libwebkit2gtk-4.1-dev`)
@@ -273,14 +292,18 @@ cd Odyssey
 # Install dependencies
 npm install
 
-# Run in development (launches the native window with hot reload)
+# Run the desktop app in development
 npm run dev
 
-# Produce platform installers
+# Produce platform installers (desktop)
 npm run build
+
+# Text-only runtimes (no Rust build required)
+npm run odyssey:cli
+npm run odyssey:telegram
 ```
 
-Installers are written to `src-tauri/target/release/bundle/`.
+Installers are written to `src-tauri/target/release/bundle/`. The release bundle includes the Telegram bot Node scripts so **Settings → Telegram → Start Bot** works from an installed app when Node is on PATH.
 
 ---
 
@@ -288,23 +311,28 @@ Installers are written to `src-tauri/target/release/bundle/`.
 
 ```
 Odyssey/
+├── .github/workflows/
+│   └── tauri.yml       Tag-triggered multi-platform installer build & release
 ├── src-tauri/          Rust backend (Tauri 2.x with fs, dialog, shell plugins)
-│   ├── src/            Rust entry point
+│   ├── src/
+│   │   ├── lib.rs      App setup, invoke handlers
+│   │   ├── audio.rs    Menu music
+│   │   └── telegram_runner.rs  Managed Node process for the in-app Telegram bot
 │   ├── icons/          App icons for all platforms
-│   └── tauri.conf.json Tauri configuration
+│   └── tauri.conf.json Tauri configuration (bundles tools/*.mjs for Telegram)
 ├── public/             Frontend application
 │   ├── Welcome.html    First-run welcome screen
 │   ├── mainmenu.html   Main menu
 │   ├── game.html       In-game view
 │   ├── presets.html    Character preset management
-│   ├── settings.html   Provider, appearance, and prompt settings
+│   ├── settings.html   Provider, appearance, Telegram, and prompt settings
 │   ├── infowiki.html   In-app Info & Wiki
 │   ├── creation.js     New game setup, world presets, launch flow
 │   ├── chat.js         AI prompting, in-game chat, image runtime, TTS
 │   ├── saves.js        Autosaves and chat history persistence
 │   ├── theme.js        Theme definitions
 │   ├── ui-components.js Custom inputs and interactive elements
-│   ├── tauri-bridge.js Native FS operations (presets, saves, games)
+│   ├── tauri-bridge.js Native FS + Telegram bot control commands
 │   ├── titlebar.js     Custom window titlebar
 │   ├── menu-music.js   Main menu audio
 │   ├── models.json     Built-in model metadata
@@ -312,12 +340,17 @@ Odyssey/
 │   ├── style.css       Global design system
 │   ├── assets/         Images, audio, fonts
 │   └── jsons/          Built-in templates, pairing words, and universe stores
-├── tools/              Text-only CLI, Telegram bot, and shared Node runtime
+├── tools/
+│   ├── odyssey-cli.mjs           Terminal ASCII client
+│   ├── odyssey-telegram-bot.mjs  Telegram long-polling bot
+│   ├── odyssey-core.mjs          Shared saves, turns, settings
+│   ├── odyssey-retrieval.mjs     Shared wiki/RAG helpers for text runtimes
+│   └── …                         Vector-store generation/publish helpers
 ├── readme images/      Assets for this document
 ├── devdocs.html        Developer documentation
 ├── CONTRIBUTING.md     Contribution guide
 ├── OdysseyTelegram.bat Convenience launcher for the Telegram bot
-└── package.json
+└── package.json        Scripts: tauri, odyssey:cli, odyssey:telegram
 ```
 
 ---
