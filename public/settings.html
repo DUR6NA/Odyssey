@@ -12,14 +12,16 @@
     <script src="ui-components.js"></script>
     <script src="theme-icons.js"></script>
     <script src="devtools.js"></script>
+    <script src="openrouter-attribution.js?v=1"></script>
+    <script src="tauri-bridge.js"></script>
     <script src="retrieval.js?v=2"></script>
     <script src="menu-music.js"></script>
     <meta name="application-name" content="Odyssey">
-    <meta name="description" content="Odyssey v0.6.0 - AI-driven text adventure desktop game with retrieval-enhanced lore and memory.">
+    <meta name="description" content="Odyssey v0.6.1 - AI-driven text adventure desktop game with retrieval-enhanced lore and memory.">
     <meta name="theme-color" content="#121212">
-    <meta name="odyssey-version" content="0.6.0">
-    <meta name="odyssey-bundle-version" content="0.6.0">
-    <meta property="og:title" content="Odyssey v0.6.0">
+    <meta name="odyssey-version" content="0.6.1">
+    <meta name="odyssey-bundle-version" content="0.6.1">
+    <meta property="og:title" content="Odyssey v0.6.1">
     <meta property="og:description" content="AI-driven text adventure desktop game with retrieval-enhanced lore and memory.">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary">
@@ -32,6 +34,7 @@
             <nav class="sidebar-nav">
                 <button id="nav-btn-general" class="active" onclick="switchSettingsTab('general')">General</button>
                 <button id="nav-btn-api" onclick="switchSettingsTab('api')">API Settings</button>
+                <button id="nav-btn-telegram" onclick="switchSettingsTab('telegram')">Telegram</button>
                 <button id="nav-btn-image" onclick="switchSettingsTab('image')">Image</button>
                 <button id="nav-btn-rag" onclick="switchSettingsTab('rag')">RAG</button>
                 <button id="nav-btn-tts" onclick="switchSettingsTab('tts')">Voice / TTS</button>
@@ -234,6 +237,71 @@
                             <option value="high">High</option>
                         </select>
                     </div>
+                </div>
+
+                <!-- Telegram Tab -->
+                <div id="tab-telegram" class="settings-tab" style="display: none;">
+                    <h2>Telegram Bot</h2>
+                    <p>Pair a private Telegram bot with Odyssey saves on this computer. Setup stays in the app — no terminal required.</p>
+
+                    <ol class="telegram-setup-steps">
+                        <li>In Telegram, message <a href="https://t.me/BotFather" target="_blank" rel="noopener">BotFather</a> and send <code>/newbot</code>.</li>
+                        <li>Paste the token below, set pairing words, then press <strong>Save Telegram Settings</strong>.</li>
+                        <li>Press <strong>Start Bot</strong> (status should show Running).</li>
+                        <li>Open your bot in Telegram, send <code>/start</code>, and follow the step-by-step verify prompts with the pairing words below.</li>
+                    </ol>
+
+                    <div class="control-group mt-lg">
+                        <label>Bot Token:</label>
+                        <input type="password" id="telegram-bot-token" placeholder="123456789:AA..."
+                            class="input-lg" autocomplete="off">
+                        <span class="hint-text">Stored locally in Odyssey app data.</span>
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Private Pairing:</label>
+                        <input type="checkbox" id="telegram-auth-enabled" checked>
+                        <span class="hint-text">When enabled, the bot only answers verified or explicitly allowed Telegram accounts.</span>
+                    </div>
+
+                    <div class="control-group mt-md telegram-phrase-row">
+                        <label>Pairing Words:</label>
+                        <input type="text" id="telegram-pairing-phrase" class="input-lg"
+                            placeholder="Generate a private word phrase">
+                        <button onclick="generateTelegramPairingPhrase()" class="btn btn-compact">Generate Words</button>
+                        <button onclick="copyTelegramPairingPhrase()" class="btn btn-compact">Copy</button>
+                    </div>
+                    <p class="telegram-note">Share these words only with people you trust. Saving new words revokes previously verified accounts. Explicit Allowed IDs below are separate and are not cleared by Reset.</p>
+
+                    <div class="control-group mt-md">
+                        <label>Allowed Telegram IDs:</label>
+                        <textarea id="telegram-allowed-users" class="input-lg telegram-textarea"
+                            placeholder="Optional. One numeric Telegram user ID per line or comma-separated."></textarea>
+                    </div>
+
+                    <div class="control-group mt-md">
+                        <label>Mini App URL:</label>
+                        <input type="url" id="telegram-web-app-url" class="input-lg"
+                            placeholder="Optional HTTPS URL for a Telegram Mini App button">
+                    </div>
+
+                    <hr class="divider">
+                    <h3>Bot Runner</h3>
+                    <p class="telegram-note">Requires Node.js 18+ on this PC (same as the terminal CLI). The app starts the bot in the background.</p>
+
+                    <div class="control-group mt-md telegram-runner-row">
+                        <button type="button" id="telegram-start-btn" onclick="startTelegramBotFromSettings()" class="btn btn-compact">Start Bot</button>
+                        <button type="button" id="telegram-stop-btn" onclick="stopTelegramBotFromSettings()" class="btn btn-compact">Stop Bot</button>
+                        <span id="telegram-bot-status" class="hint-text" data-state="stopped">Status: Stopped</span>
+                    </div>
+
+                    <div class="control-group mt-lg">
+                        <button onclick="saveTelegramSettings(true)" class="btn btn-compact">Save Telegram Settings</button>
+                        <button onclick="clearTelegramPairings()" class="btn btn-compact">Reset Verified Users</button>
+                        <span id="telegram-settings-status" class="hint-text"></span>
+                    </div>
+
+                    <div id="telegram-runtime-summary" class="telegram-runtime-summary"></div>
                 </div>
 
                 <!-- Image Tab -->
@@ -746,6 +814,7 @@
             loadMusicVolume();
             loadDevToolsSettings();
             loadTtsSettings();
+            loadTelegramSettings();
             // Initialize custom dropdowns and number inputs
             initCustomUIComponents(document.body, {
                 searchSelects: ['openrouter-model-select', 'image-prompt-model-select', 'openrouter-image-model-select', 'embedding-model-select', 'primary-font-select', 'secondary-font-select']
@@ -761,6 +830,349 @@
                 }
             }
         });
+
+        const TELEGRAM_PAIRING_WORD_COUNT = 4;
+        const TELEGRAM_FALLBACK_WORDS = [
+            'anchor', 'artist', 'basket', 'blanket', 'bridge', 'candle', 'castle', 'copper',
+            'crystal', 'forest', 'garden', 'harbor', 'harvest', 'lantern', 'marble', 'meadow',
+            'mirror', 'planet', 'pocket', 'river', 'silver', 'signal', 'summer', 'window'
+        ];
+        let telegramPairingWordsCache = null;
+
+        async function getTelegramPairingWords() {
+            if (telegramPairingWordsCache) return telegramPairingWordsCache;
+            try {
+                const response = await fetch('jsons/telegram-pairing-words.json');
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const words = await response.json();
+                if (Array.isArray(words) && words.length >= 2000) {
+                    telegramPairingWordsCache = words.map(word => String(word).trim()).filter(Boolean);
+                    return telegramPairingWordsCache;
+                }
+            } catch (e) {
+                console.warn('Could not load Telegram pairing word list:', e);
+            }
+            telegramPairingWordsCache = TELEGRAM_FALLBACK_WORDS;
+            return telegramPairingWordsCache;
+        }
+
+        function telegramRandomIndex(max) {
+            if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+                const values = new Uint32Array(1);
+                window.crypto.getRandomValues(values);
+                return values[0] % max;
+            }
+            return Math.floor(Math.random() * max);
+        }
+
+        async function buildTelegramPairingPhrase() {
+            const words = await getTelegramPairingWords();
+            const chosen = [];
+            while (chosen.length < TELEGRAM_PAIRING_WORD_COUNT) {
+                const word = words[telegramRandomIndex(words.length)];
+                if (word && !chosen.includes(word)) chosen.push(word);
+            }
+            return chosen.join(' ');
+        }
+
+        function normalizeTelegramPairingPhrase(value) {
+            const parts = String(value || '').toLowerCase().match(/[a-z0-9]+/g);
+            return parts ? parts.join(' ') : '';
+        }
+
+        function parseTelegramAllowedUsers(value) {
+            return String(value || '')
+                .split(/[\s,;]+/)
+                .map(item => item.trim())
+                .filter(Boolean);
+        }
+
+        function getLocalTelegramSettings() {
+            return {
+                botToken: localStorage.getItem('jsonAdventure_telegramBotToken') || '',
+                authEnabled: localStorage.getItem('jsonAdventure_telegramAuthEnabled') !== 'false',
+                pairingPhrase: localStorage.getItem('jsonAdventure_telegramPairingPhrase') || '',
+                allowedUsers: parseTelegramAllowedUsers(localStorage.getItem('jsonAdventure_telegramAllowedUsers') || ''),
+                webAppUrl: localStorage.getItem('jsonAdventure_telegramWebAppUrl') || ''
+            };
+        }
+
+        function cacheLocalTelegramSettings(settings) {
+            localStorage.setItem('jsonAdventure_telegramBotToken', settings.botToken || '');
+            localStorage.setItem('jsonAdventure_telegramAuthEnabled', settings.authEnabled ? 'true' : 'false');
+            localStorage.setItem('jsonAdventure_telegramPairingPhrase', settings.pairingPhrase || '');
+            localStorage.setItem('jsonAdventure_telegramAllowedUsers', (settings.allowedUsers || []).join(','));
+            localStorage.setItem('jsonAdventure_telegramWebAppUrl', settings.webAppUrl || '');
+        }
+
+        async function readTelegramBridgeSettings() {
+            try {
+                if (window.tauriBridgeReady) await window.tauriBridgeReady;
+                if (!window.tauriBridge || typeof window.tauriBridge.loadTelegramSettings !== 'function') {
+                    return { success: false, settings: {}, state: {}, error: 'Desktop storage bridge unavailable.' };
+                }
+                return await window.tauriBridge.loadTelegramSettings();
+            } catch (e) {
+                return { success: false, settings: {}, state: {}, error: e.message || String(e) };
+            }
+        }
+
+        async function loadTelegramSettings() {
+            const localSettings = getLocalTelegramSettings();
+            const bridgeResult = await readTelegramBridgeSettings();
+            const savedSettings = bridgeResult.success ? (bridgeResult.settings || {}) : {};
+            const settings = {
+                ...localSettings,
+                ...savedSettings,
+                allowedUsers: Array.isArray(savedSettings.allowedUsers) ? savedSettings.allowedUsers : localSettings.allowedUsers
+            };
+
+            document.getElementById('telegram-bot-token').value = settings.botToken || '';
+            document.getElementById('telegram-auth-enabled').checked = settings.authEnabled !== false;
+            document.getElementById('telegram-pairing-phrase').value = normalizeTelegramPairingPhrase(settings.pairingPhrase || '');
+            document.getElementById('telegram-allowed-users').value = (settings.allowedUsers || []).join('\n');
+            document.getElementById('telegram-web-app-url').value = settings.webAppUrl || '';
+
+            if (!document.getElementById('telegram-pairing-phrase').value) {
+                document.getElementById('telegram-pairing-phrase').value = await buildTelegramPairingPhrase();
+                notifyTelegramStatus('Generated pairing words. Save when ready.', 'info');
+            }
+
+            renderTelegramRuntimeSummary(bridgeResult);
+            await refreshTelegramBotStatus();
+            ensureTelegramBotStatusPolling();
+        }
+
+        function getTelegramSettingsFromForm() {
+            return {
+                botToken: document.getElementById('telegram-bot-token').value.trim(),
+                authEnabled: document.getElementById('telegram-auth-enabled').checked,
+                pairingPhrase: normalizeTelegramPairingPhrase(document.getElementById('telegram-pairing-phrase').value),
+                allowedUsers: parseTelegramAllowedUsers(document.getElementById('telegram-allowed-users').value),
+                webAppUrl: document.getElementById('telegram-web-app-url').value.trim()
+            };
+        }
+
+        async function saveTelegramSettings(showAlert = false) {
+            const settings = getTelegramSettingsFromForm();
+            if (settings.authEnabled && !settings.pairingPhrase) {
+                settings.pairingPhrase = await buildTelegramPairingPhrase();
+                document.getElementById('telegram-pairing-phrase').value = settings.pairingPhrase;
+            }
+            cacheLocalTelegramSettings(settings);
+
+            let result = { success: false, error: 'Desktop storage bridge unavailable.' };
+            try {
+                if (window.tauriBridgeReady) await window.tauriBridgeReady;
+                if (window.tauriBridge && typeof window.tauriBridge.saveTelegramSettings === 'function') {
+                    result = await window.tauriBridge.saveTelegramSettings(settings);
+                }
+            } catch (e) {
+                result = { success: false, error: e.message || String(e) };
+            }
+
+            if (result.success) {
+                const extra = result.clearedVerifiedUsers
+                    ? ' New pairing words saved — previously verified accounts must verify again.'
+                    : '';
+                notifyTelegramStatus(`Telegram settings saved.${extra}`, 'success');
+                if (showAlert && window.Odyssey?.notify) {
+                    window.Odyssey.notify(`Telegram settings saved.${extra}`, { type: 'success' });
+                }
+            } else {
+                notifyTelegramStatus(`Saved to browser storage only: ${result.error}`, 'warning');
+            }
+            await loadTelegramSettings();
+            await refreshTelegramBotStatus();
+        }
+
+        let telegramBotStatusTimer = null;
+
+        function setTelegramBotStatusUi(status) {
+            const el = document.getElementById('telegram-bot-status');
+            if (!el) return;
+            if (!status || status.success === false && !status.running) {
+                const err = status?.error || status?.lastError || '';
+                el.textContent = err ? `Status: Error — ${err}` : 'Status: Stopped';
+                el.dataset.state = err ? 'error' : 'stopped';
+                return;
+            }
+            if (status.running) {
+                el.textContent = status.pid
+                    ? `Status: Running (pid ${status.pid})`
+                    : 'Status: Running';
+                el.dataset.state = 'running';
+            } else if (status.lastError) {
+                el.textContent = `Status: Error — ${status.lastError}`;
+                el.dataset.state = 'error';
+            } else {
+                el.textContent = 'Status: Stopped';
+                el.dataset.state = 'stopped';
+            }
+        }
+
+        async function refreshTelegramBotStatus() {
+            try {
+                if (window.tauriBridgeReady) await window.tauriBridgeReady;
+                if (!window.tauriBridge?.getTelegramBotStatus) {
+                    setTelegramBotStatusUi({ success: false, error: 'Start/Stop available in the desktop app only.' });
+                    return;
+                }
+                const status = await window.tauriBridge.getTelegramBotStatus();
+                setTelegramBotStatusUi(status);
+            } catch (e) {
+                setTelegramBotStatusUi({ success: false, error: e.message || String(e) });
+            }
+        }
+
+        function ensureTelegramBotStatusPolling() {
+            if (telegramBotStatusTimer) return;
+            telegramBotStatusTimer = setInterval(() => {
+                const tab = document.getElementById('tab-telegram');
+                if (tab && tab.style.display !== 'none') refreshTelegramBotStatus();
+            }, 3000);
+        }
+
+        async function startTelegramBotFromSettings() {
+            const token = document.getElementById('telegram-bot-token')?.value?.trim();
+            if (!token) {
+                notifyTelegramStatus('Save a BotFather token first.', 'error');
+                return;
+            }
+            await saveTelegramSettings(false);
+            notifyTelegramStatus('Starting Telegram bot…', 'info');
+            setTelegramBotStatusUi({ running: false, lastError: null });
+            const el = document.getElementById('telegram-bot-status');
+            if (el) {
+                el.textContent = 'Status: Starting…';
+                el.dataset.state = 'starting';
+            }
+            try {
+                if (window.tauriBridgeReady) await window.tauriBridgeReady;
+                if (!window.tauriBridge?.startTelegramBot) {
+                    throw new Error('Desktop bot runner unavailable.');
+                }
+                const result = await window.tauriBridge.startTelegramBot();
+                if (!result.success) throw new Error(result.error || 'Start failed.');
+                setTelegramBotStatusUi({ success: true, ...result.status });
+                notifyTelegramStatus('Telegram bot started. Open your bot in Telegram and send /start.', 'success');
+                ensureTelegramBotStatusPolling();
+            } catch (e) {
+                setTelegramBotStatusUi({ success: false, error: e.message || String(e) });
+                notifyTelegramStatus(e.message || String(e), 'error');
+            }
+        }
+
+        async function stopTelegramBotFromSettings() {
+            try {
+                if (window.tauriBridgeReady) await window.tauriBridgeReady;
+                if (!window.tauriBridge?.stopTelegramBot) {
+                    throw new Error('Desktop bot runner unavailable.');
+                }
+                const result = await window.tauriBridge.stopTelegramBot();
+                if (!result.success) throw new Error(result.error || 'Stop failed.');
+                setTelegramBotStatusUi({ success: true, running: false });
+                notifyTelegramStatus('Telegram bot stopped.', 'success');
+            } catch (e) {
+                notifyTelegramStatus(e.message || String(e), 'error');
+            }
+        }
+
+        async function generateTelegramPairingPhrase() {
+            document.getElementById('telegram-pairing-phrase').value = await buildTelegramPairingPhrase();
+            notifyTelegramStatus('New pairing words generated. Save to activate them.', 'info');
+        }
+
+        async function copyTelegramPairingPhrase() {
+            await copyTelegramText(document.getElementById('telegram-pairing-phrase').value);
+            notifyTelegramStatus('Pairing words copied.', 'success');
+        }
+
+        async function copyTelegramCommand(elementId) {
+            const text = document.getElementById(elementId)?.textContent || '';
+            await copyTelegramText(text);
+            notifyTelegramStatus('Command copied.', 'success');
+        }
+
+        async function copyTelegramText(text) {
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(text);
+                return;
+            }
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.left = '-9999px';
+            document.body.appendChild(textarea);
+            textarea.focus();
+            textarea.select();
+            document.execCommand('copy');
+            textarea.remove();
+        }
+
+        async function clearTelegramPairings() {
+            const ok = window.odysseyConfirm
+                ? await window.odysseyConfirm(
+                    'Reset all verified Telegram accounts? They must pair again with the current words.\n\nNote: Allowed Telegram IDs are not cleared — those accounts still have access until you remove them from the list.',
+                    { confirmLabel: 'Reset Verification', danger: true }
+                )
+                : true;
+            if (!ok) return;
+
+            try {
+                if (window.tauriBridgeReady) await window.tauriBridgeReady;
+                if (!window.tauriBridge || typeof window.tauriBridge.clearTelegramPairings !== 'function') {
+                    throw new Error('Desktop storage bridge unavailable.');
+                }
+                const result = await window.tauriBridge.clearTelegramPairings();
+                if (!result.success) throw new Error(result.error || 'Reset failed.');
+                notifyTelegramStatus('Verified Telegram users reset. The running bot will enforce this on the next message.', 'success');
+                await loadTelegramSettings();
+            } catch (e) {
+                notifyTelegramStatus(`Could not reset pairings: ${e.message || e}`, 'error');
+            }
+        }
+
+        function renderTelegramRuntimeSummary(result) {
+            const summary = document.getElementById('telegram-runtime-summary');
+            if (!summary) return;
+            const state = result?.state || {};
+            const verifiedUsers = Object.values(state.verifiedUsers || {});
+            const folder = result?.folder || 'Odyssey app data folder';
+            const bridgeLine = result?.success
+                ? `Settings file: ${folder}\\telegram-settings.json`
+                : `Settings file unavailable: ${result?.error || 'desktop bridge not ready'}`;
+            const verifiedLine = verifiedUsers.length
+                ? verifiedUsers.map(user => {
+                    const label = user.username ? '@' + user.username : 'User ' + user.id;
+                    return `${escapeHtmlForSettings(label)} verified ${escapeHtmlForSettings(new Date(user.verifiedAt).toLocaleString())}`;
+                }).join('<br>')
+                : 'No Telegram accounts verified yet.';
+            summary.innerHTML = [
+                `<strong>Runtime status</strong>`,
+                `<span>${escapeHtmlForSettings(bridgeLine)}</span>`,
+                `<span>Verified users: ${verifiedUsers.length}</span>`,
+                `<span>${verifiedLine}</span>`
+            ].join('');
+        }
+
+        function escapeHtmlForSettings(value) {
+            return String(value || '').replace(/[&<>"']/g, char => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            }[char]));
+        }
+
+        function notifyTelegramStatus(message, type = 'info') {
+            const statusEl = document.getElementById('telegram-settings-status');
+            if (statusEl) {
+                statusEl.textContent = message;
+                statusEl.dataset.type = type;
+            }
+        }
 
         function backToGame() {
             const provider = document.getElementById('api-provider-select').value;
@@ -815,6 +1227,9 @@
             let testUrl = "";
             let headers = { "Content-Type": "application/json" };
             if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
+            if (window.OdysseyOpenRouter && typeof window.OdysseyOpenRouter.applyAttributionHeaders === 'function') {
+                window.OdysseyOpenRouter.applyAttributionHeaders(headers, provider);
+            }
 
             if (provider === 'openrouter') {
                 testUrl = "https://openrouter.ai/api/v1/auth/key"; 
@@ -898,6 +1313,10 @@
             if (tabName === 'appearance') {
                 renderThemeCards();
                 initFontDropdowns();
+            }
+            if (tabName === 'telegram') {
+                refreshTelegramBotStatus();
+                ensureTelegramBotStatusPolling();
             }
         }
 
@@ -996,6 +1415,9 @@
             let testUrl = "";
             let headers = { "Content-Type": "application/json" };
             if (imgApiKey) headers["Authorization"] = `Bearer ${imgApiKey}`;
+            if (window.OdysseyOpenRouter && typeof window.OdysseyOpenRouter.applyAttributionHeaders === 'function') {
+                window.OdysseyOpenRouter.applyAttributionHeaders(headers, imgProvider);
+            }
 
             if (imgProvider === 'openrouter') {
                 testUrl = "https://openrouter.ai/api/v1/auth/key";
@@ -1210,6 +1632,9 @@
                         .replace(/\/models\/?$/, '')
                         .replace(/\/+$/, '');
                     url = `${base}/models`;
+                }
+                if (window.OdysseyOpenRouter && typeof window.OdysseyOpenRouter.applyAttributionHeaders === 'function') {
+                    window.OdysseyOpenRouter.applyAttributionHeaders(headers, provider === 'openrouter' ? provider : url);
                 }
 
                 const response = await fetch(url, { method: 'GET', headers });
@@ -1515,6 +1940,9 @@
             }
 
             try {
+                if (window.OdysseyOpenRouter && typeof window.OdysseyOpenRouter.applyAttributionHeaders === 'function') {
+                    window.OdysseyOpenRouter.applyAttributionHeaders(headers, provider === 'openrouter' ? provider : fetchUrl);
+                }
                 // Fetching via HTTP request directly since we are on the client-side
                 const response = await fetch(fetchUrl, {
                     method: "GET",

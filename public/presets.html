@@ -6,11 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Odyssey - Presets</title>
     <meta name="application-name" content="Odyssey">
-    <meta name="description" content="Odyssey v0.6.0 - AI-driven text adventure desktop game with retrieval-enhanced lore and memory.">
+    <meta name="description" content="Odyssey v0.6.1 - AI-driven text adventure desktop game with retrieval-enhanced lore and memory.">
     <meta name="theme-color" content="#121212">
-    <meta name="odyssey-version" content="0.6.0">
-    <meta name="odyssey-bundle-version" content="0.6.0">
-    <meta property="og:title" content="Odyssey v0.6.0">
+    <meta name="odyssey-version" content="0.6.1">
+    <meta name="odyssey-bundle-version" content="0.6.1">
+    <meta property="og:title" content="Odyssey v0.6.1">
     <meta property="og:description" content="AI-driven text adventure desktop game with retrieval-enhanced lore and memory.">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary">
@@ -21,6 +21,7 @@
     <script src="titlebar.js"></script>
     <script src="ui-components.js"></script>
     <script src="theme-icons.js"></script>
+    <script src="openrouter-attribution.js?v=1"></script>
     <script src="menu-music.js"></script>
     <style>
         html, body {
@@ -1078,9 +1079,19 @@
         }
 
         // --- AI Fetching Logic ---
-        function buildAuthHeaders(apiKey) {
+        function buildAuthHeaders(apiKey, providerOrUrl = localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter') {
+            if (window.OdysseyOpenRouter && typeof window.OdysseyOpenRouter.buildAuthHeaders === 'function') {
+                return window.OdysseyOpenRouter.buildAuthHeaders(apiKey, providerOrUrl);
+            }
+
             const headers = { 'Content-Type': 'application/json' };
             if (apiKey && String(apiKey).trim()) headers['Authorization'] = `Bearer ${apiKey}`;
+            if (String(providerOrUrl || '').trim().toLowerCase() === 'openrouter' || String(providerOrUrl || '').toLowerCase().includes('openrouter.ai')) {
+                headers['HTTP-Referer'] = 'https://github.com/DUR6NA/Odyssey';
+                headers['X-OpenRouter-Title'] = 'Odyssey';
+                headers['X-Title'] = 'Odyssey';
+                headers['X-OpenRouter-Categories'] = 'game,roleplay';
+            }
             return headers;
         }
 
@@ -1190,7 +1201,7 @@ ${rawContent}`;
 
             const response = await fetch(fetchUrl, {
                 method: 'POST',
-                headers: buildAuthHeaders(apiKey),
+                headers: buildAuthHeaders(apiKey, provider),
                 body: buildFetchPayload(model, [{ role: 'system', content: repairPrompt }], 0.1, 3000, 1.0, 0, 0, provider, null)
             });
 
@@ -1245,7 +1256,7 @@ ${rawContent}`;
 
             const response = await fetch(fetchUrl, {
                 method: 'POST',
-                headers: buildAuthHeaders(apiKey),
+                headers: buildAuthHeaders(apiKey, provider),
                 body: buildFetchPayload(model, messages, 0.7, 3000, 1.0, 0, 0, provider, provider === 'lmstudio' ? schema : null)
             });
 

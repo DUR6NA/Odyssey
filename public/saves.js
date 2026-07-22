@@ -73,7 +73,7 @@ Output ONLY the new merged narrative summary. Do not include introductory text l
 
         const response = await fetch(fetchUrl, {
             method: 'POST',
-            headers: buildAuthHeaders(apiKey),
+            headers: buildAuthHeaders(apiKey, provider),
             body: buildFetchPayload(model, [
                 { role: 'user', content: summarizePrompt }
             ], 0.3, maxTokens, 1.0, 0, 0, provider, null, payloadOptions)

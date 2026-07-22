@@ -934,7 +934,7 @@ The value of "result" must be ${expectedFormatStr}.`;
 
         const response = await fetch(fetchUrl, {
             method: 'POST',
-            headers: buildAuthHeaders(apiKey),
+            headers: buildAuthHeaders(apiKey, provider),
             body: buildFetchPayload(model, [
                 { role: 'system', content: instructions },
                 { role: 'user', content: `Please auto-generate the '${fieldInfo.id}' field.` }
@@ -1221,7 +1221,7 @@ The JSON object must have exactly one key named "result", and its value must be 
 
         const response = await fetch(fetchUrl, {
             method: 'POST',
-            headers: buildAuthHeaders(apiKey),
+            headers: buildAuthHeaders(apiKey, provider),
             body: buildFetchPayload(model, [
                 { role: 'system', content: promptInstructions },
                 { role: 'user', content: `User input: ${userInputValue}` }
@@ -1553,7 +1553,7 @@ CRITICAL: Output ONLY a valid JSON object with one key "summary" containing the 
 
         const response = await fetch(fetchUrl, {
             method: 'POST',
-            headers: buildAuthHeaders(apiKey),
+            headers: buildAuthHeaders(apiKey, provider),
             body: buildFetchPayload(model, [
                 { role: 'system', content: summaryPrompt },
                 { role: 'user', content: 'Generate the adventure summary now.' }
@@ -1718,7 +1718,7 @@ Output ONLY valid JSON with this exact shape:
     try {
         const response = await fetch(getSetupChatCompletionsUrl(provider, baseUrl), {
             method: 'POST',
-            headers: buildAuthHeaders(apiKey),
+            headers: buildAuthHeaders(apiKey, provider),
             body: buildFetchPayload(model, [
                 { role: 'system', content: prompt },
                 { role: 'user', content: 'Generate the short save-game name now.' }
@@ -1995,7 +1995,7 @@ async function launchGame(summaryText, allData) {
 
         const response = await fetch(fetchUrl, {
             method: 'POST',
-            headers: buildAuthHeaders(apiKey),
+            headers: buildAuthHeaders(apiKey, provider),
             body: buildFetchPayload(model, [
                 { role: 'system', content: gamePrompt },
                 { role: 'user', content: `Begin the adventure. Here is the opening scenario:\n\n${allData.startingScenario}\n\nNarrate this opening scene immersively and then present the player with their first choice or opportunity to act.` }

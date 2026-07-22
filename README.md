@@ -18,6 +18,7 @@
 - [Themes](#themes)
 - [Voice Narration (TTS)](#voice-narration-tts)
 - [Retrieval and World Knowledge](#retrieval-and-world-knowledge)
+- [Terminal and Telegram Play](#terminal-and-telegram-play)
 - [How It Works](#how-it-works)
 - [Connecting an AI Model](#connecting-an-ai-model)
 - [Building from Source](#building-from-source)
@@ -53,6 +54,7 @@ After installing, launch Odyssey and follow the in-app welcome screen to configu
 - **AI-generated portraits** — Character and scene artwork generated on demand from detailed, editable prompts.
 - **Live game state** — Health, Money, Hunger, Thirst, and Energy are tracked every turn and surfaced in the sidebar.
 - **Automatic Game Codex** — An NPC Ledger and Location Ledger populate themselves as your story unfolds, giving you a durable reference for every person and place you encounter.
+- **Text-only CLI and Telegram bot** - Play Odyssey without images through an ASCII terminal UI or a BotFather-created Telegram bot backed by the same local saves.
 - **Multiple themes** — Dark Mode, Light Mode, Frutiger Aero, Starry Night, and Matrix, plus configurable typography and accessibility options.
 - **Voice narration (TTS)** — Listen to every turn of narration. Plug in any of four providers — a self-hosted [Kokoro-FastAPI](https://github.com/remsky/Kokoro-FastAPI) server, OpenAI, Google Cloud TTS, or xAI Grok — with a shared control for playback speed (0.5x–2.0x) and per-provider voice selection. Kokoro additionally supports **weighted voice blending**, letting you mix multiple voices into a single custom narrator.
 - **Save management** — Named saves, plus one-click Import and Export for sharing or backing up campaigns.
@@ -176,9 +178,48 @@ Odyssey has two separate knowledge paths:
 1. **World wiki search** - During setup and play, Odyssey can look up relevant world context from Wikipedia-style and Fandom/MediaWiki sources. Built-in and custom worlds can carry wiki metadata, and the retrieved passages are used as live context for the current turn when the related search/RAG settings are enabled.
 2. **Vector RAG stores** - Odyssey can index local game memory and curated universe knowledge into vector stores. These stores are opt-in from **Settings &rarr; RAG** and require a configured embedding provider before retrieval context is injected into turns.
 
-The Harry Potter universe vector store is intentionally separate from the v0.6.0 stable app package. It was validated as an alpha/prerelease vector-store artifact, but it is large and experimental, so the stable release keeps the generator/publisher workflow without bundling that store into the installer.
+The Harry Potter universe vector store is intentionally separate from the v0.6.1 stable app package. It was validated as an alpha/prerelease vector-store artifact, but it is large and experimental, so the stable release keeps the generator/publisher workflow without bundling that store into the installer.
 
 For maintainers, generation happens in the ignored `.rag-vector-generation/` workspace and curated stores are published intentionally into `public/jsons/universe-vector-stores/`.
+
+---
+
+## Terminal and Telegram Play
+
+Odyssey also ships with a text-only Node runtime for terminal and Telegram play. These modes use the same save folder as the Tauri desktop app:
+
+```bash
+npm run odyssey:cli
+```
+
+The CLI is arrow-key navigable for loading games, creating new campaigns, going back or editing the last turn, and opening the Player Menu, Game Codex, and stats views. It does not generate or display images. Preset loading still walks through the normal setup questions with preset answers filled in, so every field can be kept or changed. It also reads the desktop app's local WebView settings by default, so the terminal and Telegram runtimes can reuse your existing Odyssey provider, model, API key, token limits, reasoning setting, game prompt, and retrieval flags. Explicit CLI settings and `ODYSSEY_*` environment variables override the desktop settings.
+
+**Retrieval in terminal/Telegram (opt-in from desktop Settings):** when Vector RAG, web/wiki, Fandom, or Brave search are enabled in the desktop app, the Node runtimes use the same flags. Game-memory vector RAG embeds and searches the per-save `vector_store.json` via your embedding API (shared with the desktop app). Live Wikipedia, world-wiki/Fandom MediaWiki search, and Brave Search run over HTTP when enabled. Premade universe vector packs (for example the separate Harry Potter store under `public/jsons/universe-vector-stores/`) are **not** loaded in CLI/Telegram.
+
+To run Odyssey through Telegram (all in the app — no terminal):
+
+1. Message [BotFather](https://core.telegram.org/bots/features#botfather) in Telegram and create a bot.
+2. Open Odyssey → **Settings → Telegram**, paste the bot token, keep private pairing on, generate pairing words, and **Save**.
+3. Press **Start Bot** and wait until status shows **Running** (requires Node.js 18+ on PATH).
+4. Open your bot in Telegram, send `/start`, and follow the step-by-step verify prompts using the pairing words from Settings.
+
+**Reset / security:** **Reset Verified Users** clears paired accounts immediately for the running bot (no restart). Saving new pairing words also revokes previous verifications. Optional **Allowed Telegram IDs** are separate and are not cleared by Reset. Private pairing is on by default; turn it off only if you intentionally want an open bot.
+
+**Saves:** Prefer one writer at a time. Simultaneous desktop play and Telegram/CLI turns on the **same** save can conflict; use separate saves or pause one client.
+
+Settings are stored in Odyssey app data as `telegram-settings.json`. Power users can still run `npm run odyssey:telegram` or set env overrides (`TELEGRAM_BOT_TOKEN`, `ODYSSEY_TELEGRAM_PAIRING_PHRASE`, etc.).
+
+Telegram commands include `/verify`, `/load`, `/new`, `/back`, `/edit`, `/history`, `/player`, `/codex`, `/stats`, `/settings`, `/menu`, and `/cancel`. After a verified account loads a game, normal chat messages are treated as player actions. New turns create local rewind snapshots, so `/back` restores the previous game state and `/edit` rewinds then regenerates from your replacement action.
+
+The Telegram bot uses Telegram's native rich surfaces where the platform allows them: emoji labels, HTML-formatted narration and status cards, styled inline buttons, quick action callbacks, force-reply setup prompts, message reactions, and an optional Mini App button. Telegram bot messages do not support arbitrary CSS-like text colors inside normal chat text; the practical color options are styled buttons, emoji/status symbols, custom emoji, media, and Mini Apps.
+
+Optional Mini App button:
+
+```env
+ODYSSEY_TELEGRAM_WEB_APP_URL=https://your-hosted-odyssey-mini-app.example
+```
+
+Mini Apps must be served over HTTPS. If that variable is set, `/setup` registers an "Open Odyssey" Telegram menu button and the bot adds an inline app button to its menus.
 
 ---
 
@@ -267,12 +308,15 @@ Odyssey/
 │   ├── titlebar.js     Custom window titlebar
 │   ├── menu-music.js   Main menu audio
 │   ├── models.json     Built-in model metadata
+│   ├── openrouter-attribution.js OpenRouter app attribution headers
 │   ├── style.css       Global design system
 │   ├── assets/         Images, audio, fonts
-│   └── jsons/          Built-in templates (player, world, NPC ledger, etc.)
+│   └── jsons/          Built-in templates, pairing words, and universe stores
+├── tools/              Text-only CLI, Telegram bot, and shared Node runtime
 ├── readme images/      Assets for this document
 ├── devdocs.html        Developer documentation
 ├── CONTRIBUTING.md     Contribution guide
+├── OdysseyTelegram.bat Convenience launcher for the Telegram bot
 └── package.json
 ```
 

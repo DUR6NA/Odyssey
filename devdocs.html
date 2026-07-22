@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Odyssey - Developer Documentation</title>
     <meta name="application-name" content="Odyssey">
-    <meta name="description" content="Developer documentation for Odyssey v0.6.0 and its Tauri-based desktop architecture.">
+    <meta name="description" content="Developer documentation for Odyssey v0.6.1 and its Tauri-based desktop architecture.">
     <meta name="theme-color" content="#121212">
-    <meta name="odyssey-version" content="0.6.0">
-    <meta name="odyssey-bundle-version" content="0.6.0">
-    <meta property="og:title" content="Odyssey v0.6.0 Developer Documentation">
+    <meta name="odyssey-version" content="0.6.1">
+    <meta name="odyssey-bundle-version" content="0.6.1">
+    <meta property="og:title" content="Odyssey v0.6.1 Developer Documentation">
     <meta property="og:description" content="Developer documentation for Odyssey's Tauri-based desktop architecture.">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary">
@@ -462,6 +462,7 @@
                 <a class="nav-link" href="#setup-flow">Setup Flow</a>
                 <a class="nav-link" href="#provider-flow">Provider Flow</a>
                 <a class="nav-link" href="#game-loop">Game Loop</a>
+                <a class="nav-link" href="#terminal-telegram">Terminal and Telegram</a>
                 <a class="nav-link" href="#tts-images">Images and TTS</a>
                 <a class="nav-link" href="#theming">Theme and Fonts</a>
             </div>
@@ -827,6 +828,43 @@
                         <li><code>npc-ledger.json</code></li>
                         <li><code>locationsledger.json</code></li>
                         <li>Optional current scene image metadata</li>
+                    </ul>
+                </section>
+
+                <section class="doc-section" id="terminal-telegram">
+                    <h2>Terminal and Telegram Runtimes</h2>
+                    <p>The text-only runtimes live under <code>tools/</code> and reuse the same local save, preset, settings, rewind, and model-call code through <code>tools/odyssey-core.mjs</code>. Retrieval helpers live in <code>tools/odyssey-retrieval.mjs</code>.</p>
+
+                    <h3>Entry points</h3>
+                    <ul>
+                        <li><code>npm run odyssey:cli</code> starts the keyboard-driven terminal UI (terminal only).</li>
+                        <li>Telegram is started from <strong>Settings → Telegram → Start Bot</strong> via Tauri commands <code>telegram_bot_start</code> / <code>telegram_bot_stop</code> / <code>telegram_bot_status</code> (spawns Node <code>tools/odyssey-telegram-bot.mjs</code>).</li>
+                        <li>The bot always registers Telegram commands on process start (no separate setup step). <code>npm run odyssey:telegram</code> remains a power-user CLI fallback.</li>
+                    </ul>
+
+                    <h3>Telegram auth enforcement</h3>
+                    <ul>
+                        <li>Each update reloads <code>telegram-settings.json</code> and <code>verifiedUsers</code> from disk so Settings → Reset Verified Users applies without restarting the bot.</li>
+                        <li>Verified records store a <code>pairingFingerprint</code>; changing pairing words (and Save) clears verified users and rejects stale fingerprints.</li>
+                        <li>Explicit Allowed Telegram IDs still bypass pairing and are not cleared by Reset.</li>
+                    </ul>
+
+                    <h3>Retrieval (API / live search only)</h3>
+                    <ul>
+                        <li>Turns call <code>buildTurnRetrievalContext</code> before the model request when desktop/env flags allow it.</li>
+                        <li><strong>Game vector RAG:</strong> embeds game world/player/state/summary/NPC/location docs into the save's <code>vector_store.json</code> and cosine-searches with the player action. Uses the same embedding provider settings as the desktop RAG tab.</li>
+                        <li><strong>Live search:</strong> optional Wikipedia, world MediaWiki/Fandom search, and Brave Search over HTTP (with small AI prechecks), matching desktop feature flags.</li>
+                        <li><strong>Not used:</strong> premade universe vector packs under <code>public/jsons/universe-vector-stores/</code> and offline <code>vector-stores/universes</code> caches. CLI/Telegram never load those.</li>
+                        <li>Retrieval failures are soft: turns continue without injected context.</li>
+                    </ul>
+
+                    <h3>Telegram surface</h3>
+                    <ul>
+                        <li><code>tools/odyssey-telegram-bot.mjs</code> renders Telegram-specific HTML cards for narration, player, codex, stats, setup prompts, and error states.</li>
+                        <li>The bot uses inline keyboards, styled button hints, force replies, quick action callbacks, message reactions, and optional Mini App buttons.</li>
+                        <li>Telegram normal chat text does not support arbitrary CSS-style colors. Use emoji, styled buttons, custom emoji, media, or a Mini App for color/theming beyond HTML text emphasis.</li>
+                        <li>If <code>ODYSSEY_TELEGRAM_WEB_APP_URL</code> is set to an HTTPS URL, setup registers an <code>Open Odyssey</code> menu button and bot messages include a Mini App launcher.</li>
+                        <li>Each turn reloads Odyssey settings from disk/desktop so RAG and model changes apply without restarting the bot process.</li>
                     </ul>
                 </section>
 

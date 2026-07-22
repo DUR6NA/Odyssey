@@ -1,7 +1,11 @@
 mod audio;
+mod telegram_runner;
 
 use audio::{menu_music_play, menu_music_set_volume, menu_music_stop, AudioManager};
 use tauri::Manager;
+use telegram_runner::{
+  stop_managed_bot, telegram_bot_start, telegram_bot_status, telegram_bot_stop, TelegramBotProcess,
+};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -16,10 +20,14 @@ pub fn run() {
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_shell::init())
     .manage(audio)
+    .manage(TelegramBotProcess::default())
     .invoke_handler(tauri::generate_handler![
       menu_music_play,
       menu_music_stop,
-      menu_music_set_volume
+      menu_music_set_volume,
+      telegram_bot_start,
+      telegram_bot_stop,
+      telegram_bot_status
     ])
     .setup(|app| {
       if cfg!(debug_assertions) {
@@ -47,6 +55,13 @@ pub fn run() {
 
       Ok(())
     })
-    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+    .build(tauri::generate_context!())
+    .expect("error while building tauri application")
+    .run(|app_handle, event| {
+      if let tauri::RunEvent::Exit = event {
+        if let Some(state) = app_handle.try_state::<TelegramBotProcess>() {
+          stop_managed_bot(&state);
+        }
+      }
+    });
 }
