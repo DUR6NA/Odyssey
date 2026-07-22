@@ -25,6 +25,7 @@ import {
   rewindLastTurn,
   runGameTurn,
   runOpeningTurn,
+  hashPairingPhrase,
   normalizePairingPhraseForStorage,
   parseTelegramUserIds,
   writeJsonFile
@@ -49,6 +50,19 @@ let pairingPhrase = '';
 let authEnabled = false;
 let webAppUrl = '';
 refreshAuthConfig();
+
+// Refuse open bots that reach local saves unless the owner explicitly disabled private mode.
+if (
+  !authEnabled
+  && allowedUsers.size === 0
+  && process.env.ODYSSEY_TELEGRAM_AUTH_ENABLED !== 'false'
+  && telegramSettings.authEnabled !== false
+) {
+  console.error(
+    'Telegram private pairing is required. Enable Private Pairing in Odyssey Settings → Telegram, or set ODYSSEY_TELEGRAM_AUTH_ENABLED=false to opt out intentionally.'
+  );
+  process.exit(1);
+}
 
 const TELEGRAM_COMMANDS = [
   { command: 'start', description: 'Open the Odyssey menu' },
@@ -91,14 +105,17 @@ function refreshAuthConfig() {
   pairingPhrase = normalizePairingPhraseForStorage(
     process.env.ODYSSEY_TELEGRAM_PAIRING_PHRASE || telegramSettings.pairingPhrase || ''
   );
-  if (process.env.ODYSSEY_TELEGRAM_AUTH_ENABLED) {
+  if (process.env.ODYSSEY_TELEGRAM_AUTH_ENABLED !== undefined) {
     authEnabled = String(process.env.ODYSSEY_TELEGRAM_AUTH_ENABLED).toLowerCase() === 'true';
+  } else if (telegramSettings.authEnabled === false) {
+    authEnabled = false;
   } else {
-    authEnabled = Boolean(
-      telegramSettings.authEnabled
-        || envUsers.length
-        || process.env.ODYSSEY_TELEGRAM_PAIRING_PHRASE
-    );
+    // Default private: on unless explicitly disabled. A configured phrase always implies private mode.
+    authEnabled = telegramSettings.authEnabled !== false || Boolean(pairingPhrase) || allowedUsers.size > 0;
+  }
+  // Non-empty pairing phrase requires verification unless auth was explicitly disabled via env/settings.
+  if (pairingPhrase && process.env.ODYSSEY_TELEGRAM_AUTH_ENABLED === undefined && telegramSettings.authEnabled !== false) {
+    authEnabled = true;
   }
   webAppUrl = String(
     process.env.ODYSSEY_TELEGRAM_WEB_APP_URL
@@ -107,6 +124,13 @@ function refreshAuthConfig() {
       || ''
   ).trim();
 }
+
+function currentPairingFingerprint() {
+  return hashPairingPhrase(pairingPhrase);
+}
+
+/** Pending verifications applied on the next save (must not clobber desktop resets). */
+let pendingVerifiedWrites = {};
 
 async function reloadTelegramSettings() {
   telegramSettings = await loadTelegramSettings();
@@ -122,21 +146,22 @@ async function reloadAuthStateFromDisk() {
     pairedUsers: {},
     verifiedUsers: {}
   });
-  state.verifiedUsers = disk.verifiedUsers && typeof disk.verifiedUsers === 'object' ? disk.verifiedUsers : {};
-  state.pairedUsers = disk.pairedUsers && typeof disk.pairedUsers === 'object' ? disk.pairedUsers : {};
+  state.verifiedUsers = disk.verifiedUsers && typeof disk.verifiedUsers === 'object' ? { ...disk.verifiedUsers } : {};
+  state.pairedUsers = disk.pairedUsers && typeof disk.pairedUsers === 'object' ? { ...disk.pairedUsers } : {};
 
-  // Drop verifications that do not match the current pairing phrase (includes legacy records without a fingerprint).
-  if (authEnabled && pairingPhrase) {
+  // Drop verifications that do not match the current pairing hash (includes legacy plaintext fingerprints).
+  const expected = currentPairingFingerprint();
+  if (authEnabled && expected) {
     let pruned = false;
     for (const [id, record] of Object.entries(state.verifiedUsers)) {
       const fingerprint = String(record?.pairingFingerprint || '').trim();
-      if (fingerprint !== pairingPhrase) {
+      if (fingerprint !== expected) {
         delete state.verifiedUsers[id];
         pruned = true;
       }
     }
     if (pruned) {
-      await writeJsonFile(await getTelegramStatePath(), {
+      await writeAuthPreservingChats({
         offset: Number(state.offset || disk.offset || 0),
         chats: state.chats || disk.chats || {},
         pairedUsers: state.pairedUsers,
@@ -144,6 +169,21 @@ async function reloadAuthStateFromDisk() {
       });
     }
   }
+}
+
+async function writeAuthPreservingChats(payload) {
+  const disk = await readJsonFile(await getTelegramStatePath(), {
+    offset: 0,
+    chats: {},
+    pairedUsers: {},
+    verifiedUsers: {}
+  });
+  await writeJsonFile(await getTelegramStatePath(), {
+    offset: payload.offset ?? disk.offset ?? 0,
+    chats: payload.chats || disk.chats || {},
+    pairedUsers: payload.pairedUsers || {},
+    verifiedUsers: payload.verifiedUsers || {}
+  });
 }
 
 class TelegramBotApi {
@@ -285,8 +325,47 @@ async function loadState() {
   return loaded;
 }
 
+/**
+ * Persist chats/offset without reintroducing verified users removed on disk
+ * (e.g. Settings → Reset while a long turn was in flight).
+ */
 async function saveState() {
-  await writeJsonFile(await getTelegramStatePath(), state);
+  const disk = await readJsonFile(await getTelegramStatePath(), {
+    offset: 0,
+    chats: {},
+    pairedUsers: {},
+    verifiedUsers: {}
+  });
+
+  // Disk is authoritative for removals; only re-apply pending verifications from this process.
+  const verifiedUsers = { ...(disk.verifiedUsers && typeof disk.verifiedUsers === 'object' ? disk.verifiedUsers : {}) };
+  const pairedUsers = { ...(disk.pairedUsers && typeof disk.pairedUsers === 'object' ? disk.pairedUsers : {}) };
+  const expected = currentPairingFingerprint();
+
+  for (const [id, record] of Object.entries(pendingVerifiedWrites)) {
+    if (expected && String(record?.pairingFingerprint || '') === expected) {
+      verifiedUsers[id] = record;
+    }
+  }
+  // Drop stale fingerprints still on disk
+  if (expected) {
+    for (const [id, record] of Object.entries(verifiedUsers)) {
+      if (String(record?.pairingFingerprint || '') !== expected) {
+        delete verifiedUsers[id];
+      }
+    }
+  }
+
+  pendingVerifiedWrites = {};
+  state.verifiedUsers = verifiedUsers;
+  state.pairedUsers = pairedUsers;
+
+  await writeJsonFile(await getTelegramStatePath(), {
+    offset: Number(state.offset || disk.offset || 0),
+    chats: state.chats || disk.chats || {},
+    pairedUsers,
+    verifiedUsers
+  });
 }
 
 function getChatState(chatId) {
@@ -323,26 +402,31 @@ function isVerified(from) {
   const id = getTelegramUserId(from);
   if (!id) return false;
   if (allowedUsers.has(id)) return true;
-  const record = state.verifiedUsers?.[id];
+  const record = state.verifiedUsers?.[id] || pendingVerifiedWrites[id];
   if (!record) return false;
-  // Must match the current pairing phrase so reset / new words revoke access.
-  if (!pairingPhrase) return false;
-  return String(record.pairingFingerprint || '') === pairingPhrase;
+  // Must match the current pairing hash so reset / new words revoke access.
+  const expected = currentPairingFingerprint();
+  if (!expected) return false;
+  return String(record.pairingFingerprint || '') === expected;
 }
 
 function verifyTelegramUser(from) {
   const id = getTelegramUserId(from);
   if (!id) return null;
-  state.verifiedUsers ||= {};
-  state.verifiedUsers[id] = {
+  const fingerprint = currentPairingFingerprint();
+  if (!fingerprint) return null;
+  const record = {
     id,
     username: from?.username || '',
     firstName: from?.first_name || '',
     lastName: from?.last_name || '',
     verifiedAt: new Date().toISOString(),
-    pairingFingerprint: pairingPhrase
+    pairingFingerprint: fingerprint
   };
-  return state.verifiedUsers[id];
+  state.verifiedUsers ||= {};
+  state.verifiedUsers[id] = record;
+  pendingVerifiedWrites[id] = record;
+  return record;
 }
 
 function verificationKeyboard() {

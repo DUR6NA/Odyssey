@@ -16,6 +16,7 @@ import {
   isOpenRouterUrl,
   parseStructuredModelOutput,
   readJsonFile,
+  resolveGameDir,
   writeJsonFile
 } from './odyssey-core.mjs';
 
@@ -428,7 +429,9 @@ function normalizeStore(store, scopeId) {
 }
 
 async function getGameVectorStorePath(gameId) {
-  return path.join(getOdysseyBaseDir(), 'games', String(gameId), 'vector_store.json');
+  const gamesDir = path.join(getOdysseyBaseDir(), 'games');
+  const gameDir = resolveGameDir(gamesDir, gameId);
+  return path.join(gameDir, 'vector_store.json');
 }
 
 export async function loadGameVectorStore(gameId) {

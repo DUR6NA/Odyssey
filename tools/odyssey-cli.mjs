@@ -22,6 +22,9 @@ import {
   loadGameSession,
   loadSettings,
   editLastTurn,
+  getSettingsPath,
+  readJsonFile,
+  writeJsonFile,
   rewindLastTurn,
   runGameTurn,
   runOpeningTurn,
@@ -269,8 +272,11 @@ async function loadGameFlow() {
 }
 
 async function setLastGame(id) {
+  // Only persist lastGameId — never freeze desktop-derived provider/RAG settings into cli-settings.json.
+  const settingsPath = await getSettingsPath();
+  const saved = await readJsonFile(settingsPath, {});
+  await writeJsonFile(settingsPath, { ...(saved && typeof saved === 'object' ? saved : {}), lastGameId: id });
   cachedSettings = await loadSettings();
-  await saveSettings({ ...cachedSettings, lastGameId: id });
   cachedSettings.lastGameId = id;
 }
 

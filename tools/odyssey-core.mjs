@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
+import crypto from 'node:crypto';
 
 export const APP_IDENTIFIER = 'com.dur6na.odyssey';
 export const APP_DATA_FOLDER = 'odyssey';
@@ -45,7 +46,7 @@ export const DEFAULT_SETTINGS = {
 
 export const DEFAULT_TELEGRAM_SETTINGS = {
   botToken: '',
-  authEnabled: false,
+  authEnabled: true,
   pairingPhrase: '',
   allowedUsers: [],
   webAppUrl: ''
@@ -264,7 +265,37 @@ export async function readJsonFile(filePath, fallback = null) {
 
 export async function writeJsonFile(filePath, value) {
   await ensureDir(path.dirname(filePath));
-  await fs.writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+  const payload = `${JSON.stringify(value, null, 2)}\n`;
+  const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  await fs.writeFile(tempPath, payload, 'utf8');
+  try {
+    await fs.rename(tempPath, filePath);
+  } catch {
+    // Windows may refuse rename over an existing file; fall back to replace.
+    await fs.writeFile(filePath, payload, 'utf8');
+    await fs.unlink(tempPath).catch(() => {});
+  }
+}
+
+/** Reject path traversal / absolute segments; keep resolved path under gamesDir. */
+export function resolveGameDir(gamesDir, id) {
+  const raw = String(id || '').trim();
+  if (!raw || raw === '.' || raw === '..' || /[\\/]/.test(raw) || raw.includes('..')) {
+    throw new Error(`Invalid game id: ${id}`);
+  }
+  const root = path.resolve(gamesDir);
+  const resolved = path.resolve(root, raw);
+  const prefix = root.endsWith(path.sep) ? root : root + path.sep;
+  if (resolved !== root && !resolved.startsWith(prefix)) {
+    throw new Error(`Invalid game id: ${id}`);
+  }
+  return resolved;
+}
+
+export function hashPairingPhrase(phrase) {
+  const normalized = normalizePairingPhraseForStorage(phrase);
+  if (!normalized) return '';
+  return crypto.createHash('sha256').update(normalized, 'utf8').digest('hex');
 }
 
 export async function getGamesDir() {
@@ -522,7 +553,7 @@ async function loadDesktopTelegramSettings() {
 
   return normalizeTelegramSettings({
     botToken: storage.jsonAdventure_telegramBotToken || '',
-    authEnabled: parseSettingBoolean(storage.jsonAdventure_telegramAuthEnabled, false),
+    authEnabled: parseSettingBoolean(storage.jsonAdventure_telegramAuthEnabled, DEFAULT_TELEGRAM_SETTINGS.authEnabled),
     pairingPhrase: storage.jsonAdventure_telegramPairingPhrase || '',
     allowedUsers: storage.jsonAdventure_telegramAllowedUsers || '',
     webAppUrl: storage.jsonAdventure_telegramWebAppUrl || ''
@@ -913,7 +944,7 @@ export async function listGames() {
 
 export async function loadGameFiles(id) {
   const gamesDir = await getGamesDir();
-  const gameDir = path.join(gamesDir, String(id));
+  const gameDir = resolveGameDir(gamesDir, id);
   if (!(await pathExists(gameDir))) {
     throw new Error(`Game save not found: ${id}`);
   }
@@ -947,7 +978,8 @@ export async function loadGameSession(id) {
 
 export async function loadTurnSnapshots(id) {
   const gamesDir = await getGamesDir();
-  const snapshotPath = path.join(gamesDir, String(id), TURN_SNAPSHOTS_FILE);
+  const gameDir = resolveGameDir(gamesDir, id);
+  const snapshotPath = path.join(gameDir, TURN_SNAPSHOTS_FILE);
   const data = await readJsonFile(snapshotPath, { version: 1, snapshots: [] });
   const snapshots = Array.isArray(data?.snapshots) ? data.snapshots : [];
   return { version: 1, snapshots };
@@ -955,7 +987,8 @@ export async function loadTurnSnapshots(id) {
 
 export async function saveTurnSnapshots(id, snapshots) {
   const gamesDir = await getGamesDir();
-  const snapshotPath = path.join(gamesDir, String(id), TURN_SNAPSHOTS_FILE);
+  const gameDir = resolveGameDir(gamesDir, id);
+  const snapshotPath = path.join(gameDir, TURN_SNAPSHOTS_FILE);
   await writeJsonFile(snapshotPath, {
     version: 1,
     snapshots: snapshots.slice(-MAX_TURN_SNAPSHOTS)
@@ -1044,9 +1077,11 @@ function deepClone(value) {
 
 export async function saveGameSession(session) {
   const gamesDir = await getGamesDir();
-  const gameDir = path.join(gamesDir, String(session.id));
+  const gameDir = resolveGameDir(gamesDir, session.id);
   await ensureDir(gameDir);
 
+  // Atomic per-file writes (temp + rename). Concurrent desktop + Telegram play on the same
+  // save is still unsupported — one writer at a time.
   await writeJsonFile(path.join(gameDir, 'gamestate.json'), session.gameState || {});
   await writeJsonFile(path.join(gameDir, 'player.json'), session.playerInfo || { player: {} });
   await writeJsonFile(path.join(gameDir, 'chat_history.json'), session.chatHistory || []);

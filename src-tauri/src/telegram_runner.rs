@@ -1,9 +1,13 @@
 //! Managed Odyssey Telegram bot child process (Node runner).
 
 use serde::Serialize;
+use std::fs::{self, File, OpenOptions};
+use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
+use std::thread;
+use std::time::Duration;
 use tauri::{AppHandle, Manager, State};
 
 #[cfg(windows)]
@@ -12,10 +16,14 @@ use std::os::windows::process::CommandExt;
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
+const STARTUP_GRACE_MS: u64 = 900;
+const STDERR_TAIL_CHARS: usize = 1200;
+
 pub struct TelegramBotProcess {
   pub child: Mutex<Option<Child>>,
   pub last_error: Mutex<Option<String>>,
   pub started_at: Mutex<Option<String>>,
+  pub log_path: Mutex<Option<PathBuf>>,
 }
 
 impl Default for TelegramBotProcess {
@@ -24,6 +32,7 @@ impl Default for TelegramBotProcess {
       child: Mutex::new(None),
       last_error: Mutex::new(None),
       started_at: Mutex::new(None),
+      log_path: Mutex::new(None),
     }
   }
 }
@@ -46,11 +55,45 @@ fn is_child_running(child: &mut Child) -> bool {
   }
 }
 
+fn read_log_tail(path: &Path) -> Option<String> {
+  let mut file = File::open(path).ok()?;
+  let len = file.seek(SeekFrom::End(0)).ok()?;
+  let start = len.saturating_sub(STDERR_TAIL_CHARS as u64);
+  file.seek(SeekFrom::Start(start)).ok()?;
+  let mut buf = String::new();
+  file.read_to_string(&mut buf).ok()?;
+  let trimmed = buf.trim();
+  if trimmed.is_empty() {
+    None
+  } else {
+    // Prefer last non-empty lines
+    let tail = trimmed
+      .lines()
+      .rev()
+      .take(8)
+      .collect::<Vec<_>>()
+      .into_iter()
+      .rev()
+      .collect::<Vec<_>>()
+      .join(" | ");
+    Some(tail.chars().take(STDERR_TAIL_CHARS).collect())
+  }
+}
+
 fn reap_if_exited(state: &TelegramBotProcess) {
   let mut guard = state.child.lock().unwrap();
   if let Some(child) = guard.as_mut() {
     if !is_child_running(child) {
-      let _ = child.wait();
+      let code = child.wait().ok().and_then(|s| s.code());
+      let log = state.log_path.lock().unwrap().clone();
+      let tail = log.as_ref().and_then(|p| read_log_tail(p));
+      let msg = match (code, tail) {
+        (Some(c), Some(t)) => format!("Bot exited (code {c}): {t}"),
+        (Some(c), None) => format!("Bot exited unexpectedly (code {c})."),
+        (None, Some(t)) => format!("Bot exited: {t}"),
+        (None, None) => "Bot exited unexpectedly.".into(),
+      };
+      *state.last_error.lock().unwrap() = Some(msg);
       *guard = None;
       *state.started_at.lock().unwrap() = None;
     }
@@ -58,15 +101,11 @@ fn reap_if_exited(state: &TelegramBotProcess) {
 }
 
 fn resolve_tools_dir(app: &AppHandle) -> Result<PathBuf, String> {
-  // Dev: src-tauri/../tools
   let manifest_tools = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join("tools");
   if manifest_tools.join("odyssey-telegram-bot.mjs").is_file() {
-    return Ok(manifest_tools
-      .canonicalize()
-      .unwrap_or(manifest_tools));
+    return Ok(manifest_tools.canonicalize().unwrap_or(manifest_tools));
   }
 
-  // Packaged: resource dir / tools
   if let Ok(resource_dir) = app.path().resource_dir() {
     let candidates = [
       resource_dir.join("tools"),
@@ -80,7 +119,6 @@ fn resolve_tools_dir(app: &AppHandle) -> Result<PathBuf, String> {
     }
   }
 
-  // cwd fallback
   if let Ok(cwd) = std::env::current_dir() {
     let tools = cwd.join("tools");
     if tools.join("odyssey-telegram-bot.mjs").is_file() {
@@ -99,7 +137,6 @@ fn resolve_tools_dir(app: &AppHandle) -> Result<PathBuf, String> {
 }
 
 fn resolve_node_command() -> Result<PathBuf, String> {
-  // Prefer `node` on PATH
   if which_exists("node") {
     return Ok(PathBuf::from("node"));
   }
@@ -133,6 +170,15 @@ fn repo_root_from_tools(tools_dir: &Path) -> PathBuf {
     .parent()
     .map(Path::to_path_buf)
     .unwrap_or_else(|| tools_dir.to_path_buf())
+}
+
+fn bot_log_path(app: &AppHandle) -> PathBuf {
+  if let Ok(dir) = app.path().app_data_dir() {
+    let log_dir = dir.join("odyssey").join("logs");
+    let _ = fs::create_dir_all(&log_dir);
+    return log_dir.join("telegram-bot.err.log");
+  }
+  std::env::temp_dir().join("odyssey-telegram-bot.err.log")
 }
 
 #[tauri::command]
@@ -195,31 +241,72 @@ pub fn telegram_bot_start(
     e
   })?;
   let cwd = repo_root_from_tools(&tools_dir);
+  let log_path = bot_log_path(&app);
+  let _ = fs::create_dir_all(log_path.parent().unwrap_or(Path::new(".")));
+  // Truncate previous run log
+  let _ = fs::write(&log_path, b"");
+
+  let stderr_file = OpenOptions::new()
+    .create(true)
+    .append(true)
+    .open(&log_path)
+    .map_err(|e| {
+      let msg = format!("Could not open bot log file: {e}");
+      *state.last_error.lock().unwrap() = Some(msg.clone());
+      msg
+    })?;
+  let stdout_file = stderr_file
+    .try_clone()
+    .map_err(|e| format!("Could not clone bot log handle: {e}"))?;
 
   let mut command = Command::new(&node);
   command
     .arg(&script)
     .current_dir(&cwd)
     .stdin(Stdio::null())
-    .stdout(Stdio::null())
-    .stderr(Stdio::null());
+    .stdout(Stdio::from(stdout_file))
+    .stderr(Stdio::from(stderr_file));
 
   #[cfg(windows)]
   {
     command.creation_flags(CREATE_NO_WINDOW);
   }
 
-  let child = command.spawn().map_err(|e| {
+  let mut child = command.spawn().map_err(|e| {
     let msg = format!("Failed to start Telegram bot: {e}");
     *state.last_error.lock().unwrap() = Some(msg.clone());
     msg
   })?;
 
   let pid = child.id();
+  // Grace period: catch immediate exits (missing token, syntax errors, etc.)
+  thread::sleep(Duration::from_millis(STARTUP_GRACE_MS));
+  if !is_child_running(&mut child) {
+    let code = child.wait().ok().and_then(|s| s.code());
+    let tail = read_log_tail(&log_path);
+    let msg = match (code, tail) {
+      (Some(c), Some(t)) => format!("Bot failed to stay running (code {c}): {t}"),
+      (Some(c), None) => format!(
+        "Bot failed to stay running (code {c}). Check token in Settings → Telegram and Node install."
+      ),
+      (None, Some(t)) => format!("Bot failed to stay running: {t}"),
+      (None, None) => {
+        "Bot failed to stay running. Check token in Settings → Telegram and that Node is installed."
+          .into()
+      }
+    };
+    *state.last_error.lock().unwrap() = Some(msg.clone());
+    *state.child.lock().unwrap() = None;
+    *state.started_at.lock().unwrap() = None;
+    *state.log_path.lock().unwrap() = Some(log_path);
+    return Err(msg);
+  }
+
   let started = chrono_like_now();
   *state.child.lock().unwrap() = Some(child);
   *state.started_at.lock().unwrap() = Some(started.clone());
   *state.last_error.lock().unwrap() = None;
+  *state.log_path.lock().unwrap() = Some(log_path);
 
   Ok(TelegramBotStatus {
     running: true,
@@ -238,6 +325,7 @@ pub fn telegram_bot_stop(state: State<'_, TelegramBotProcess>) -> Result<Telegra
     let _ = child.wait();
   }
   *state.started_at.lock().unwrap() = None;
+  // Keep last_error if user is diagnosing; clear on intentional stop
   *state.last_error.lock().unwrap() = None;
   Ok(TelegramBotStatus {
     running: false,
@@ -258,7 +346,6 @@ pub fn stop_managed_bot(state: &TelegramBotProcess) {
 }
 
 fn chrono_like_now() -> String {
-  // Avoid extra dependency; RFC-ish local timestamp is enough for UI.
   use std::time::{SystemTime, UNIX_EPOCH};
   let secs = SystemTime::now()
     .duration_since(UNIX_EPOCH)

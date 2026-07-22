@@ -203,7 +203,9 @@ To run Odyssey through Telegram (all in the app — no terminal):
 3. Press **Start Bot** and wait until status shows **Running** (requires Node.js 18+ on PATH).
 4. Open your bot in Telegram, send `/start`, and follow the step-by-step verify prompts using the pairing words from Settings.
 
-**Reset / security:** **Reset Verified Users** clears paired accounts immediately for the running bot (no restart). Saving new pairing words also revokes previous verifications. Optional **Allowed Telegram IDs** are separate and are not cleared by Reset.
+**Reset / security:** **Reset Verified Users** clears paired accounts immediately for the running bot (no restart). Saving new pairing words also revokes previous verifications. Optional **Allowed Telegram IDs** are separate and are not cleared by Reset. Private pairing is on by default; turn it off only if you intentionally want an open bot.
+
+**Saves:** Prefer one writer at a time. Simultaneous desktop play and Telegram/CLI turns on the **same** save can conflict; use separate saves or pause one client.
 
 Settings are stored in Odyssey app data as `telegram-settings.json`. Power users can still run `npm run odyssey:telegram` or set env overrides (`TELEGRAM_BOT_TOKEN`, `ODYSSEY_TELEGRAM_PAIRING_PHRASE`, etc.).
 
