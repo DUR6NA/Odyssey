@@ -26,6 +26,7 @@ error_log.txt
 
 games/
 presets/
+advertising/
 
 
 .env

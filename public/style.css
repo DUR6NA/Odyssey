@@ -767,6 +767,9 @@ p {
 .sidebar {
     width: 250px;
     background-color: var(--bg-secondary);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
     padding: 30px 20px;
     box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5);
     display: flex;
@@ -806,6 +809,10 @@ p {
     padding: 60px 80px;
     position: relative;
     /* important for absolute positioning the button */
+    background-color: var(--bg-secondary);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
 }
 
 .settings-header {
@@ -828,6 +835,8 @@ p {
     padding: 10px;
     border-radius: var(--radius-lg);
     background-color: var(--bg-secondary);
+    backdrop-filter: blur(12px) saturate(160%);
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
     color: white;
     border: 1px solid var(--border-color);
     cursor: pointer;
