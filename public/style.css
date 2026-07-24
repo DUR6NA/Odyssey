@@ -668,6 +668,61 @@ body {
     color: var(--text-muted);
 }
 
+.mic-btn {
+    background: transparent;
+    color: var(--text-heading);
+    border: 1px solid var(--border-color);
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-circle);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.2s, background 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s;
+    flex-shrink: 0;
+    font-size: 0.95rem;
+    margin-right: 8px;
+    padding: 0;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+}
+
+.mic-btn:hover:not(:disabled) {
+    transform: scale(1.05);
+    border-color: var(--text-muted);
+    background: var(--bg-secondary);
+}
+
+.mic-btn.recording {
+    background: color-mix(in srgb, #c0392b 25%, var(--bg-tertiary));
+    border-color: #c0392b;
+    color: #e74c3c;
+    box-shadow: 0 0 0 3px color-mix(in srgb, #c0392b 30%, transparent);
+    animation: mic-pulse 1.1s ease-in-out infinite;
+}
+
+.mic-btn.busy {
+    opacity: 0.65;
+    cursor: wait;
+}
+
+.mic-btn.is-off {
+    opacity: 0.45;
+}
+
+.mic-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+}
+
+@keyframes mic-pulse {
+    0%, 100% { box-shadow: 0 0 0 2px color-mix(in srgb, #c0392b 25%, transparent); }
+    50% { box-shadow: 0 0 0 6px color-mix(in srgb, #c0392b 12%, transparent); }
+}
+
 .send-btn {
     background: var(--text-heading);
     color: var(--bg-main);
@@ -767,6 +822,9 @@ p {
 .sidebar {
     width: 250px;
     background-color: var(--bg-secondary);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
     padding: 30px 20px;
     box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5);
     display: flex;
@@ -806,6 +864,10 @@ p {
     padding: 60px 80px;
     position: relative;
     /* important for absolute positioning the button */
+    background-color: var(--bg-secondary);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
 }
 
 .settings-header {
@@ -828,6 +890,8 @@ p {
     padding: 10px;
     border-radius: var(--radius-lg);
     background-color: var(--bg-secondary);
+    backdrop-filter: blur(12px) saturate(160%);
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
     color: white;
     border: 1px solid var(--border-color);
     cursor: pointer;

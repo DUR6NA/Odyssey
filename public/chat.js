@@ -621,21 +621,36 @@ async function performImageGeneration(promptText, aspect_ratio = "2:3", baseImag
 
 
 function buildGameSystemPrompt(allData, summaryText, relevantLore = '', wikipediaData = '', fandomData = '', provider = '', ragData = '', braveData = '') {
-    const defaultGamePrompt = `You are now a seasoned novelist acting as the Game Master. Write a dynamic, immersive, and grounded text-based adventure. 
+    const defaultGamePrompt = `You are now a seasoned novelist acting as the Game Master. Write a dynamic, immersive, and grounded text-based adventure. You are impartial: you do not break character, do not summarize when you should roleplay, and do not skip time unless the player explicitly asks to wait, rest, travel, or otherwise advance time.
+
+INTERNAL REASONING (never shown to the player — complete silently before writing):
+1. PHYSICS — Is the player's action physically possible given their state, inventory, location, and surroundings?
+2. TIME — How much time does this action realistically consume? Update the time fields accordingly.
+3. STATE — How do Health, Hunger, Thirst, Energy, money, inventory, NPCs, and location change as a result? Express those changes only through the required JSON fields, not as numbers in the prose.
+4. NPC LOGIC — What do present NPCs know, want, remember, and do right now?
+5. CONSEQUENCES — Immediate, short-term, and plausible long-term fallout of the action.
+6. NARRATIVE HOOK — What sensory detail, tension, or intrigue best serves immersion?
 
 CRITICAL NARRATIVE RULES:
-1. Grounded & Natural Prose: Write like a high-quality, traditionally published novel. The prose should flow naturally. Put the player inside a breathing world. The world exists on its own; the player is simply the protagonist navigating it. 
-2. Realistic Dialogue: ALL dialogue MUST be enclosed in proper double quotation marks (e.g., "Hello there," she said.). Characters must speak like normal, grounded humans. Absolutely NO hammy, hyper-stylized slang, forced era-specific jargon, or excessive "quippy" banter. Dialogue should sound like a real conversation, placed on its own line when a new character speaks.
+1. Grounded & Natural Prose: Write like a high-quality, traditionally published novel. The prose should flow naturally. Put the player inside a breathing world. The world exists on its own; the player is simply the protagonist navigating it.
+2. Realistic Dialogue: ALL dialogue MUST be enclosed in proper double quotation marks (e.g., "Hello there," she said.). Characters must speak like normal, grounded humans. Absolutely NO hammy, hyper-stylized slang, forced era-specific jargon, or excessive "quippy" banter. Dialogue should sound like a real conversation, placed on its own line when a new character speaks. Play dialogue verbatim — never write "the guard agrees" when you can write what the guard actually says.
 3. No Meta-References: Do not constantly remind the player of the setting or throw out random historical/world facts unless it makes strict narrative sense.
 4. Clean Readability: Break your response into several short paragraphs (2-4 sentences max). Use standard Markdown formatting (bolding, italics).
-5. No Stats or Lists in Text: NEVER output numbers for stat changes, and NEVER output a numbered list of options at the end. Describe the consequences naturally in the prose, and end the narrative by presenting an open-ended situation or a subtle hook for the player to react to. Let them decide what to do next without dictating a menu of choices.
+5. No Stats or Lists in Text: NEVER output numbers for stat changes, and NEVER output a numbered list of options at the end. Describe consequences naturally in the prose, and end by presenting an open-ended situation or a subtle hook. Let the player decide what to do next without dictating a menu of choices. Stats, inventory, and time belong in the JSON systems — not in the narrative.
 6. Player Agency: NEVER speak for the player character or take actions for them.
+
+SIMULATION DISCIPLINE:
+- Time is real. Walking, talking, eating, fighting, and sleeping each consume appropriate time. Conversation plays line by line; do not collapse whole scenes into a summary unless the player asks to skip or wait.
+- Failure, injury, social fallout, and death are real possibilities. Do not protect the player from bad decisions. Illegal or dangerous acts draw realistic reactions: people flee, alert others, refuse, bargain, or fight back.
+- Outcomes come from logical simulation of the situation, not from arbitrary luck or soft plot armor.
+- NPCs have memory. Rudeness, kindness, violence, and deception change how they treat the player going forward. Reflect lasting disposition shifts through npc_changes notes and natural behavior, not through exposition dumps.
+- Present the consequences of the player's last action before fully opening the new situation.
 
 CURRENCY RULE: Always track the player's money through the stats.money field (as an integer). Do NOT create inventory items for money, credits, coins, gold, or any form of currency. When the player earns or spends money, update stats.money to the new total. Only use inventory_changes for physical items.
 
 INVENTORY UPDATE RULE: When an existing inventory item changes (e.g. quantity, condition, or name), use the "update" action with the item's current name and set newName/description to the updated values. Do NOT remove and re-add items to change them — use "update" instead.
 
-Rely on the background JSON systems to handle stats, inventory, and time. Your ONLY job in the text output is to write a beautiful, grounded, and engaging story.`;
+Rely on the background JSON systems to handle stats, inventory, time, NPCs, and locations. Your ONLY job in the text output is to write a beautiful, grounded, and engaging story.`;
 
     const customBase = localStorage.getItem('jsonAdventure_promptGame') || defaultGamePrompt;
     const stateUpdateContract = `STATE UPDATE CONTRACT:
@@ -1435,6 +1450,10 @@ function setChatGenerationActive(isGenerating) {
         sendBtn.setAttribute('aria-busy', isGenerating ? 'true' : 'false');
         sendBtn.title = isGenerating ? 'Generating...' : 'Send message';
     }
+
+    if (typeof updateMicButtonState === 'function') {
+        updateMicButtonState();
+    }
 }
 
 function restoreFailedPromptToInput(message) {
@@ -1495,6 +1514,7 @@ function startChatPlaceholderLoop() {
 function setupChatInput() {
     const sendBtn = document.querySelector('.send-btn');
     const chatInput = document.getElementById('chat-input');
+    const micBtn = document.getElementById('mic-btn');
 
     // Remove old listeners by cloning
     const newSendBtn = sendBtn.cloneNode(true);
@@ -1502,6 +1522,12 @@ function setupChatInput() {
 
     const newChatInput = chatInput.cloneNode(true);
     chatInput.parentNode.replaceChild(newChatInput, chatInput);
+
+    if (micBtn && micBtn.parentNode) {
+        const newMicBtn = micBtn.cloneNode(true);
+        micBtn.parentNode.replaceChild(newMicBtn, micBtn);
+        wireMicHoldToTalk(newMicBtn);
+    }
 
     newSendBtn.onclick = () => sendChatMessage();
     newChatInput.addEventListener('keydown', (e) => {
@@ -1520,6 +1546,7 @@ function setupChatInput() {
     window.removeEventListener('pagehide', persistChatDraftOnPageHide);
     window.addEventListener('pagehide', persistChatDraftOnPageHide);
     startChatPlaceholderLoop();
+    updateMicButtonState();
 }
 
 async function runWikipediaPreCheck(userInput) {
@@ -2226,6 +2253,348 @@ async function triggerImageGeneration() {
     if (btn) { btn.disabled = false; btn.textContent = '🔄'; }
 }
 
+
+// ============================================================
+// SPEECH TO TEXT (STT) — OpenRouter hold-to-talk
+// ============================================================
+
+const sttRuntimeState = {
+    isRecording: false,
+    isTranscribing: false,
+    isFinishing: false,
+    mediaRecorder: null,
+    mediaStream: null,
+    chunks: [],
+    pointerId: null,
+    startedAt: 0,
+    stopRequested: false
+};
+
+const STT_MIN_RECORD_MS = 250;
+
+function getSttApiKey() {
+    return localStorage.getItem('jsonAdventure_openRouterApiKey')
+        || localStorage.getItem('jsonAdventure_apiKey_openrouter')
+        || '';
+}
+
+function getSttModel() {
+    const manual = (localStorage.getItem('jsonAdventure_sttManualModel') || '').trim();
+    if (manual) return manual;
+    return localStorage.getItem('jsonAdventure_sttModel') || 'openai/whisper-1';
+}
+
+function isSttEnabled() {
+    return localStorage.getItem('jsonAdventure_sttEnabled') !== 'false';
+}
+
+function updateMicButtonState() {
+    const micBtn = document.getElementById('mic-btn');
+    if (!micBtn) return;
+
+    const busy = sttRuntimeState.isTranscribing;
+    const recording = sttRuntimeState.isRecording;
+    const generating = !!(typeof chatGenerationState !== 'undefined' && chatGenerationState.isGenerating);
+    const hardDisabled = (busy || generating) && !recording;
+
+    micBtn.classList.toggle('recording', recording);
+    micBtn.classList.toggle('busy', busy);
+    micBtn.classList.toggle('is-off', !isSttEnabled() && !recording && !busy);
+    micBtn.disabled = hardDisabled;
+    micBtn.setAttribute('aria-busy', busy || recording ? 'true' : 'false');
+
+    if (busy) {
+        micBtn.title = 'Transcribing...';
+    } else if (recording) {
+        micBtn.title = 'Release to finish';
+    } else if (!isSttEnabled()) {
+        micBtn.title = 'STT disabled — enable in Settings → Voice';
+    } else if (generating) {
+        micBtn.title = 'Wait for generation to finish';
+    } else {
+        micBtn.title = 'Hold to talk';
+    }
+}
+
+function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const result = String(reader.result || '');
+            const comma = result.indexOf(',');
+            resolve(comma >= 0 ? result.slice(comma + 1) : result);
+        };
+        reader.onerror = () => reject(reader.error || new Error('Failed to read audio'));
+        reader.readAsDataURL(blob);
+    });
+}
+
+function mimeToAudioFormat(mimeType) {
+    const mime = String(mimeType || '').toLowerCase();
+    if (mime.includes('webm')) return 'webm';
+    if (mime.includes('ogg')) return 'ogg';
+    if (mime.includes('wav')) return 'wav';
+    if (mime.includes('mpeg') || mime.includes('mp3')) return 'mp3';
+    if (mime.includes('mp4') || mime.includes('m4a')) return 'm4a';
+    if (mime.includes('flac')) return 'flac';
+    if (mime.includes('aac')) return 'aac';
+    return 'webm';
+}
+
+function pickMediaRecorderMimeType() {
+    if (typeof MediaRecorder === 'undefined') return '';
+    const candidates = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/ogg;codecs=opus',
+        'audio/mp4'
+    ];
+    for (const type of candidates) {
+        if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(type)) {
+            return type;
+        }
+    }
+    return '';
+}
+
+async function getSttMediaStream() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Microphone capture is not supported in this environment.');
+    }
+    const deviceId = (localStorage.getItem('jsonAdventure_sttMicDeviceId') || '').trim();
+    if (deviceId) {
+        try {
+            return await navigator.mediaDevices.getUserMedia({
+                audio: { deviceId: { exact: deviceId } }
+            });
+        } catch (err) {
+            const name = err && err.name;
+            if (name === 'OverconstrainedError' || name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+                localStorage.removeItem('jsonAdventure_sttMicDeviceId');
+                return navigator.mediaDevices.getUserMedia({ audio: true });
+            }
+            throw err;
+        }
+    }
+    return navigator.mediaDevices.getUserMedia({ audio: true });
+}
+
+function stopSttMediaStream() {
+    if (sttRuntimeState.mediaStream) {
+        try {
+            sttRuntimeState.mediaStream.getTracks().forEach(t => t.stop());
+        } catch (e) { /* ignore */ }
+    }
+    sttRuntimeState.mediaStream = null;
+}
+
+async function transcribeAudioViaOpenRouter(audioBlob) {
+    const apiKey = getSttApiKey();
+    if (!apiKey) {
+        throw new Error('No OpenRouter API key. Configure it in Settings → API Settings.');
+    }
+    const model = getSttModel();
+    if (!model) {
+        throw new Error('No STT model selected. Configure it in Settings → Voice.');
+    }
+    if (!audioBlob || !audioBlob.size) {
+        throw new Error('Recording was empty. Hold the mic a bit longer and try again.');
+    }
+
+    const base64 = await blobToBase64(audioBlob);
+    const format = mimeToAudioFormat(audioBlob.type);
+    const language = (localStorage.getItem('jsonAdventure_sttLanguage') || '').trim();
+
+    const body = {
+        model,
+        input_audio: {
+            data: base64,
+            format
+        }
+    };
+    if (language) body.language = language;
+
+    const headers = buildAuthHeaders(apiKey, 'openrouter');
+    const response = await fetch('https://openrouter.ai/api/v1/audio/transcriptions', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+        const errText = await response.text().catch(() => '');
+        throw new Error(`STT failed (${response.status}): ${errText || response.statusText}`);
+    }
+
+    const data = await response.json();
+    const text = (data && data.text != null) ? String(data.text).trim() : '';
+    if (!text) {
+        throw new Error('No speech detected. Try again closer to the microphone.');
+    }
+    return text;
+}
+
+function insertSttTranscript(text) {
+    const chatInput = document.getElementById('chat-input');
+    const existing = chatInput ? String(chatInput.value || '') : '';
+    const transcript = String(text || '').trim();
+    if (!transcript) return;
+    if (existing.trim()) {
+        const needsSpace = !/\s$/.test(existing);
+        setChatInputText(existing + (needsSpace ? ' ' : '') + transcript, true);
+    } else {
+        setChatInputText(transcript, true);
+    }
+}
+
+async function startSttRecording(micBtn, pointerId) {
+    if (sttRuntimeState.isRecording || sttRuntimeState.isTranscribing) return;
+    if (typeof chatGenerationState !== 'undefined' && chatGenerationState.isGenerating) return;
+    if (!isSttEnabled()) {
+        alert('Speech-to-text is disabled. Enable it in Settings → Voice.');
+        return;
+    }
+    if (!getSttApiKey()) {
+        alert('No OpenRouter API key. Configure it in Settings → API Settings.');
+        return;
+    }
+    if (typeof MediaRecorder === 'undefined') {
+        alert('MediaRecorder is not available in this browser/WebView.');
+        return;
+    }
+
+    sttRuntimeState.stopRequested = false;
+    sttRuntimeState.chunks = [];
+    sttRuntimeState.pointerId = pointerId;
+
+    try {
+        const stream = await getSttMediaStream();
+        if (sttRuntimeState.stopRequested) {
+            stream.getTracks().forEach(t => t.stop());
+            return;
+        }
+
+        sttRuntimeState.mediaStream = stream;
+        const mimeType = pickMediaRecorderMimeType();
+        const recorder = mimeType
+            ? new MediaRecorder(stream, { mimeType })
+            : new MediaRecorder(stream);
+
+        sttRuntimeState.mediaRecorder = recorder;
+        sttRuntimeState.chunks = [];
+
+        recorder.ondataavailable = (event) => {
+            if (event.data && event.data.size > 0) {
+                sttRuntimeState.chunks.push(event.data);
+            }
+        };
+
+        recorder.start(100);
+        sttRuntimeState.isRecording = true;
+        sttRuntimeState.startedAt = Date.now();
+        if (micBtn && pointerId != null && micBtn.setPointerCapture) {
+            try { micBtn.setPointerCapture(pointerId); } catch (e) { /* ignore */ }
+        }
+        updateMicButtonState();
+    } catch (err) {
+        console.error('STT start failed:', err);
+        stopSttMediaStream();
+        sttRuntimeState.mediaRecorder = null;
+        sttRuntimeState.isRecording = false;
+        sttRuntimeState.pointerId = null;
+        updateMicButtonState();
+        const msg = (err && err.name === 'NotAllowedError')
+            ? 'Microphone permission denied. Allow mic access and try again.'
+            : ('Could not start recording: ' + (err.message || err));
+        alert(msg);
+    }
+}
+
+async function finishSttRecording() {
+    if (sttRuntimeState.isFinishing || sttRuntimeState.isTranscribing) {
+        sttRuntimeState.stopRequested = true;
+        return;
+    }
+    if (!sttRuntimeState.isRecording && !sttRuntimeState.mediaRecorder) {
+        sttRuntimeState.stopRequested = true;
+        return;
+    }
+
+    sttRuntimeState.isFinishing = true;
+    const recorder = sttRuntimeState.mediaRecorder;
+    const duration = Date.now() - (sttRuntimeState.startedAt || 0);
+    sttRuntimeState.isRecording = false;
+    sttRuntimeState.pointerId = null;
+    updateMicButtonState();
+
+    try {
+        const blob = await new Promise((resolve) => {
+            if (!recorder || recorder.state === 'inactive') {
+                resolve(new Blob(sttRuntimeState.chunks, { type: (recorder && recorder.mimeType) || 'audio/webm' }));
+                return;
+            }
+            recorder.onstop = () => {
+                resolve(new Blob(sttRuntimeState.chunks, { type: recorder.mimeType || 'audio/webm' }));
+            };
+            try {
+                recorder.stop();
+            } catch (e) {
+                resolve(new Blob(sttRuntimeState.chunks, { type: recorder.mimeType || 'audio/webm' }));
+            }
+        });
+
+        stopSttMediaStream();
+        sttRuntimeState.mediaRecorder = null;
+        sttRuntimeState.chunks = [];
+
+        if (duration < STT_MIN_RECORD_MS || !blob.size) {
+            return;
+        }
+
+        sttRuntimeState.isTranscribing = true;
+        updateMicButtonState();
+        try {
+            const text = await transcribeAudioViaOpenRouter(blob);
+            insertSttTranscript(text);
+        } catch (err) {
+            console.error('STT transcription failed:', err);
+            alert(err.message || String(err));
+        } finally {
+            sttRuntimeState.isTranscribing = false;
+        }
+    } finally {
+        sttRuntimeState.isFinishing = false;
+        updateMicButtonState();
+    }
+}
+
+function wireMicHoldToTalk(micBtn) {
+    if (!micBtn) return;
+
+    const onPointerDown = (e) => {
+        if (e.button != null && e.button !== 0) return;
+        e.preventDefault();
+        startSttRecording(micBtn, e.pointerId);
+    };
+
+    const onPointerEnd = (e) => {
+        if (sttRuntimeState.pointerId != null && e.pointerId !== sttRuntimeState.pointerId) return;
+        if (!sttRuntimeState.isRecording && !sttRuntimeState.mediaRecorder) {
+            sttRuntimeState.stopRequested = true;
+            return;
+        }
+        e.preventDefault();
+        finishSttRecording();
+    };
+
+    micBtn.addEventListener('pointerdown', onPointerDown);
+    micBtn.addEventListener('pointerup', onPointerEnd);
+    micBtn.addEventListener('pointercancel', onPointerEnd);
+    micBtn.addEventListener('lostpointercapture', onPointerEnd);
+    micBtn.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    updateMicButtonState();
+}
 
 // ============================================================
 // TEXT TO SPEECH (TTS)
