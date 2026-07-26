@@ -100,10 +100,29 @@ fn reap_if_exited(state: &TelegramBotProcess) {
   }
 }
 
+/// Node on Windows cannot load scripts under the `\\?\` extended-length prefix
+/// (`canonicalize()` adds it). That shows up as: EISDIR lstat 'C:'.
+fn node_safe_path(path: PathBuf) -> PathBuf {
+  #[cfg(windows)]
+  {
+    let raw = path.to_string_lossy();
+    if let Some(stripped) = raw.strip_prefix(r"\\?\") {
+      // UNC form: \\?\UNC\server\share\... → \\server\share\...
+      if let Some(unc) = stripped.strip_prefix(r"UNC\") {
+        return PathBuf::from(format!(r"\\{unc}"));
+      }
+      return PathBuf::from(stripped);
+    }
+  }
+  path
+}
+
 fn resolve_tools_dir(app: &AppHandle) -> Result<PathBuf, String> {
   let manifest_tools = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join("tools");
   if manifest_tools.join("odyssey-telegram-bot.mjs").is_file() {
-    return Ok(manifest_tools.canonicalize().unwrap_or(manifest_tools));
+    return Ok(node_safe_path(
+      manifest_tools.canonicalize().unwrap_or(manifest_tools),
+    ));
   }
 
   if let Ok(resource_dir) = app.path().resource_dir() {
@@ -114,7 +133,7 @@ fn resolve_tools_dir(app: &AppHandle) -> Result<PathBuf, String> {
     ];
     for dir in candidates {
       if dir.join("odyssey-telegram-bot.mjs").is_file() {
-        return Ok(dir);
+        return Ok(node_safe_path(dir.canonicalize().unwrap_or(dir)));
       }
     }
   }
@@ -122,11 +141,13 @@ fn resolve_tools_dir(app: &AppHandle) -> Result<PathBuf, String> {
   if let Ok(cwd) = std::env::current_dir() {
     let tools = cwd.join("tools");
     if tools.join("odyssey-telegram-bot.mjs").is_file() {
-      return Ok(tools);
+      return Ok(node_safe_path(tools.canonicalize().unwrap_or(tools)));
     }
     let parent_tools = cwd.join("..").join("tools");
     if parent_tools.join("odyssey-telegram-bot.mjs").is_file() {
-      return Ok(parent_tools.canonicalize().unwrap_or(parent_tools));
+      return Ok(node_safe_path(
+        parent_tools.canonicalize().unwrap_or(parent_tools),
+      ));
     }
   }
 
