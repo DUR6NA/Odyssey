@@ -67,6 +67,11 @@
                             <div id="music-volume-value" class="attribute-current-label">35%</div>
                         </div>
                     </div>
+                    <div class="control-group mt-lg">
+                        <label>Desktop notifications:</label>
+                        <input type="checkbox" id="desktop-notifications-enabled" onchange="saveDesktopNotificationSetting()" checked>
+                        <span class="hint-text">Notify when a story response finishes (Windows, macOS, Linux). Uncheck to disable.</span>
+                    </div>
                 </div>
 
                 <!-- Developer Tab -->
@@ -870,6 +875,7 @@
             loadPrompts();
             loadAppearanceSettings();
             loadMusicVolume();
+            loadDesktopNotificationSetting();
             loadDevToolsSettings();
             loadTtsSettings();
             loadSttSettings();
@@ -2312,6 +2318,26 @@
             const slider = document.getElementById('menu-music-volume');
             if (slider) {
                 localStorage.setItem('jsonAdventure_menuMusicVolume', slider.value);
+            }
+        }
+
+        function loadDesktopNotificationSetting() {
+            const el = document.getElementById('desktop-notifications-enabled');
+            if (!el) return;
+            // Default on when unset
+            el.checked = localStorage.getItem('jsonAdventure_desktopNotifications') !== 'false';
+        }
+
+        function saveDesktopNotificationSetting() {
+            const el = document.getElementById('desktop-notifications-enabled');
+            if (!el) return;
+            localStorage.setItem('jsonAdventure_desktopNotifications', el.checked ? 'true' : 'false');
+            // Request OS permission when the user turns notifications on
+            if (el.checked && typeof window.odysseyShowDesktopNotification === 'function') {
+                window.odysseyShowDesktopNotification(
+                    'Odyssey',
+                    'Desktop notifications enabled.'
+                ).catch(() => {});
             }
         }
 

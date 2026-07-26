@@ -24,3 +24,4 @@ tauri-plugin-fs = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-shell = "2"
 rodio = { version = "0.20", default-features = false, features = ["symphonia-mp3"] }
+tauri-plugin-notification = "2.3.3"

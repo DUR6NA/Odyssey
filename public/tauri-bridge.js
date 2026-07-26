@@ -24,6 +24,7 @@ function errMsg(e) {
   const dialog = window.__TAURI__.dialog;
   const shell  = window.__TAURI__.shell;
   const core   = window.__TAURI__.core;
+  const notification = window.__TAURI__.notification;
 
   function getInvoke() {
     const t = window.__TAURI__;
@@ -615,6 +616,56 @@ function errMsg(e) {
         console.error('importGameData error:', e);
         return { success: false, error: errMsg(e) };
       }
+    },
+
+    /**
+     * Show a native desktop notification (Windows / macOS / Linux via tauri-plugin-notification).
+     * Falls back to the Web Notification API when the plugin is unavailable.
+     * Honors jsonAdventure_desktopNotifications (default: enabled).
+     */
+    async showDesktopNotification(title, body = '') {
+      try {
+        if (localStorage.getItem('jsonAdventure_desktopNotifications') === 'false') {
+          return { success: false, skipped: true, reason: 'disabled' };
+        }
+
+        const safeTitle = String(title || 'Odyssey').slice(0, 120);
+        const safeBody = String(body || '').slice(0, 280);
+
+        if (notification && typeof notification.sendNotification === 'function') {
+          let permissionGranted = false;
+          if (typeof notification.isPermissionGranted === 'function') {
+            permissionGranted = await notification.isPermissionGranted();
+          }
+          if (!permissionGranted && typeof notification.requestPermission === 'function') {
+            const permission = await notification.requestPermission();
+            permissionGranted = permission === 'granted';
+          }
+          if (!permissionGranted) {
+            return { success: false, error: 'Notification permission denied' };
+          }
+          notification.sendNotification({ title: safeTitle, body: safeBody });
+          return { success: true };
+        }
+
+        // Web fallback (browser / missing plugin surface)
+        if (typeof Notification !== 'undefined') {
+          let permission = Notification.permission;
+          if (permission === 'default') {
+            permission = await Notification.requestPermission();
+          }
+          if (permission !== 'granted') {
+            return { success: false, error: 'Notification permission denied' };
+          }
+          new Notification(safeTitle, { body: safeBody });
+          return { success: true };
+        }
+
+        return { success: false, error: 'Notifications unavailable' };
+      } catch (e) {
+        console.warn('showDesktopNotification error:', errMsg(e));
+        return { success: false, error: errMsg(e) };
+      }
     }
   };
 
@@ -622,3 +673,39 @@ function errMsg(e) {
   window.tauriBridgeReady = Promise.resolve(window.tauriBridge);
   console.log('✅ Tauri Bridge ready - window.tauriBridge available');
 }());
+
+/**
+ * Cross-platform desktop notification entry point.
+ * Uses Tauri native notifications when available; otherwise the Web Notification API.
+ * Safe to call outside Tauri (does not invent a partial tauriBridge).
+ */
+window.odysseyShowDesktopNotification = async function odysseyShowDesktopNotification(title, body = '') {
+  try {
+    if (localStorage.getItem('jsonAdventure_desktopNotifications') === 'false') {
+      return { success: false, skipped: true, reason: 'disabled' };
+    }
+
+    if (window.tauriBridge && typeof window.tauriBridge.showDesktopNotification === 'function') {
+      return await window.tauriBridge.showDesktopNotification(title, body);
+    }
+
+    // Web fallback when not under Tauri (or bridge not ready)
+    if (typeof Notification === 'undefined') {
+      return { success: false, error: 'Notifications unavailable' };
+    }
+    let permission = Notification.permission;
+    if (permission === 'default') {
+      permission = await Notification.requestPermission();
+    }
+    if (permission !== 'granted') {
+      return { success: false, error: 'Notification permission denied' };
+    }
+    new Notification(String(title || 'Odyssey').slice(0, 120), {
+      body: String(body || '').slice(0, 280)
+    });
+    return { success: true };
+  } catch (e) {
+    console.warn('odysseyShowDesktopNotification error:', errMsg(e));
+    return { success: false, error: errMsg(e) };
+  }
+};

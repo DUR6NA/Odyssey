@@ -13,13 +13,20 @@
     "odyssey:cli": "node tools/odyssey-cli.mjs",
     "odyssey:telegram": "node tools/odyssey-telegram-bot.mjs"
   },
-  "keywords": ["tauri", "desktop", "game", "ai", "text-adventure"],
+  "keywords": [
+    "tauri",
+    "desktop",
+    "game",
+    "ai",
+    "text-adventure"
+  ],
   "author": "Dur6na",
   "license": "AGPL-3.0",
   "dependencies": {
     "@tauri-apps/api": "^2.4.1",
     "@tauri-apps/plugin-dialog": "^2.2.1",
     "@tauri-apps/plugin-fs": "^2.2.1",
+    "@tauri-apps/plugin-notification": "^2.3.3",
     "@tauri-apps/plugin-shell": "^2.2.1"
   },
   "devDependencies": {

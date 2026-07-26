@@ -1456,6 +1456,48 @@ function setChatGenerationActive(isGenerating) {
     }
 }
 
+/** Strip HTML / collapse whitespace for a short desktop notification body. */
+function plainTextForNotification(htmlOrText, maxLen = 160) {
+    const raw = String(htmlOrText || '');
+    let text = raw;
+    if (/[<>]/.test(raw)) {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = raw;
+        text = tmp.textContent || tmp.innerText || '';
+    }
+    text = text.replace(/\s+/g, ' ').trim();
+    if (text.length > maxLen) text = text.slice(0, maxLen - 1).trimEnd() + '…';
+    return text;
+}
+
+/**
+ * Fire a cross-platform desktop notification when a game response finishes.
+ * Respects Settings → General → Desktop notifications (default on).
+ */
+function notifyResponseFinished(options = {}) {
+    try {
+        if (localStorage.getItem('jsonAdventure_desktopNotifications') === 'false') return;
+
+        const ok = options.ok !== false;
+        const title = ok ? 'Odyssey — Response ready' : 'Odyssey — Response failed';
+        const body = options.body
+            ? plainTextForNotification(options.body)
+            : (ok ? 'Your story response is ready.' : 'The response failed. Check the chat for details.');
+
+        const notifyFn = window.odysseyShowDesktopNotification
+            || (window.tauriBridge && window.tauriBridge.showDesktopNotification
+                ? window.tauriBridge.showDesktopNotification.bind(window.tauriBridge)
+                : null);
+        if (typeof notifyFn === 'function') {
+            Promise.resolve(notifyFn(title, body)).catch((err) => {
+                console.warn('Desktop notification failed:', err);
+            });
+        }
+    } catch (err) {
+        console.warn('notifyResponseFinished error:', err);
+    }
+}
+
 function restoreFailedPromptToInput(message) {
     const chatInput = document.getElementById('chat-input');
     if (!chatInput) return;
@@ -2023,6 +2065,8 @@ async function sendChatMessageFromText(message, options = {}) {
             triggerImageGeneration();
         }
 
+        notifyResponseFinished({ ok: true, body: displayText });
+
     } catch (err) {
         if (loadingMsg) removeGenerationLoader(loadingMsg);
 
@@ -2041,6 +2085,8 @@ async function sendChatMessageFromText(message, options = {}) {
         const errorMsg = createChatMessage('ai', `<div class="error-card" style="background: var(--bg-tertiary); border-left: 4px solid var(--accent-color); padding: 15px; border-radius: 8px; margin: 10px 0;"><strong>Connection Error</strong><p style="margin-top: 5px; color: var(--text-muted);">${formatErrorForUser(err)}</p></div>`);
         chatMessages.appendChild(errorMsg);
         chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        notifyResponseFinished({ ok: false, body: formatErrorForUser(err) });
     } finally {
         setChatGenerationActive(false);
     }
@@ -2168,10 +2214,13 @@ async function regenerateLastAI() {
             triggerImageGeneration();
         }
 
+        notifyResponseFinished({ ok: true, body: displayText });
+
     } catch (err) {
         removeGenerationLoader(loadingMsg);
         const errorMsg = createChatMessage('ai', `⚠️ Regeneration failed: ${err.message}`);
         chatMessages.appendChild(errorMsg);
+        notifyResponseFinished({ ok: false, body: err.message || String(err) });
     }
 }
 
