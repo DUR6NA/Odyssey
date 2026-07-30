@@ -2765,6 +2765,9 @@ Rely on the background JSON systems to handle stats, inventory, time, NPCs, and 
                     select.value = '';
                     if (savedId) localStorage.removeItem('jsonAdventure_sttMicDeviceId');
                 }
+                if (typeof refreshCustomSelect === 'function') {
+                    refreshCustomSelect('stt-mic-select');
+                }
                 if (statusEl) {
                     if (!inputs.length) {
                         statusEl.textContent = 'No microphones found.';
@@ -2812,7 +2815,7 @@ Rely on the background JSON systems to handle stats, inventory, time, NPCs, and 
             const manual = (document.getElementById('stt-manual-model')?.value || '').trim();
             localStorage.setItem('jsonAdventure_sttManualModel', manual);
             const selected = document.getElementById('stt-model-select')?.value || 'openai/whisper-1';
-            localStorage.setItem('jsonAdventure_sttModel', manual || selected);
+            localStorage.setItem('jsonAdventure_sttModel', selected);
             localStorage.setItem('jsonAdventure_sttMicDeviceId', document.getElementById('stt-mic-select')?.value || '');
             localStorage.setItem('jsonAdventure_sttLanguage', document.getElementById('stt-language')?.value || '');
         }

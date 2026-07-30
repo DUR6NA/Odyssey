@@ -2341,7 +2341,9 @@ function updateMicButtonState() {
     const micBtn = document.getElementById('mic-btn');
     if (!micBtn) return;
 
-    const busy = sttRuntimeState.isTranscribing;
+    const finishing = sttRuntimeState.isFinishing;
+    const transcribing = sttRuntimeState.isTranscribing;
+    const busy = finishing || transcribing;
     const recording = sttRuntimeState.isRecording;
     const generating = !!(typeof chatGenerationState !== 'undefined' && chatGenerationState.isGenerating);
     const hardDisabled = (busy || generating) && !recording;
@@ -2352,8 +2354,10 @@ function updateMicButtonState() {
     micBtn.disabled = hardDisabled;
     micBtn.setAttribute('aria-busy', busy || recording ? 'true' : 'false');
 
-    if (busy) {
+    if (transcribing) {
         micBtn.title = 'Transcribing...';
+    } else if (finishing) {
+        micBtn.title = 'Finishing recording...';
     } else if (recording) {
         micBtn.title = 'Release to finish';
     } else if (!isSttEnabled()) {
@@ -2497,7 +2501,7 @@ function insertSttTranscript(text) {
 }
 
 async function startSttRecording(micBtn, pointerId) {
-    if (sttRuntimeState.isRecording || sttRuntimeState.isTranscribing) return;
+    if (sttRuntimeState.isRecording || sttRuntimeState.isFinishing || sttRuntimeState.isTranscribing) return;
     if (typeof chatGenerationState !== 'undefined' && chatGenerationState.isGenerating) return;
     if (!isSttEnabled()) {
         alert('Speech-to-text is disabled. Enable it in Settings → Voice.');

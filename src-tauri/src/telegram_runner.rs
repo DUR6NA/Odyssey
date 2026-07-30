@@ -257,9 +257,8 @@ pub fn telegram_bot_start(
     return Err(msg);
   }
 
-  let node = resolve_node_command().map_err(|e| {
+  let node = resolve_node_command().inspect_err(|e| {
     *state.last_error.lock().unwrap() = Some(e.clone());
-    e
   })?;
   let cwd = repo_root_from_tools(&tools_dir);
   let log_path = bot_log_path(&app);

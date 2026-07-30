@@ -461,6 +461,7 @@
                 <h2 class="nav-group-title">Systems</h2>
                 <a class="nav-link" href="#setup-flow">Setup Flow</a>
                 <a class="nav-link" href="#provider-flow">Provider Flow</a>
+                <a class="nav-link" href="#speech-input">Speech Input</a>
                 <a class="nav-link" href="#game-loop">Game Loop</a>
                 <a class="nav-link" href="#terminal-telegram">Terminal and Telegram</a>
                 <a class="nav-link" href="#tts-images">Images and TTS</a>
@@ -805,6 +806,28 @@
                             </tbody>
                         </table>
                     </div>
+                </section>
+
+                <section class="doc-section" id="speech-input">
+                    <h2>Speech Input</h2>
+                    <p>Hold-to-talk speech input is implemented in <code>public/chat.js</code>. It records from the selected browser/WebView microphone with <code>MediaRecorder</code>, sends the completed audio blob to OpenRouter's audio transcription endpoint, and inserts the returned transcript into the existing game input for review.</p>
+
+                    <h3>Runtime flow</h3>
+                    <ol>
+                        <li><code>wireMicHoldToTalk()</code> binds pointer down, release, cancellation, and lost-capture events to the microphone button.</li>
+                        <li><code>startSttRecording()</code> requests the configured input device and starts a supported Opus, WebM, Ogg, or MP4 recording.</li>
+                        <li><code>finishSttRecording()</code> serializes finalization so repeated release events cannot start overlapping transcriptions.</li>
+                        <li><code>transcribeAudioViaOpenRouter()</code> posts base64 audio and an optional language hint to <code>/api/v1/audio/transcriptions</code>.</li>
+                        <li><code>insertSttTranscript()</code> appends the result without automatically submitting the player's turn.</li>
+                    </ol>
+
+                    <h3>Settings and platform requirements</h3>
+                    <ul>
+                        <li>The Voice panel stores the enabled flag, selected or manual model ID, microphone device ID, and language hint in local storage under <code>jsonAdventure_stt*</code> keys.</li>
+                        <li>STT reuses <code>jsonAdventure_openRouterApiKey</code>; the key is sent directly to OpenRouter and is not routed through an Odyssey backend.</li>
+                        <li>The desktop WebView requests microphone permission when recording starts, and <code>src-tauri/Info.plist</code> supplies the required macOS usage description.</li>
+                        <li>If a saved microphone disappears, device enumeration clears the stale ID, falls back to the default input, and refreshes the custom selector.</li>
+                    </ul>
                 </section>
 
                 <section class="doc-section" id="game-loop">
