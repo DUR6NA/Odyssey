@@ -1477,6 +1477,7 @@ function plainTextForNotification(htmlOrText, maxLen = 160) {
 function notifyResponseFinished(options = {}) {
     try {
         if (localStorage.getItem('jsonAdventure_desktopNotifications') === 'false') return;
+        if (typeof document.hasFocus === 'function' && document.hasFocus()) return;
 
         const ok = options.ok !== false;
         const title = ok ? 'Odyssey — Response ready' : 'Odyssey — Response failed';
@@ -2322,9 +2323,13 @@ const sttRuntimeState = {
 const STT_MIN_RECORD_MS = 250;
 
 function getSttApiKey() {
-    return localStorage.getItem('jsonAdventure_openRouterApiKey')
-        || localStorage.getItem('jsonAdventure_apiKey_openrouter')
-        || '';
+    const openRouterKey = localStorage.getItem('jsonAdventure_apiKey_openrouter') || '';
+    if (openRouterKey) return openRouterKey;
+
+    const activeProvider = localStorage.getItem('jsonAdventure_apiProvider') || 'openrouter';
+    return activeProvider === 'openrouter'
+        ? (localStorage.getItem('jsonAdventure_openRouterApiKey') || '')
+        : '';
 }
 
 function getSttModel() {
@@ -2623,6 +2628,7 @@ async function finishSttRecording() {
 
 function wireMicHoldToTalk(micBtn) {
     if (!micBtn) return;
+    let keyboardHoldActive = false;
 
     const onPointerDown = (e) => {
         if (e.button != null && e.button !== 0) return;
@@ -2640,10 +2646,34 @@ function wireMicHoldToTalk(micBtn) {
         finishSttRecording();
     };
 
+    const isHoldKey = (e) => e.key === ' ' || e.key === 'Spacebar' || e.key === 'Enter';
+
+    const onKeyDown = (e) => {
+        if (!isHoldKey(e)) return;
+        e.preventDefault();
+        if (e.repeat || keyboardHoldActive) return;
+        keyboardHoldActive = true;
+        startSttRecording(micBtn, null);
+    };
+
+    const onKeyUp = (e) => {
+        if (!isHoldKey(e) || !keyboardHoldActive) return;
+        e.preventDefault();
+        keyboardHoldActive = false;
+        finishSttRecording();
+    };
+
     micBtn.addEventListener('pointerdown', onPointerDown);
     micBtn.addEventListener('pointerup', onPointerEnd);
     micBtn.addEventListener('pointercancel', onPointerEnd);
     micBtn.addEventListener('lostpointercapture', onPointerEnd);
+    micBtn.addEventListener('keydown', onKeyDown);
+    micBtn.addEventListener('keyup', onKeyUp);
+    micBtn.addEventListener('blur', () => {
+        if (!keyboardHoldActive) return;
+        keyboardHoldActive = false;
+        finishSttRecording();
+    });
     micBtn.addEventListener('contextmenu', (e) => e.preventDefault());
 
     updateMicButtonState();

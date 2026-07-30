@@ -2673,10 +2673,17 @@ Rely on the background JSON systems to handle stats, inventory, time, NPCs, and 
 
         async function fetchSttModels() {
             const statusEl = document.getElementById('stt-model-fetch-status');
-            const apiKey = (document.getElementById('openrouter-api-key')?.value || '').trim()
-                || localStorage.getItem('jsonAdventure_openRouterApiKey')
+            const activeProvider = document.getElementById('api-provider-select')?.value
+                || localStorage.getItem('jsonAdventure_apiProvider')
+                || 'openrouter';
+            const activeOpenRouterKey = activeProvider === 'openrouter'
+                ? (document.getElementById('openrouter-api-key')?.value || '').trim()
+                : '';
+            const apiKey = activeOpenRouterKey
                 || localStorage.getItem('jsonAdventure_apiKey_openrouter')
-                || '';
+                || (activeProvider === 'openrouter'
+                    ? (localStorage.getItem('jsonAdventure_openRouterApiKey') || '')
+                    : '');
             if (!apiKey) {
                 if (statusEl) {
                     statusEl.textContent = 'Enter an OpenRouter API key in API Settings first.';
