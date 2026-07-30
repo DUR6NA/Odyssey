@@ -56,6 +56,7 @@ After installing, launch Odyssey and follow the in-app welcome screen to configu
 - **Automatic Game Codex** — An NPC Ledger and Location Ledger populate themselves as your story unfolds, giving you a durable reference for every person and place you encounter.
 - **Text-only CLI and Telegram bot** — Play Odyssey without images through an ASCII terminal UI (`npm run odyssey:cli`) or a BotFather-created Telegram bot (`npm run odyssey:telegram` / **Settings → Telegram → Start Bot**). Both share the desktop app’s local saves and provider settings.
 - **Multiple themes** — Dark Mode, Light Mode, Frutiger Aero, Starry Night, and Matrix, plus configurable typography and accessibility options.
+- **Hold-to-talk speech input (STT)** — Hold the microphone button beside the game input to record a turn, then release to transcribe it through an OpenRouter-compatible audio model. The Voice settings let you choose the model, microphone, and optional language hint.
 - **Voice narration (TTS)** — Listen to every turn of narration. Plug in any of four providers — a self-hosted [Kokoro-FastAPI](https://github.com/remsky/Kokoro-FastAPI) server, OpenAI, Google Cloud TTS, or xAI Grok — with a shared control for playback speed (0.5x–2.0x) and per-provider voice selection. Kokoro additionally supports **weighted voice blending**, letting you mix multiple voices into a single custom narrator.
 - **Save management** — Named saves, plus one-click Import and Export for sharing or backing up campaigns.
 - **Native desktop app** — Built on Tauri. Small footprint, fast startup, and no web server or browser required.
@@ -263,6 +264,10 @@ After launching Odyssey:
 The in-app **Info & Wiki** contains a step-by-step guide for obtaining a free Google AI Studio key if you're new to this.
 
 API keys are stored locally and are only transmitted directly to the provider you configured.
+
+### Speech input
+
+Open **Settings → Voice** to enable speech-to-text, choose an audio transcription model, select a microphone, and optionally provide a language code such as `en`. Odyssey uses the OpenRouter API key configured under **API Settings**. During play, hold the microphone button beside the text box, speak, and release; the transcript is appended to the current input so you can review or edit it before sending.
 
 ---
 

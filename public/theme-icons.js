@@ -17,6 +17,7 @@
         home: '<path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/>',
         hourglass: '<path d="M6 3h12"/><path d="M6 21h12"/><path d="M7 3c0 5 10 5 10 10s-10 5-10 8"/><path d="M17 3c0 3-10 5-10 10s10 5 10 8"/>',
         image: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8" cy="10" r="1.5"/><path d="m21 15-5-5L5 19"/>',
+        mic: '<path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v4"/><path d="M8 22h8"/>',
         pen: '<path d="M12 20h9"/><path d="M16 4l4 4L8 20H4v-4L16 4z"/>',
         play: '<path d="M8 5v14l11-7-11-7z" fill="currentColor" stroke="none"/>',
         refresh: '<path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v6h-6"/>',
@@ -39,7 +40,8 @@
         ['🏠', 'home'], ['🎮', 'gamepad'], ['⚙️', 'settings'], ['⚙', 'settings'],
         ['🌍', 'globe'], ['🧑‍🎤', 'user'], ['🖼️', 'image'], ['🖼', 'image'], ['📜', 'scroll'],
         ['🎯', 'target'], ['⚔️', 'sword'], ['⚔', 'sword'], ['✅', 'check'], ['✓', 'check'],
-        ['❌', 'x'], ['✗', 'x'], ['▶', 'play'], ['⏳', 'hourglass'], ['🚀', 'rocket']
+        ['❌', 'x'], ['✗', 'x'], ['▶', 'play'], ['⏳', 'hourglass'], ['🚀', 'rocket'],
+        ['🎤', 'mic']
     ]);
 
     const selector = 'button, .prompt-card-icon, .world-choice-icon, .msg-action-btn, .error-card strong, [id$="-status"]';
@@ -72,7 +74,8 @@
             button .theme-icon:only-child,
             .msg-action-btn .theme-icon:only-child,
             .btn-top-right .theme-icon:only-child,
-            .btn-settings-square .theme-icon:only-child { margin-right: 0; }
+            .btn-settings-square .theme-icon:only-child,
+            .mic-btn .theme-icon { margin-right: 0; }
             .prompt-card-icon,
             .world-choice-icon {
                 color: var(--accent-color);

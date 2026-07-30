@@ -37,7 +37,7 @@
                 <button id="nav-btn-telegram" onclick="switchSettingsTab('telegram')">Telegram</button>
                 <button id="nav-btn-image" onclick="switchSettingsTab('image')">Image</button>
                 <button id="nav-btn-rag" onclick="switchSettingsTab('rag')">RAG</button>
-                <button id="nav-btn-tts" onclick="switchSettingsTab('tts')">Voice / TTS</button>
+                <button id="nav-btn-tts" onclick="switchSettingsTab('tts')">Voice</button>
                 <button id="nav-btn-appearance" onclick="switchSettingsTab('appearance')">Appearance</button>
                 <button id="nav-btn-prompts" onclick="switchSettingsTab('prompts')">Prompts</button>
                 <button id="nav-btn-developer" onclick="switchSettingsTab('developer')">Developer</button>
@@ -66,6 +66,11 @@
                             <input type="range" id="menu-music-volume" class="attribute-slider" min="0" max="100" step="5" value="35" oninput="updateMusicVolumeLabel(this.value); saveMusicVolume(); if (window.setMenuMusicVolume) window.setMenuMusicVolume(this.value);">
                             <div id="music-volume-value" class="attribute-current-label">35%</div>
                         </div>
+                    </div>
+                    <div class="control-group mt-lg">
+                        <label>Desktop notifications:</label>
+                        <input type="checkbox" id="desktop-notifications-enabled" onchange="saveDesktopNotificationSetting()" checked>
+                        <span class="hint-text">Notify when a story response finishes (Windows, macOS, Linux). Uncheck to disable.</span>
                     </div>
                 </div>
 
@@ -693,6 +698,64 @@
                         <span id="tts-test-status" class="hint-text"></span>
                     </div>
                 </div>
+
+                <hr class="divider">
+                <h2 style="margin-top: 1.5rem;">Speech-to-Text</h2>
+                <p>Hold the microphone button next to chat Send to dictate. Uses OpenRouter transcription models. Transcript is placed in the chat box — you still press Send.</p>
+                <p class="hint-text">Uses your OpenRouter API key from API Settings.</p>
+
+                <div class="control-group mt-md">
+                    <label>
+                        <input type="checkbox" id="stt-enabled" onchange="saveSttSettings()" checked>
+                        Enable hold-to-talk STT
+                    </label>
+                </div>
+
+                <div class="control-group mt-md">
+                    <label for="stt-model-select">STT Model:</label>
+                    <select id="stt-model-select" class="input-md" onchange="saveSttSettings()">
+                        <option value="openai/whisper-1">openai/whisper-1</option>
+                        <option value="openai/whisper-large-v3">openai/whisper-large-v3</option>
+                        <option value="openai/gpt-4o-transcribe">openai/gpt-4o-transcribe</option>
+                        <option value="openai/gpt-4o-mini-transcribe">openai/gpt-4o-mini-transcribe</option>
+                    </select>
+                    <button type="button" onclick="fetchSttModels()" class="btn btn-compact">Refresh models</button>
+                    <span id="stt-model-fetch-status" class="hint-text"></span>
+                </div>
+
+                <div class="control-group mt-md">
+                    <label for="stt-manual-model">Manual model ID (optional):</label>
+                    <input type="text" id="stt-manual-model" class="input-md" placeholder="e.g. openai/whisper-1" oninput="saveSttSettings()">
+                    <span class="hint-text">If set, overrides the dropdown selection.</span>
+                </div>
+
+                <div class="control-group mt-md">
+                    <label for="stt-mic-select">Microphone input:</label>
+                    <select id="stt-mic-select" class="input-md" onchange="saveSttSettings()">
+                        <option value="">Default microphone</option>
+                    </select>
+                    <button type="button" onclick="refreshSttMicDevices(true)" class="btn btn-compact">Refresh devices</button>
+                    <span id="stt-mic-status" class="hint-text"></span>
+                </div>
+
+                <div class="control-group mt-md">
+                    <label for="stt-language">Language (optional):</label>
+                    <select id="stt-language" class="input-md" onchange="saveSttSettings()">
+                        <option value="">Auto-detect</option>
+                        <option value="en">English</option>
+                        <option value="es">Spanish</option>
+                        <option value="fr">French</option>
+                        <option value="de">German</option>
+                        <option value="it">Italian</option>
+                        <option value="pt">Portuguese</option>
+                        <option value="ja">Japanese</option>
+                        <option value="ko">Korean</option>
+                        <option value="zh">Chinese</option>
+                        <option value="ru">Russian</option>
+                        <option value="ar">Arabic</option>
+                        <option value="hi">Hindi</option>
+                    </select>
+                </div>
             </div>
 
             <!-- Prompts Tab -->
@@ -812,12 +875,14 @@
             loadPrompts();
             loadAppearanceSettings();
             loadMusicVolume();
+            loadDesktopNotificationSetting();
             loadDevToolsSettings();
             loadTtsSettings();
+            loadSttSettings();
             loadTelegramSettings();
             // Initialize custom dropdowns and number inputs
             initCustomUIComponents(document.body, {
-                searchSelects: ['openrouter-model-select', 'image-prompt-model-select', 'openrouter-image-model-select', 'embedding-model-select', 'primary-font-select', 'secondary-font-select']
+                searchSelects: ['openrouter-model-select', 'image-prompt-model-select', 'openrouter-image-model-select', 'embedding-model-select', 'stt-model-select', 'primary-font-select', 'secondary-font-select']
             });
 
             // Update back button icon and title if from main menu
@@ -1317,6 +1382,9 @@
             if (tabName === 'telegram') {
                 refreshTelegramBotStatus();
                 ensureTelegramBotStatusPolling();
+            }
+            if (tabName === 'tts') {
+                refreshSttMicDevices(false);
             }
         }
 
@@ -2253,6 +2321,26 @@
             }
         }
 
+        function loadDesktopNotificationSetting() {
+            const el = document.getElementById('desktop-notifications-enabled');
+            if (!el) return;
+            // Default on when unset
+            el.checked = localStorage.getItem('jsonAdventure_desktopNotifications') !== 'false';
+        }
+
+        function saveDesktopNotificationSetting() {
+            const el = document.getElementById('desktop-notifications-enabled');
+            if (!el) return;
+            localStorage.setItem('jsonAdventure_desktopNotifications', el.checked ? 'true' : 'false');
+            // Request OS permission when the user turns notifications on
+            if (el.checked && typeof window.odysseyShowDesktopNotification === 'function') {
+                window.odysseyShowDesktopNotification(
+                    'Odyssey',
+                    'Desktop notifications enabled.'
+                ).catch(() => {});
+            }
+        }
+
         // Developer Tools Logic
         function loadDevToolsSettings() {
             const boolSetting = (key, fallback) => {
@@ -2389,17 +2477,36 @@ Write it as a 2-3 paragraph narrative introduction — dramatic, atmospheric, an
         const defaultPrompterPrompt = `You are the Prompter. You sit between the user and the Game Master.
 Your job is to read the user's input and determine if they mentioned any known Locations or NPCs in the game state. 
 If they did, you must extract those details and provide them so the Game Master remembers them correctly.`;
-        const defaultGamePrompt = `You are now a seasoned novelist acting as the Game Master. Write a dynamic, immersive, and grounded text-based adventure. 
+        const defaultGamePrompt = `You are now a seasoned novelist acting as the Game Master. Write a dynamic, immersive, and grounded text-based adventure. You are impartial: you do not break character, do not summarize when you should roleplay, and do not skip time unless the player explicitly asks to wait, rest, travel, or otherwise advance time.
+
+INTERNAL REASONING (never shown to the player — complete silently before writing):
+1. PHYSICS — Is the player's action physically possible given their state, inventory, location, and surroundings?
+2. TIME — How much time does this action realistically consume? Update the time fields accordingly.
+3. STATE — How do Health, Hunger, Thirst, Energy, money, inventory, NPCs, and location change as a result? Express those changes only through the required JSON fields, not as numbers in the prose.
+4. NPC LOGIC — What do present NPCs know, want, remember, and do right now?
+5. CONSEQUENCES — Immediate, short-term, and plausible long-term fallout of the action.
+6. NARRATIVE HOOK — What sensory detail, tension, or intrigue best serves immersion?
 
 CRITICAL NARRATIVE RULES:
-1. Grounded & Natural Prose: Write like a high-quality, traditionally published novel. The prose should flow naturally. Put the player inside a breathing world. The world exists on its own; the player is simply the protagonist navigating it. 
-2. Realistic Dialogue: ALL dialogue MUST be enclosed in proper double quotation marks (e.g., "Hello there," she said.). Characters must speak like normal, grounded humans. Absolutely NO hammy, hyper-stylized slang, forced era-specific jargon, or excessive "quippy" banter. Dialogue should sound like a real conversation, placed on its own line when a new character speaks.
+1. Grounded & Natural Prose: Write like a high-quality, traditionally published novel. The prose should flow naturally. Put the player inside a breathing world. The world exists on its own; the player is simply the protagonist navigating it.
+2. Realistic Dialogue: ALL dialogue MUST be enclosed in proper double quotation marks (e.g., "Hello there," she said.). Characters must speak like normal, grounded humans. Absolutely NO hammy, hyper-stylized slang, forced era-specific jargon, or excessive "quippy" banter. Dialogue should sound like a real conversation, placed on its own line when a new character speaks. Play dialogue verbatim — never write "the guard agrees" when you can write what the guard actually says.
 3. No Meta-References: Do not constantly remind the player of the setting or throw out random historical/world facts unless it makes strict narrative sense.
 4. Clean Readability: Break your response into several short paragraphs (2-4 sentences max). Use standard Markdown formatting (bolding, italics).
-5. No Stats or Lists in Text: NEVER output numbers for stat changes, and NEVER output a numbered list of options at the end. Describe the consequences naturally in the prose, and end the narrative by presenting an open-ended situation or a subtle hook for the player to react to. Let them decide what to do next without dictating a menu of choices.
+5. No Stats or Lists in Text: NEVER output numbers for stat changes, and NEVER output a numbered list of options at the end. Describe consequences naturally in the prose, and end by presenting an open-ended situation or a subtle hook. Let the player decide what to do next without dictating a menu of choices. Stats, inventory, and time belong in the JSON systems — not in the narrative.
 6. Player Agency: NEVER speak for the player character or take actions for them.
 
-Rely on the background JSON systems to handle stats, inventory, and time. Your ONLY job in the text output is to write a beautiful, grounded, and engaging story.`;
+SIMULATION DISCIPLINE:
+- Time is real. Walking, talking, eating, fighting, and sleeping each consume appropriate time. Conversation plays line by line; do not collapse whole scenes into a summary unless the player asks to skip or wait.
+- Failure, injury, social fallout, and death are real possibilities. Do not protect the player from bad decisions. Illegal or dangerous acts draw realistic reactions: people flee, alert others, refuse, bargain, or fight back.
+- Outcomes come from logical simulation of the situation, not from arbitrary luck or soft plot armor.
+- NPCs have memory. Rudeness, kindness, violence, and deception change how they treat the player going forward. Reflect lasting disposition shifts through npc_changes notes and natural behavior, not through exposition dumps.
+- Present the consequences of the player's last action before fully opening the new situation.
+
+CURRENCY RULE: Always track the player's money through the stats.money field (as an integer). Do NOT create inventory items for money, credits, coins, gold, or any form of currency. When the player earns or spends money, update stats.money to the new total. Only use inventory_changes for physical items.
+
+INVENTORY UPDATE RULE: When an existing inventory item changes (e.g. quantity, condition, or name), use the "update" action with the item's current name and set newName/description to the updated values. Do NOT remove and re-add items to change them — use "update" instead.
+
+Rely on the background JSON systems to handle stats, inventory, time, NPCs, and locations. Your ONLY job in the text output is to write a beautiful, grounded, and engaging story.`;
 
         const defaultImagePrompt = `You are an expert AI prompt engineer specializing in character visualization.\nYour job is to write a highly detailed image generation prompt that depicts ONLY the player character.\n\nCRITICAL RULES:\n- The image must focus EXCLUSIVELY on the player character — do NOT depict other characters, narrative scenes, or story events.\n- Show the character as a high-fidelity 3D rendered model with detailed textures, realistic materials, and cinematic lighting.\n- The character should be shown in a 2:3 portrait composition, facing or slightly angled toward the camera.\n- Show them in their current environment as a backdrop, but the player is the clear subject.\n- Accurately depict what they are currently WEARING and CARRYING based on their inventory.\n- If the current situation suggests physical effects (mud, blood, bruises, sweat, rain-soaked, torn clothing, burns, etc.), show those on the character.\n- Write ONLY the final image prompt text. No preamble, no explanations.`;
 
@@ -2516,6 +2623,208 @@ Rely on the background JSON systems to handle stats, inventory, and time. Your O
             if (window.ttsVoiceMix) {
                 localStorage.setItem('jsonAdventure_ttsVoiceMix', JSON.stringify(window.ttsVoiceMix));
             }
+        }
+
+        const STT_FALLBACK_MODELS = [
+            { id: 'openai/whisper-1', name: 'openai/whisper-1' },
+            { id: 'openai/whisper-large-v3', name: 'openai/whisper-large-v3' },
+            { id: 'openai/gpt-4o-transcribe', name: 'openai/gpt-4o-transcribe' },
+            { id: 'openai/gpt-4o-mini-transcribe', name: 'openai/gpt-4o-mini-transcribe' }
+        ];
+
+        function populateSttModelSelect(models, savedModel) {
+            const select = document.getElementById('stt-model-select');
+            if (!select) return;
+            const list = Array.isArray(models) && models.length ? models : STT_FALLBACK_MODELS;
+            select.innerHTML = '';
+            const organized = {};
+            list.forEach(m => {
+                const id = m.id || m;
+                const name = m.name || id;
+                const group = String(id).includes('/') ? String(id).split('/')[0] : 'Models';
+                if (!organized[group]) organized[group] = [];
+                organized[group].push({ id, name });
+            });
+            Object.keys(organized).sort().forEach(group => {
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = group;
+                organized[group].forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model.id;
+                    option.textContent = model.name;
+                    optgroup.appendChild(option);
+                });
+                select.appendChild(optgroup);
+            });
+            if (savedModel) {
+                const has = Array.from(select.options).some(o => o.value === savedModel);
+                if (!has) {
+                    const option = document.createElement('option');
+                    option.value = savedModel;
+                    option.textContent = savedModel;
+                    select.appendChild(option);
+                }
+                select.value = savedModel;
+            }
+            if (typeof refreshCustomSelect === 'function') {
+                refreshCustomSelect('stt-model-select');
+            }
+        }
+
+        async function fetchSttModels() {
+            const statusEl = document.getElementById('stt-model-fetch-status');
+            const activeProvider = document.getElementById('api-provider-select')?.value
+                || localStorage.getItem('jsonAdventure_apiProvider')
+                || 'openrouter';
+            const activeOpenRouterKey = activeProvider === 'openrouter'
+                ? (document.getElementById('openrouter-api-key')?.value || '').trim()
+                : '';
+            const apiKey = activeOpenRouterKey
+                || localStorage.getItem('jsonAdventure_apiKey_openrouter')
+                || (activeProvider === 'openrouter'
+                    ? (localStorage.getItem('jsonAdventure_openRouterApiKey') || '')
+                    : '');
+            if (!apiKey) {
+                if (statusEl) {
+                    statusEl.textContent = 'Enter an OpenRouter API key in API Settings first.';
+                    statusEl.style.color = '#dc3545';
+                }
+                return;
+            }
+            if (statusEl) {
+                statusEl.textContent = 'Fetching STT models...';
+                statusEl.style.color = 'var(--text-muted)';
+            }
+            try {
+                let headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` };
+                if (window.OdysseyOpenRouter && typeof window.OdysseyOpenRouter.applyAttributionHeaders === 'function') {
+                    headers = window.OdysseyOpenRouter.applyAttributionHeaders(headers, 'openrouter');
+                }
+                const res = await fetch('https://openrouter.ai/api/v1/models?output_modalities=transcription', { headers });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                const models = (data.data || []).map(m => ({
+                    id: m.id,
+                    name: m.name || m.id
+                })).filter(m => m.id);
+                if (!models.length) throw new Error('No transcription models returned');
+                localStorage.setItem('jsonAdventure_sttModelsCache', JSON.stringify(models));
+                const saved = localStorage.getItem('jsonAdventure_sttModel') || 'openai/whisper-1';
+                populateSttModelSelect(models, saved);
+                saveSttSettings();
+                if (statusEl) {
+                    statusEl.textContent = `✅ ${models.length} models loaded`;
+                    statusEl.style.color = '#28a745';
+                }
+            } catch (err) {
+                console.error('STT model fetch failed:', err);
+                populateSttModelSelect(STT_FALLBACK_MODELS, localStorage.getItem('jsonAdventure_sttModel') || 'openai/whisper-1');
+                if (statusEl) {
+                    statusEl.textContent = 'Failed to fetch — using fallback list.';
+                    statusEl.style.color = '#dc3545';
+                }
+            }
+        }
+
+        async function refreshSttMicDevices(requestPermission = false) {
+            const select = document.getElementById('stt-mic-select');
+            const statusEl = document.getElementById('stt-mic-status');
+            if (!select) return;
+            if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+                if (statusEl) {
+                    statusEl.textContent = 'Microphone enumeration not supported in this environment.';
+                    statusEl.style.color = '#dc3545';
+                }
+                return;
+            }
+            try {
+                if (requestPermission) {
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                        stream.getTracks().forEach(t => t.stop());
+                    } catch (permErr) {
+                        if (statusEl) {
+                            statusEl.textContent = 'Microphone permission denied.';
+                            statusEl.style.color = '#dc3545';
+                        }
+                    }
+                }
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const inputs = devices.filter(d => d.kind === 'audioinput');
+                const savedId = localStorage.getItem('jsonAdventure_sttMicDeviceId') || '';
+                select.innerHTML = '';
+                const defaultOpt = document.createElement('option');
+                defaultOpt.value = '';
+                defaultOpt.textContent = 'Default microphone';
+                select.appendChild(defaultOpt);
+                let unlabeled = 0;
+                inputs.forEach((device, index) => {
+                    const option = document.createElement('option');
+                    option.value = device.deviceId || '';
+                    const label = (device.label || '').trim();
+                    if (!label) unlabeled += 1;
+                    option.textContent = label || `Microphone ${index + 1}`;
+                    select.appendChild(option);
+                });
+                if (savedId && Array.from(select.options).some(o => o.value === savedId)) {
+                    select.value = savedId;
+                } else {
+                    select.value = '';
+                    if (savedId) localStorage.removeItem('jsonAdventure_sttMicDeviceId');
+                }
+                if (typeof refreshCustomSelect === 'function') {
+                    refreshCustomSelect('stt-mic-select');
+                }
+                if (statusEl) {
+                    if (!inputs.length) {
+                        statusEl.textContent = 'No microphones found.';
+                        statusEl.style.color = 'var(--text-muted)';
+                    } else if (unlabeled === inputs.length) {
+                        statusEl.textContent = 'Labels hidden until mic access is allowed — click Refresh devices.';
+                        statusEl.style.color = 'var(--text-muted)';
+                    } else {
+                        statusEl.textContent = `${inputs.length} microphone(s) available.`;
+                        statusEl.style.color = '#28a745';
+                    }
+                }
+            } catch (err) {
+                console.error('Mic device refresh failed:', err);
+                if (statusEl) {
+                    statusEl.textContent = 'Could not list microphones.';
+                    statusEl.style.color = '#dc3545';
+                }
+            }
+        }
+
+        function loadSttSettings() {
+            const enabledEl = document.getElementById('stt-enabled');
+            if (!enabledEl) return;
+            const enabled = localStorage.getItem('jsonAdventure_sttEnabled');
+            enabledEl.checked = enabled !== 'false';
+
+            document.getElementById('stt-manual-model').value = localStorage.getItem('jsonAdventure_sttManualModel') || '';
+            document.getElementById('stt-language').value = localStorage.getItem('jsonAdventure_sttLanguage') || '';
+
+            let models = STT_FALLBACK_MODELS;
+            try {
+                const cached = JSON.parse(localStorage.getItem('jsonAdventure_sttModelsCache') || 'null');
+                if (Array.isArray(cached) && cached.length) models = cached;
+            } catch (e) { /* use fallback */ }
+            const savedModel = localStorage.getItem('jsonAdventure_sttModel') || 'openai/whisper-1';
+            populateSttModelSelect(models, savedModel);
+            refreshSttMicDevices(false);
+        }
+
+        function saveSttSettings() {
+            const enabledEl = document.getElementById('stt-enabled');
+            if (!enabledEl) return;
+            localStorage.setItem('jsonAdventure_sttEnabled', enabledEl.checked ? 'true' : 'false');
+            const manual = (document.getElementById('stt-manual-model')?.value || '').trim();
+            localStorage.setItem('jsonAdventure_sttManualModel', manual);
+            const selected = document.getElementById('stt-model-select')?.value || 'openai/whisper-1';
+            localStorage.setItem('jsonAdventure_sttModel', selected);
+            localStorage.setItem('jsonAdventure_sttMicDeviceId', document.getElementById('stt-mic-select')?.value || '');
+            localStorage.setItem('jsonAdventure_sttLanguage', document.getElementById('stt-language')?.value || '');
         }
 
         function updateTtsSpeedLabel(val) {
