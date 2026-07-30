@@ -26,6 +26,7 @@ error_log.txt
 
 games/
 presets/
+advertising/
 
 
 .env
@@ -76,9 +77,6 @@ memory/
 
 # Legacy local vector generation cache from early CLI smoke tests.
 .vector-cache/
-
-# Local marketing drafts / social posts (not ship with the app).
-advertising/
 
 # Keep only curated distributable vector stores in the app tree.
 public/jsons/universe-vector-stores/*.tmp
