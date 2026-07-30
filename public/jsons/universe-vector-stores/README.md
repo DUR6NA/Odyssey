@@ -7,7 +7,7 @@ Fandom, or other MediaWiki sources at runtime when a world has wiki metadata and
 the related settings are enabled. Files here are only for reviewed offline vector
 stores that should be bundled with a release.
 
-The Harry Potter vector store is not bundled with the v0.6.1 stable app package.
+The Harry Potter vector store is not bundled with the v0.7.0 stable app package.
 It remains an alpha/prerelease vector-store artifact because of its size and
 experimental retrieval behavior. Publish it here only when intentionally preparing
 an alpha vector-store build.
