@@ -197,6 +197,21 @@ export const GAME_OUTPUT_SCHEMA = {
         additionalProperties: false
       }
     },
+    quest_changes: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          action: { type: 'string', enum: ['add', 'update', 'complete', 'fail', 'remove'] },
+          name: { type: 'string' },
+          newName: { type: 'string' },
+          description: { type: 'string' },
+          notes: { type: 'string' }
+        },
+        required: ['action', 'name', 'newName', 'description', 'notes'],
+        additionalProperties: false
+      }
+    },
     stats: {
       type: 'object',
       properties: {
@@ -210,7 +225,7 @@ export const GAME_OUTPUT_SCHEMA = {
       additionalProperties: false
     }
   },
-  required: ['time', 'textoutput', 'inventory_changes', 'location_changes', 'npc_changes', 'player_changes', 'stats'],
+  required: ['time', 'textoutput', 'inventory_changes', 'location_changes', 'npc_changes', 'player_changes', 'quest_changes', 'stats'],
   additionalProperties: false
 };
 
@@ -1290,7 +1305,10 @@ Rely on the background JSON systems to handle stats, inventory, time, NPCs, and 
 - location_changes supports action "add", "update", or "remove".
 - npc_changes supports action "add", "update", or "remove". Put current status, relationship history, or GM notes in notes.
 - player_changes supports action "update" for field "description", "appearance", "personality", or "backstory".
-- If nothing changed for a system, output an empty array for that system.`;
+- quest_changes tracks the player's goals, jobs, promises, and open leads. Use "add" when the player takes on or clearly discovers a goal, "update" to change its description or progress notes, "complete" when it is achieved, "fail" when it becomes impossible, and "remove" only when the codex entry should be deleted. Keep quest names short and stable. Do not invent quests the story has not established.
+- If nothing changed for a system, output an empty array for that system.
+
+DEATH RULE: If the player character dies, set stats.health to 0 and narrate the death with finality. Never set health to 0 unless the character is actually dead.`;
 
   const contextUseRules = `CONTEXT USE RULES:
 - Use retrieved memory, codex entries, web results, and fandom lore as references only when they are relevant to the player's current action.
@@ -1335,7 +1353,7 @@ ${fandomData}`;
 
 === REQUIRED OUTPUT FORMAT ===
 Your entire response must be valid JSON only. No markdown, no prose outside the JSON object. Use this shape:
-{"time":{"hour":0,"minute":0,"period":"AM","dayOfWeek":"Monday","day":1,"month":1,"year":1,"era":"CE","calendarType":"gregorian"},"textoutput":"Your full narrative here.","inventory_changes":[],"location_changes":[],"npc_changes":[],"player_changes":[],"stats":{"health":100,"money":0,"hunger":100,"thirst":100,"energy":100}}`;
+{"time":{"hour":0,"minute":0,"period":"AM","dayOfWeek":"Monday","day":1,"month":1,"year":1,"era":"CE","calendarType":"gregorian"},"textoutput":"Your full narrative here.","inventory_changes":[],"location_changes":[],"npc_changes":[],"player_changes":[],"quest_changes":[],"stats":{"health":100,"money":0,"hunger":100,"thirst":100,"energy":100}}`;
   }
 
   return baseParts;
@@ -1583,7 +1601,49 @@ export async function callChatCompletions(settings, messages, options = {}) {
     throw new Error(`API returned status ${response.status}: ${text}`);
   }
 
-  return response.json();
+  const data = await response.json();
+  if (Array.isArray(settings.usageCollector) && (isOpenRouterProvider(settings.provider) || isOpenRouterUrl(url))) {
+    const usage = normalizeOpenRouterUsage(data?.usage);
+    if (usage) settings.usageCollector.push(usage);
+  }
+  return data;
+}
+
+// Same shape as public/usage-tracker.js, so desktop and CLI/Telegram totals add up.
+function normalizeOpenRouterUsage(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const num = value => (Number.isFinite(Number(value)) ? Number(value) : 0);
+  const usage = {
+    cost: num(raw.cost),
+    promptTokens: num(raw.prompt_tokens),
+    completionTokens: num(raw.completion_tokens),
+    reasoningTokens: num(raw.completion_tokens_details?.reasoning_tokens),
+    cachedTokens: num(raw.prompt_tokens_details?.cached_tokens),
+    calls: 1
+  };
+  return usage.cost || usage.promptTokens || usage.completionTokens ? usage : null;
+}
+
+function sumUsage(entries) {
+  if (!Array.isArray(entries) || entries.length === 0) return null;
+  const totals = { cost: 0, promptTokens: 0, completionTokens: 0, reasoningTokens: 0, cachedTokens: 0, calls: 0 };
+  for (const entry of entries) {
+    for (const field of Object.keys(totals)) totals[field] += Number(entry[field]) || 0;
+  }
+  return totals;
+}
+
+// Adds spend to the save's usage.json (shared with the desktop app; never rewound).
+export async function addUsageToGame(gameId, delta) {
+  if (!delta) return;
+  const gamesDir = await getGamesDir();
+  const usagePath = path.join(resolveGameDir(gamesDir, gameId), 'usage.json');
+  const usage = await readJsonFile(usagePath, { version: 1, totals: {} });
+  const totals = usage?.totals || {};
+  for (const [field, value] of Object.entries(delta)) {
+    totals[field] = (Number(totals[field]) || 0) + (Number(value) || 0);
+  }
+  await writeJsonFile(usagePath, { version: 1, totals, updatedAt: new Date().toISOString() });
 }
 
 export async function requestGameTurn(settings, messages) {
@@ -1592,7 +1652,9 @@ export async function requestGameTurn(settings, messages) {
     ...settings,
     maxTokens: getCompletionBudget(settings.maxTokens, settings, payloadOptions, 3500)
   };
-  const data = await callChatCompletions(turnSettings, messages, {
+  // History entries can carry desktop bookkeeping (turnId, variants); providers only get role/content.
+  const apiMessages = messages.map(message => ({ role: message.role, content: message.content }));
+  const data = await callChatCompletions(turnSettings, apiMessages, {
     jsonSchema: GAME_OUTPUT_SCHEMA,
     payloadOptions
   });
@@ -1814,7 +1876,41 @@ export function applyGameTurn(session, aiJsonOrText) {
     }
   }
 
+  if (Array.isArray(aiJson.quest_changes)) {
+    applyQuestChanges(session.gameState, aiJson.quest_changes);
+  }
+
   return displayText;
+}
+
+const QUEST_STATUS_BY_ACTION = { add: 'active', complete: 'completed', fail: 'failed' };
+
+// Mirrors applyQuestChanges in public/chat.js; quests live in gamestate.json.
+function applyQuestChanges(gameState, changes) {
+  if (!Array.isArray(gameState.quests)) gameState.quests = [];
+  for (const change of changes) {
+    const action = String(change?.action || 'update').trim().toLowerCase();
+    const name = String(change?.name || '').trim();
+    const newName = String(change?.newName || '').trim();
+    const description = String(change?.description || '').trim();
+    const notes = String(change?.notes || '').trim();
+    if (!name && !newName) continue;
+
+    if (action === 'remove') {
+      gameState.quests = removeGameEntityByName(gameState.quests, name);
+      continue;
+    }
+
+    let quest = findGameEntityByName(gameState.quests, name) || findGameEntityByName(gameState.quests, newName);
+    if (!quest) {
+      quest = { name: newName || name, description: '', notes: '', status: 'active' };
+      gameState.quests.push(quest);
+    }
+    if (newName) quest.name = newName;
+    if (description) quest.description = description;
+    if (notes) quest.notes = notes;
+    if (QUEST_STATUS_BY_ACTION[action]) quest.status = QUEST_STATUS_BY_ACTION[action];
+  }
 }
 
 export function buildCodexText(session) {
@@ -1833,6 +1929,14 @@ export function buildCodexText(session) {
   chunks.push(locations.length ? locations.map(location => {
     return `- ${location.name || 'Unnamed Location'}\n  ${location.description || 'No description recorded.'}${location.notes ? `\n  Notes: ${location.notes}` : ''}`;
   }).join('\n') : '- No location knowledge recorded.');
+
+  const quests = session.gameState?.quests || [];
+  chunks.push('');
+  chunks.push('Quest Journal');
+  chunks.push(quests.length ? quests.map(quest => {
+    const status = quest.status === 'completed' ? 'Completed' : quest.status === 'failed' ? 'Failed' : 'Active';
+    return `- [${status}] ${quest.name || 'Unnamed quest'}\n  ${quest.description || 'No goal recorded.'}${quest.notes ? `\n  Progress: ${quest.notes}` : ''}`;
+  }).join('\n') : '- No quests recorded.');
 
   return chunks.join('\n');
 }
@@ -1950,7 +2054,7 @@ function compactHistoryForTurn(history, maxMessages = 24) {
 
 export async function runOpeningTurn(gameId, _settings = null) {
   // Always refresh so Telegram/CLI pick up desktop RAG and model changes mid-session.
-  const activeSettings = await loadSettings();
+  const activeSettings = { ...(await loadSettings()), usageCollector: [] };
   if (!canUseAi(activeSettings)) {
     throw new Error('AI settings are not configured. Run `npm run odyssey:cli`, open Settings, and save a provider/model/API key first.');
   }
@@ -1969,18 +2073,25 @@ export async function runOpeningTurn(gameId, _settings = null) {
   session.chatHistory = [
     { role: 'system', content: system },
     { role: 'user', content: opening },
-    { role: 'assistant', content: aiText }
+    withTurnUsage({ role: 'assistant', content: aiText }, activeSettings.usageCollector)
   ];
   await saveGameSession(session);
   const timeline = await loadTurnSnapshots(gameId);
   timeline.snapshots.push(snapshot);
   await saveTurnSnapshots(gameId, timeline.snapshots);
+  await addUsageToGame(gameId, sumUsage(activeSettings.usageCollector)).catch(() => {});
   return { session, text: displayText, aiJson };
+}
+
+// Records what the turn's API calls cost on the reply, as the desktop app does.
+function withTurnUsage(message, usageEntries) {
+  const usage = sumUsage(usageEntries);
+  return usage ? { ...message, usage } : message;
 }
 
 export async function runGameTurn(gameId, playerAction, _settings = null) {
   // Always refresh so Telegram/CLI pick up desktop RAG and model changes mid-session.
-  const activeSettings = await loadSettings();
+  const activeSettings = { ...(await loadSettings()), usageCollector: [] };
   if (!canUseAi(activeSettings)) {
     throw new Error('AI settings are not configured. Run `npm run odyssey:cli`, open Settings, and save a provider/model/API key first.');
   }
@@ -2004,7 +2115,7 @@ export async function runGameTurn(gameId, playerAction, _settings = null) {
     { role: 'system', content: system },
     ...prior,
     userMessage,
-    { role: 'assistant', content: aiText }
+    withTurnUsage({ role: 'assistant', content: aiText }, activeSettings.usageCollector)
   ];
 
   await maybeSummarizeHistory(session, activeSettings);
@@ -2012,6 +2123,7 @@ export async function runGameTurn(gameId, playerAction, _settings = null) {
   const timeline = await loadTurnSnapshots(gameId);
   timeline.snapshots.push(snapshot);
   await saveTurnSnapshots(gameId, timeline.snapshots);
+  await addUsageToGame(gameId, sumUsage(activeSettings.usageCollector)).catch(() => {});
   return { session, text: displayText, aiJson };
 }
 

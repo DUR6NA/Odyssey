@@ -6,11 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Odyssey - Presets</title>
     <meta name="application-name" content="Odyssey">
-    <meta name="description" content="Odyssey v0.7.0 - AI-driven text adventure desktop game with retrieval-enhanced lore and memory.">
+    <meta name="description" content="Odyssey v0.8.0 - AI-driven text adventure desktop game with retrieval-enhanced lore and memory.">
     <meta name="theme-color" content="#121212">
-    <meta name="odyssey-version" content="0.7.0">
-    <meta name="odyssey-bundle-version" content="0.7.0">
-    <meta property="og:title" content="Odyssey v0.7.0">
+    <meta name="odyssey-version" content="0.8.0">
+    <meta name="odyssey-bundle-version" content="0.8.0">
+    <meta property="og:title" content="Odyssey v0.8.0">
     <meta property="og:description" content="AI-driven text adventure desktop game with retrieval-enhanced lore and memory.">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary">
@@ -20,8 +20,9 @@
     <script src="tauri-bridge.js"></script>
     <script src="titlebar.js"></script>
     <script src="ui-components.js"></script>
-    <script src="theme-icons.js"></script>
+    <script src="theme-icons.js?v=2"></script>
     <script src="openrouter-attribution.js?v=1"></script>
+    <script src="usage-tracker.js?v=1"></script>
     <script src="menu-music.js"></script>
     <style>
         html, body {
@@ -516,13 +517,13 @@
 
                 <!-- AI suggestion overlay -->
                 <div id="ai-result-block" class="ai-result-block hidden">
-                    <h3>✨ AI Suggestion</h3>
+                    <h3><span data-icon="ai"></span><span class="icon-label">AI Suggestion</span></h3>
                     <div id="ai-result-display" class="ai-result-display"></div>
                     <textarea id="ai-editable-result" rows="4" style="display: none;"></textarea>
                     <div class="approve-actions-row">
-                        <button id="btn-approve-ai" class="btn btn-success">✓ Accept</button>
-                        <button id="btn-edit-ai" class="btn btn-secondary" onclick="toggleEditAI()">✎ Edit</button>
-                        <button id="btn-reject-ai" class="btn btn-danger">✗ Cancel</button>
+                        <button id="btn-approve-ai" class="btn btn-success"><span data-icon="check"></span><span class="icon-label">Accept</span></button>
+                        <button id="btn-edit-ai" class="btn btn-secondary" onclick="toggleEditAI()"><span data-icon="edit"></span><span class="icon-label">Edit</span></button>
+                        <button id="btn-reject-ai" class="btn btn-danger"><span data-icon="x"></span><span class="icon-label">Cancel</span></button>
                     </div>
                 </div>
 
@@ -546,7 +547,7 @@
                                 <div class="field-head">
                                     <label>Character Name</label>
                                     <button type="button" class="btn-mini ai btn-dice" data-field="name"
-                                        onclick="autoGenerateField('name', 'Name', this)">✨ Auto</button>
+                                        onclick="autoGenerateField('name', 'Name', this)"><span data-icon="ai"></span><span class="icon-label">Auto</span></button>
                                 </div>
                                 <input type="text" id="p_name" required>
                             </div>
@@ -554,7 +555,7 @@
                                 <div class="field-head">
                                     <label>Age</label>
                                     <button type="button" class="btn-mini ai btn-dice" data-field="age"
-                                        onclick="autoGenerateField('age', 'Age', this)">✨ Auto</button>
+                                        onclick="autoGenerateField('age', 'Age', this)"><span data-icon="ai"></span><span class="icon-label">Auto</span></button>
                                 </div>
                                 <input type="number" id="p_age" required>
                             </div>
@@ -562,7 +563,7 @@
                                 <div class="field-head">
                                     <label>Gender</label>
                                     <button type="button" class="btn-mini ai btn-dice" data-field="gender"
-                                        onclick="autoGenerateField('gender', 'Gender', this)">✨ Auto</button>
+                                        onclick="autoGenerateField('gender', 'Gender', this)"><span data-icon="ai"></span><span class="icon-label">Auto</span></button>
                                 </div>
                                 <select id="p_gender">
                                     <option value="Male">Male</option>
@@ -576,7 +577,7 @@
                                 <div class="field-head">
                                     <label>Height</label>
                                     <button type="button" class="btn-mini ai btn-dice" data-field="height"
-                                        onclick="autoGenerateField('height', 'Height', this)">✨ Auto</button>
+                                        onclick="autoGenerateField('height', 'Height', this)"><span data-icon="ai"></span><span class="icon-label">Auto</span></button>
                                 </div>
                                 <input type="text" id="p_height" placeholder="e.g. 5'11&quot;" required>
                             </div>
@@ -584,7 +585,7 @@
                                 <div class="field-head">
                                     <label>Weight</label>
                                     <button type="button" class="btn-mini ai btn-dice" data-field="weight"
-                                        onclick="autoGenerateField('weight', 'Weight', this)">✨ Auto</button>
+                                        onclick="autoGenerateField('weight', 'Weight', this)"><span data-icon="ai"></span><span class="icon-label">Auto</span></button>
                                 </div>
                                 <input type="text" id="p_weight" placeholder="e.g. 180lbs" required>
                             </div>
@@ -598,7 +599,7 @@
                             <div class="field attribute-card">
                                 <div class="field-head">
                                     <label>Athleticism</label>
-                                    <button type="button" class="btn-mini" id="ath-define-toggle-mini">✍ Custom</button>
+                                    <button type="button" class="btn-mini" id="ath-define-toggle-mini"><span data-icon="pen"></span><span class="icon-label">Custom</span></button>
                                 </div>
                                 <div class="attribute-slider-container mini-slider">
                                     <div class="attribute-current-label">
@@ -627,7 +628,7 @@
                             <div class="field attribute-card">
                                 <div class="field-head">
                                     <label>Intelligence</label>
-                                    <button type="button" class="btn-mini" id="int-define-toggle-mini">✍ Custom</button>
+                                    <button type="button" class="btn-mini" id="int-define-toggle-mini"><span data-icon="pen"></span><span class="icon-label">Custom</span></button>
                                 </div>
                                 <div class="attribute-slider-container mini-slider">
                                     <div class="attribute-current-label">
@@ -663,7 +664,7 @@
                                 <div class="field-head">
                                     <label>Appearance</label>
                                     <button type="button" class="btn-mini ai"
-                                        onclick="processWithAI('appearance', false, this)">✨ Assist</button>
+                                        onclick="processWithAI('appearance', false, this)"><span data-icon="ai"></span><span class="icon-label">Assist</span></button>
                                 </div>
                                 <textarea id="p_appearance" rows="3"></textarea>
                             </div>
@@ -671,7 +672,7 @@
                                 <div class="field-head">
                                     <label>Personality</label>
                                     <button type="button" class="btn-mini ai"
-                                        onclick="processWithAI('personality', false, this)">✨ Assist</button>
+                                        onclick="processWithAI('personality', false, this)"><span data-icon="ai"></span><span class="icon-label">Assist</span></button>
                                 </div>
                                 <textarea id="p_personality" rows="3"></textarea>
                             </div>
@@ -679,7 +680,7 @@
                                 <div class="field-head">
                                     <label>Backstory</label>
                                     <button type="button" class="btn-mini ai"
-                                        onclick="processWithAI('backstory', false, this)">✨ Assist</button>
+                                        onclick="processWithAI('backstory', false, this)"><span data-icon="ai"></span><span class="icon-label">Assist</span></button>
                                 </div>
                                 <textarea id="p_backstory" rows="4"></textarea>
                             </div>
@@ -694,7 +695,7 @@
                                 <div class="field-head">
                                     <label>Family</label>
                                     <button type="button" class="btn-mini ai"
-                                        onclick="processWithAI('family', true, this)">✨ Assist</button>
+                                        onclick="processWithAI('family', true, this)"><span data-icon="ai"></span><span class="icon-label">Assist</span></button>
                                 </div>
                                 <textarea id="p_family" rows="2"
                                     placeholder="Comma separated, e.g. Mother Sarah, Brother John"></textarea>
@@ -703,7 +704,7 @@
                                 <div class="field-head">
                                     <label>Friends</label>
                                     <button type="button" class="btn-mini ai"
-                                        onclick="processWithAI('friends', true, this)">✨ Assist</button>
+                                        onclick="processWithAI('friends', true, this)"><span data-icon="ai"></span><span class="icon-label">Assist</span></button>
                                 </div>
                                 <textarea id="p_friends" rows="2" placeholder="Comma separated"></textarea>
                             </div>
@@ -711,7 +712,7 @@
                                 <div class="field-head">
                                     <label>Starting Inventory</label>
                                     <button type="button" class="btn-mini ai"
-                                        onclick="processWithAI('inventory', true, this)">✨ Assist</button>
+                                        onclick="processWithAI('inventory', true, this)"><span data-icon="ai"></span><span class="icon-label">Assist</span></button>
                                 </div>
                                 <textarea id="p_inventory" rows="2" placeholder="Comma separated"></textarea>
                             </div>
@@ -804,12 +805,12 @@
                     if (isCustom) {
                         sliderContainer.classList.add('hidden');
                         wrapper.classList.remove('hidden');
-                        toggle.textContent = '📊 Use Slider';
+                        window.OdysseyIcons.setButton(toggle, 'sliders', 'Use Slider');
                         custom.focus();
                     } else {
                         sliderContainer.classList.remove('hidden');
                         wrapper.classList.add('hidden');
-                        toggle.textContent = '✍ Custom';
+                        window.OdysseyIcons.setButton(toggle, 'pen', 'Custom');
                     }
                 };
             };
@@ -886,14 +887,14 @@
             document.getElementById('p_athleticism').closest('.attribute-slider-container').classList.remove('hidden');
             document.getElementById('ath-custom-wrap').classList.add('hidden');
             document.getElementById('p_athleticism_custom').value = '';
-            document.getElementById('ath-define-toggle-mini').textContent = '✍ Custom';
+            window.OdysseyIcons.setButton(document.getElementById('ath-define-toggle-mini'), 'pen', 'Custom');
 
             document.getElementById('p_intelligence').value = 30;
             document.getElementById('int-label').textContent = 'Average';
             document.getElementById('p_intelligence').closest('.attribute-slider-container').classList.remove('hidden');
             document.getElementById('int-custom-wrap').classList.add('hidden');
             document.getElementById('p_intelligence_custom').value = '';
-            document.getElementById('int-define-toggle-mini').textContent = '✍ Custom';
+            window.OdysseyIcons.setButton(document.getElementById('int-define-toggle-mini'), 'pen', 'Custom');
 
             document.querySelector('.page').scrollTop = 0;
         }
@@ -947,7 +948,7 @@
                     document.getElementById(labelId).textContent = marker.label;
                     sliderContainer.classList.remove('hidden');
                     wrapper.classList.add('hidden');
-                    toggle.textContent = '✍ Custom';
+                    window.OdysseyIcons.setButton(toggle, 'pen', 'Custom');
                     customInput.value = '';
                 } else {
                     let textVal = valStr || '';
@@ -955,7 +956,7 @@
                     customInput.value = textVal;
                     sliderContainer.classList.add('hidden');
                     wrapper.classList.remove('hidden');
-                    toggle.textContent = '📊 Use Slider';
+                    window.OdysseyIcons.setButton(toggle, 'sliders', 'Use Slider');
                 }
             };
 
@@ -1320,8 +1321,8 @@ ${rawContent}`;
             const inputEl = document.getElementById(`p_${fieldId}`);
             let userInputValue = inputEl.value || `Generate a character's ${fieldId}.`;
 
-            const originalText = btnElement.textContent;
-            btnElement.textContent = '⏳';
+            const originalMarkup = btnElement.innerHTML;
+            btnElement.innerHTML = window.OdysseyIcons.html('loader');
             btnElement.disabled = true;
 
             currentActiveFieldTarget = fieldId;
@@ -1390,7 +1391,7 @@ The JSON object must have exactly one key named "result", and its value must be 
                 console.error(err);
                 alert('Refine failed: ' + err.message);
             } finally {
-                btnElement.textContent = originalText;
+                btnElement.innerHTML = originalMarkup;
                 btnElement.disabled = false;
             }
         }
@@ -1411,9 +1412,9 @@ The JSON object must have exactly one key named "result", and its value must be 
         async function autoGenerateField(fieldId, label, btnEl) {
             const inputEl = document.getElementById(`p_${fieldId}`);
             const diceBtn = btnEl || (inputEl.closest('.field') || inputEl.parentElement).querySelector('.btn-dice');
-            const originalText = diceBtn ? diceBtn.textContent : '';
+            const originalMarkup = diceBtn ? diceBtn.innerHTML : '';
             if (diceBtn) {
-                diceBtn.textContent = '⏳';
+                diceBtn.innerHTML = window.OdysseyIcons.html('loader');
                 diceBtn.disabled = true;
             }
 
@@ -1432,7 +1433,8 @@ CRITICAL: You must output ONLY a valid JSON object. The JSON object must have ex
                 alert('Auto-generate failed: ' + err.message);
             } finally {
                 if (diceBtn) {
-                    diceBtn.textContent = originalText || '✨ Auto';
+                    if (originalMarkup) diceBtn.innerHTML = originalMarkup;
+                    else window.OdysseyIcons.setButton(diceBtn, 'ai', 'Auto');
                     diceBtn.disabled = false;
                 }
             }

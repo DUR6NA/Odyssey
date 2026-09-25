@@ -14,7 +14,8 @@
         'game-summary',
         'game-inventory',
         'game-npc',
-        'game-location'
+        'game-location',
+        'game-quest'
     ]);
 
     const MEDIA_WIKI_PRESETS = {
@@ -875,6 +876,23 @@
                 text: locationText
             });
         });
+        (gameState.quests || []).forEach(quest => {
+            const name = cleanText(quest.name || 'Unnamed Quest');
+            const questText = readableLines([
+                ['Quest', name],
+                ['Status', quest.status || 'active'],
+                ['Goal', quest.description],
+                ['Progress', quest.notes]
+            ]);
+            if (!questText) return;
+            docs.push({
+                id: `${scope}:quest:${name}`,
+                scope,
+                sourceType: 'game-quest',
+                title: `Quest - ${name}`,
+                text: questText
+            });
+        });
 
         return docs;
     }
@@ -918,6 +936,7 @@
         if (doc.sourceType === 'brave') return 'Web context';
         if (doc.sourceType === 'game-npc') return 'Game NPC';
         if (doc.sourceType === 'game-location') return 'Game location';
+        if (doc.sourceType === 'game-quest') return 'Quest journal';
         if (doc.sourceType === 'game-inventory') return 'Game inventory';
         if (doc.sourceType === 'game-summary') return 'Adventure summary';
         if (doc.sourceType === 'game-player') return 'Player memory';

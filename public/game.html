@@ -14,19 +14,20 @@
     <script src="tauri-bridge.js"></script>
     <script src="titlebar.js"></script>
     <script src="ui-components.js?v=2"></script>
-    <script src="theme-icons.js"></script>
+    <script src="theme-icons.js?v=2"></script>
     <script src="openrouter-attribution.js?v=1"></script>
-    <script src="creation.js?v=2"></script>
-    <script src="retrieval.js?v=2"></script>
-    <script src="chat.js?v=3"></script>
-    <script src="saves.js?v=3"></script>
+    <script src="usage-tracker.js?v=1"></script>
+    <script src="creation.js?v=5"></script>
+    <script src="retrieval.js?v=3"></script>
+    <script src="chat.js?v=6"></script>
+    <script src="saves.js?v=4"></script>
     <script src="menu-music.js"></script>
     <meta name="application-name" content="Odyssey">
-    <meta name="description" content="Odyssey v0.7.0 - AI-driven text adventure desktop game with retrieval-enhanced lore and memory.">
+    <meta name="description" content="Odyssey v0.8.0 - AI-driven text adventure desktop game with retrieval-enhanced lore and memory.">
     <meta name="theme-color" content="#121212">
-    <meta name="odyssey-version" content="0.7.0">
-    <meta name="odyssey-bundle-version" content="0.7.0">
-    <meta property="og:title" content="Odyssey v0.7.0">
+    <meta name="odyssey-version" content="0.8.0">
+    <meta name="odyssey-bundle-version" content="0.8.0">
+    <meta property="og:title" content="Odyssey v0.8.0">
     <meta property="og:description" content="AI-driven text adventure desktop game with retrieval-enhanced lore and memory.">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary">
@@ -77,13 +78,19 @@
                             No Image</div>
                         <button id="regenerate-image-btn"
                             style="position: absolute; bottom: 8px; right: 8px; padding: 6px; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;"
-                            title="Regenerate Image" onclick="triggerImageGeneration()">🔄</button>
+                            title="Regenerate Image" aria-label="Regenerate Image" onclick="triggerImageGeneration()"><span data-icon="refresh"></span></button>
                     </div>
                 </div>
 
                 <div style="margin-top: 15px;">
                     <button onclick="window.location.href='mainmenu.html'" class="btn-player-menu" style="margin-bottom: 15px;">Main Menu</button>
                     <button onclick="openPlayerMenu()" class="btn-player-menu">Player Menu</button>
+                </div>
+
+                <div class="usage-widget" id="usage-widget" hidden>
+                    <h3 class="widget-title usage-widget-title">OpenRouter Spend</h3>
+                    <div class="usage-row"><span class="usage-label">This save</span><span class="usage-value" id="usage-save">—</span></div>
+                    <div class="usage-row"><span class="usage-label">This session</span><span class="usage-value" id="usage-session">—</span></div>
                 </div>
             </aside>
 
@@ -95,10 +102,12 @@
                     </div>
 
                     <div class="chat-input-container">
+                        <div class="hint-chips" id="hint-chips" hidden></div>
                         <div class="input-wrapper">
+                            <button type="button" class="hint-btn" id="hint-btn" title="I'm stuck: suggest a few things to try" aria-label="Suggest actions" onclick="requestStuckHints()"><span data-icon="lightbulb"></span></button>
                             <textarea placeholder="What will you do..." id="chat-input" rows="1"></textarea>
-                            <button type="button" class="mic-btn" id="mic-btn" title="Hold to talk" aria-label="Hold to talk">🎤</button>
-                            <button type="button" class="send-btn" title="Send message">➔</button>
+                            <button type="button" class="mic-btn" id="mic-btn" title="Hold to talk" aria-label="Hold to talk"><span data-icon="mic"></span></button>
+                            <button type="button" class="send-btn" title="Send message" aria-label="Send message"><span data-icon="send"></span></button>
                         </div>
                     </div>
                 </div>
@@ -108,7 +117,7 @@
             <aside class="right-column">
                 <div class="top-bar-actions"
                     style="display: flex; gap: 10px; justify-content: flex-end; margin-bottom: 25px;">
-                    <button onclick="settings()" class="btn-settings-square" title="Settings">⚙️</button>
+                    <button onclick="settings()" class="btn-settings-square" title="Settings" aria-label="Settings"><span data-icon="settings"></span></button>
                 </div>
                 <div class="clock-widget" id="clock-widget">
                     <div class="clock-time" id="clock-time">--:-- --</div>
@@ -117,6 +126,11 @@
                 </div>
                 <div style="margin-top: 15px;">
                     <button onclick="openCodexMenu()" class="btn-player-menu" style="width: 100%;">Game Codex</button>
+                </div>
+                <div class="quest-widget" id="quest-widget">
+                    <h3 class="widget-title quest-widget-title">Active Quests</h3>
+                    <ul class="quest-widget-list" id="quest-widget-list"></ul>
+                    <button onclick="openQuestJournal()" class="btn-player-menu" style="width: 100%;">Quest Journal</button>
                 </div>
             </aside>
         </div>
@@ -176,6 +190,44 @@
                         <!-- Locations injected here -->
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quest Journal Modal -->
+    <div id="quest-journal-modal" class="inventory-modal hidden">
+        <div class="player-menu-modal-content">
+            <div class="inventory-modal-header" style="flex: 0 0 auto;">
+                <h2>Quest Journal</h2>
+                <span class="close-btn" onclick="closeQuestJournal()">&times;</span>
+            </div>
+
+            <div class="player-menu-body">
+                <div class="player-menu-left">
+                    <h3 style="margin-top: 0; color: var(--accent-color); text-transform: uppercase;">Active</h3>
+                    <div id="quest-active-container" class="player-info-container"
+                        style="display: flex; flex-direction: column; gap: 15px;"></div>
+                </div>
+                <div class="player-menu-right">
+                    <h3 style="margin-top: 0; color: var(--accent-color); text-transform: uppercase;">Finished</h3>
+                    <div id="quest-finished-container" class="player-info-container"
+                        style="display: flex; flex-direction: column; gap: 15px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="game-over-modal" class="inventory-modal hidden" role="dialog" aria-modal="true" aria-labelledby="game-over-title">
+        <div class="game-over-content">
+            <div class="game-over-eyebrow">Epilogue</div>
+            <h2 id="game-over-title" class="game-over-title">Your story ends here</h2>
+            <div id="game-over-narration" class="game-over-narration message-content"></div>
+            <dl id="game-over-stats" class="game-over-stats"></dl>
+            <div class="game-over-actions">
+                <button type="button" class="btn btn-compact" onclick="rewindFromGameOver()"><span data-icon="rewind"></span><span class="icon-label">Rewind last turn</span></button>
+                <button type="button" class="btn btn-secondary btn-compact" onclick="acknowledgeGameOver()">Keep playing</button>
+                <button type="button" class="btn btn-secondary btn-compact" onclick="window.location.href='mainmenu.html'">Main menu</button>
             </div>
         </div>
     </div>
@@ -355,20 +407,26 @@
                             if (content.startsWith('[SYSTEM NOTE')) {
                                 content = content.split('Player action: ')[1] || content;
                             }
-                            chatContainer.appendChild(createChatMessage('user', content));
+                            chatContainer.appendChild(createChatMessage('user', content, { turnId: msg.turnId }));
                         } else if (msg.role === 'assistant') {
                             let content = msg.content.trim();
                             if (content.startsWith('```json')) content = content.replace(/^```json/, '').replace(/```$/, '').trim();
                             let text = content;
                             try { text = JSON.parse(content).textoutput || text; } catch (e) { }
-                            chatContainer.appendChild(createChatMessage('ai', text));
+                            chatContainer.appendChild(createChatMessage('ai', text, { usage: msg.usage }));
                         }
                     });
                     chatContainer.scrollTop = chatContainer.scrollHeight;
                 }
+                refreshChatMessageControls();
+                renderQuestUI();
+                initSaveUsage(data['usage.json']);
 
                 if (typeof setupChatInput === 'function') setupChatInput();
                 if (loader) loader.style.display = 'none';
+                if ((getPlayerHealth() ?? 1) <= 0 && !window.gamestate.gameOverAcknowledged) {
+                    showGameOverScreen();
+                }
                 if (typeof resumePendingChatTurnIfNeeded === 'function') {
                     resumePendingChatTurnIfNeeded().catch(err => console.error('Failed to resume pending turn:', err));
                 }
@@ -839,7 +897,7 @@
 
             window.recordEditorState = { type, index, field };
             setEditorFieldVisibility(nameWrap, type !== 'player');
-            setEditorFieldVisibility(notesWrap, type === 'npc' || type === 'location');
+            setEditorFieldVisibility(notesWrap, type === 'npc' || type === 'location' || type === 'quest');
             nameInput.value = '';
             descInput.value = '';
             notesInput.value = '';
@@ -869,6 +927,15 @@
                 nameInput.value = location.name || '';
                 descInput.value = location.description || '';
                 notesInput.value = getLocationNotes(location);
+            } else if (type === 'quest') {
+                const quest = window.gamestate?.quests?.[index] || {};
+                title.textContent = 'Edit Quest';
+                nameLabel.textContent = 'Quest Name';
+                descLabel.textContent = 'Goal';
+                notesLabel.textContent = 'Progress Notes';
+                nameInput.value = quest.name || '';
+                descInput.value = quest.description || '';
+                notesInput.value = quest.notes || '';
             } else if (type === 'player') {
                 const player = getMutablePlayerRecord();
                 const labels = {
@@ -931,6 +998,13 @@
                 location.description = description;
                 setLocationNotes(location, notes);
                 renderCodexUI();
+            } else if (state.type === 'quest') {
+                const quest = window.gamestate?.quests?.[state.index];
+                if (!quest) return;
+                quest.name = name;
+                quest.description = description;
+                quest.notes = notes;
+                renderQuestUI();
             } else if (state.type === 'player') {
                 const player = getMutablePlayerRecord();
                 player[state.field || 'appearance'] = description;
@@ -972,6 +1046,186 @@
             list.splice(index, 1);
             renderCodexUI();
             await persistMenuEdit();
+        }
+
+        const QUEST_STATUS_LABELS = { active: 'Active', completed: 'Completed', failed: 'Failed' };
+
+        function getQuestStatus(quest) {
+            return QUEST_STATUS_LABELS[quest?.status] ? quest.status : 'active';
+        }
+
+        function renderQuestUI() {
+            const quests = window.gamestate?.quests || [];
+            const active = quests.filter(quest => getQuestStatus(quest) === 'active');
+
+            const list = document.getElementById('quest-widget-list');
+            if (list) {
+                list.replaceChildren();
+                if (active.length === 0) {
+                    const empty = document.createElement('li');
+                    empty.className = 'quest-widget-empty';
+                    empty.textContent = 'No open quests.';
+                    list.appendChild(empty);
+                }
+                active.forEach(quest => {
+                    const item = document.createElement('li');
+                    item.textContent = quest.name || 'Unnamed quest';
+                    if (quest.description) item.title = quest.description;
+                    list.appendChild(item);
+                });
+            }
+
+            const modal = document.getElementById('quest-journal-modal');
+            if (modal && !modal.classList.contains('hidden')) renderQuestJournal();
+        }
+
+        function renderQuestJournal() {
+            const quests = window.gamestate?.quests || [];
+            const activeContainer = document.getElementById('quest-active-container');
+            const finishedContainer = document.getElementById('quest-finished-container');
+            if (!activeContainer || !finishedContainer) return;
+            activeContainer.replaceChildren();
+            finishedContainer.replaceChildren();
+
+            quests.forEach((quest, index) => {
+                const target = getQuestStatus(quest) === 'active' ? activeContainer : finishedContainer;
+                target.appendChild(createQuestSection(quest, index));
+            });
+
+            [[activeContainer, 'No open quests. Goals the story gives you will appear here.'], [finishedContainer, 'No finished quests yet.']].forEach(([container, text]) => {
+                if (container.children.length) return;
+                const empty = document.createElement('div');
+                empty.style.cssText = 'color: var(--text-muted); font-style: italic;';
+                empty.textContent = text;
+                container.appendChild(empty);
+            });
+        }
+
+        function createQuestSection(quest, index) {
+            const status = getQuestStatus(quest);
+            const section = document.createElement('div');
+            section.className = `player-info-section editable-section quest-card quest-${status}`;
+
+            const header = document.createElement('div');
+            header.className = 'ledger-card-header';
+
+            const title = document.createElement('div');
+            title.className = 'player-info-section-label ledger-card-title';
+            title.textContent = quest.name || 'Unnamed quest';
+
+            const badge = document.createElement('span');
+            badge.className = 'quest-status-badge';
+            badge.textContent = QUEST_STATUS_LABELS[status];
+            title.appendChild(badge);
+
+            const actions = document.createElement('div');
+            actions.className = 'ledger-actions';
+            if (status === 'active') {
+                actions.appendChild(createMiniActionButton('Complete', `Mark ${quest.name || 'quest'} completed`, () => setQuestStatus(index, 'completed')));
+                actions.appendChild(createMiniActionButton('Fail', `Mark ${quest.name || 'quest'} failed`, () => setQuestStatus(index, 'failed')));
+            } else {
+                actions.appendChild(createMiniActionButton('Reopen', `Reopen ${quest.name || 'quest'}`, () => setQuestStatus(index, 'active')));
+            }
+            actions.appendChild(createMiniActionButton('Edit', `Edit ${quest.name || 'quest'}`, () => openRecordEditor('quest', index)));
+            actions.appendChild(createMiniActionButton('Delete', `Delete ${quest.name || 'quest'}`, () => deleteQuest(index), true));
+
+            header.appendChild(title);
+            header.appendChild(actions);
+            section.appendChild(header);
+            section.appendChild(createLedgerField('Goal', quest.description || 'No goal recorded.'));
+            if (quest.notes) section.appendChild(createLedgerField('Progress', quest.notes));
+            return section;
+        }
+
+        async function setQuestStatus(index, status) {
+            const quest = window.gamestate?.quests?.[index];
+            if (!quest) return;
+            quest.status = status;
+            renderQuestUI();
+            await persistMenuEdit();
+        }
+
+        async function deleteQuest(index) {
+            const quest = window.gamestate?.quests?.[index];
+            if (!quest) return;
+            if (!await window.Odyssey.confirm(`Delete quest "${quest.name || 'this quest'}" from the journal?`, {
+                title: 'Delete Quest',
+                confirmText: 'Delete',
+                danger: true
+            })) return;
+            window.gamestate.quests.splice(index, 1);
+            renderQuestUI();
+            await persistMenuEdit();
+        }
+
+        function openQuestJournal() {
+            const modal = document.getElementById('quest-journal-modal');
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            renderQuestJournal();
+        }
+
+        function closeQuestJournal() {
+            const modal = document.getElementById('quest-journal-modal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function getLatestNarrationText() {
+            const history = window.chatHistory || [];
+            for (let i = history.length - 1; i >= 0; i--) {
+                if (history[i].role === 'assistant') return extractTurnNarration(history[i].content);
+            }
+            return '';
+        }
+
+        function showGameOverScreen() {
+            const modal = document.getElementById('game-over-modal');
+            if (!modal) return;
+
+            const player = window.playerInfo?.player || {};
+            const state = window.gamestate || {};
+            const quests = state.quests || [];
+            const title = document.getElementById('game-over-title');
+            if (title) title.textContent = player.name ? `${player.name}'s story ends here` : 'Your story ends here';
+
+            const narration = document.getElementById('game-over-narration');
+            if (narration) narration.innerHTML = renderMarkdownSafe(getLatestNarrationText());
+
+            const time = state.time || {};
+            const dateEl = document.getElementById('clock-date');
+            const rows = [
+                ['Final day', [time.dayOfWeek, dateEl ? dateEl.textContent : ''].filter(Boolean).join(', ')],
+                ['People met', (state.npcs || []).length],
+                ['Places discovered', (state.locations || []).length],
+                ['Quests completed', quests.filter(quest => quest.status === 'completed').length],
+                ['Quests failed or unfinished', quests.filter(quest => quest.status !== 'completed').length],
+                ['Money left', state.stats?.money ?? '—']
+            ];
+            const stats = document.getElementById('game-over-stats');
+            if (stats) {
+                stats.replaceChildren();
+                rows.forEach(([label, value]) => {
+                    const dt = document.createElement('dt');
+                    dt.textContent = label;
+                    const dd = document.createElement('dd');
+                    dd.textContent = String(value === '' ? '—' : value);
+                    stats.appendChild(dt);
+                    stats.appendChild(dd);
+                });
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        function hideGameOverScreen() {
+            const modal = document.getElementById('game-over-modal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        async function rewindFromGameOver() {
+            if (await rewindLastTurn({ refillInput: true, skipConfirm: true })) {
+                hideGameOverScreen();
+            }
         }
     </script>
 </body>

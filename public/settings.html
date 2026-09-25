@@ -10,18 +10,19 @@
     <script src="theme.js"></script>
     <script src="titlebar.js"></script>
     <script src="ui-components.js"></script>
-    <script src="theme-icons.js"></script>
+    <script src="theme-icons.js?v=2"></script>
     <script src="devtools.js"></script>
     <script src="openrouter-attribution.js?v=1"></script>
+    <script src="usage-tracker.js?v=1"></script>
     <script src="tauri-bridge.js"></script>
-    <script src="retrieval.js?v=2"></script>
+    <script src="retrieval.js?v=3"></script>
     <script src="menu-music.js"></script>
     <meta name="application-name" content="Odyssey">
-    <meta name="description" content="Odyssey v0.7.0 - AI-driven text adventure desktop game with retrieval-enhanced lore and memory.">
+    <meta name="description" content="Odyssey v0.8.0 - AI-driven text adventure desktop game with retrieval-enhanced lore and memory.">
     <meta name="theme-color" content="#121212">
-    <meta name="odyssey-version" content="0.7.0">
-    <meta name="odyssey-bundle-version" content="0.7.0">
-    <meta property="og:title" content="Odyssey v0.7.0">
+    <meta name="odyssey-version" content="0.8.0">
+    <meta name="odyssey-bundle-version" content="0.8.0">
+    <meta property="og:title" content="Odyssey v0.8.0">
     <meta property="og:description" content="AI-driven text adventure desktop game with retrieval-enhanced lore and memory.">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary">
@@ -47,7 +48,7 @@
         <!-- Main settings area -->
         <main class="settings-main">
             <!-- Small controller button positioned at top right -->
-            <button onclick="backToGame()" class="btn-top-right" title="Back to Game">🎮</button>
+            <button onclick="backToGame()" class="btn-top-right" title="Back to Game" aria-label="Back to Game"><span data-icon="gamepad"></span></button>
 
             <!-- Title at the top -->
             <header class="settings-header">
@@ -71,6 +72,25 @@
                         <label>Desktop notifications:</label>
                         <input type="checkbox" id="desktop-notifications-enabled" onchange="saveDesktopNotificationSetting()" checked>
                         <span class="hint-text">Notify when a story response finishes (Windows, macOS, Linux). Uncheck to disable.</span>
+                    </div>
+                    <div class="control-group mt-lg">
+                        <label>Stream responses:</label>
+                        <input type="checkbox" id="stream-responses-enabled" onchange="saveStreamResponsesSetting()" checked>
+                        <span class="hint-text">Show the story as it is written instead of waiting for the whole turn. Turn off if your provider or local server has trouble with streaming.</span>
+                    </div>
+                    <div class="control-group mt-lg">
+                        <label>Show OpenRouter spend:</label>
+                        <input type="checkbox" id="show-usage-enabled" onchange="saveShowUsageSetting()" checked>
+                        <span class="hint-text">Show tokens and cost under each story turn and a running total in the game sidebar. Spend is recorded either way.</span>
+                    </div>
+                    <div class="control-group mt-lg">
+                        <label>OpenRouter spend on this computer:</label>
+                        <div class="usage-summary" id="usage-summary">
+                            <div><span>All time</span><strong id="usage-lifetime">—</strong></div>
+                            <div><span>This session</span><strong id="usage-session-total">—</strong></div>
+                        </div>
+                        <button type="button" class="btn btn-secondary btn-compact" onclick="resetUsageTotals()">Reset totals</button>
+                        <span class="hint-text">Counts every OpenRouter call Odyssey makes on this computer, including setup, images, speech, and embeddings. Per-save totals are shown in game and are not affected by resetting.</span>
                     </div>
                 </div>
 
@@ -694,7 +714,12 @@
                         </div>
                     </div>
                     <div class="control-group mt-md">
-                        <button onclick="testTts()" class="btn btn-compact">▶ Test Voice</button>
+                        <label>Auto-narrate new turns:</label>
+                        <input type="checkbox" id="tts-auto-play" onchange="saveTtsSettings()">
+                        <span class="hint-text">Read each new story turn aloud as soon as it arrives. Sending your next action stops the narration.</span>
+                    </div>
+                    <div class="control-group mt-md">
+                        <button onclick="testTts()" class="btn btn-compact"><span data-icon="play"></span><span class="icon-label">Test Voice</span></button>
                         <span id="tts-test-status" class="hint-text"></span>
                     </div>
                 </div>
@@ -766,7 +791,7 @@
                 <div class="prompts-grid">
                     <div class="prompt-card">
                         <div class="prompt-card-header">
-                            <span class="prompt-card-icon">🌍</span>
+                            <span class="prompt-card-icon"><span data-icon="globe"></span></span>
                             <span class="prompt-card-label">World Building Assistant</span>
                         </div>
                         <textarea id="prompt-world" rows="5"></textarea>
@@ -774,7 +799,7 @@
 
                     <div class="prompt-card">
                         <div class="prompt-card-header">
-                            <span class="prompt-card-icon">🧑‍🎤</span>
+                            <span class="prompt-card-icon"><span data-icon="user"></span></span>
                             <span class="prompt-card-label">Player Creation Assistant</span>
                         </div>
                         <textarea id="prompt-player" rows="5"></textarea>
@@ -782,7 +807,7 @@
 
                     <div class="prompt-card">
                         <div class="prompt-card-header">
-                            <span class="prompt-card-icon">🖼️</span>
+                            <span class="prompt-card-icon"><span data-icon="image"></span></span>
                             <span class="prompt-card-label">Image Generation Prompt</span>
                         </div>
                         <textarea id="prompt-image" rows="5"></textarea>
@@ -792,7 +817,7 @@
 
                     <div class="prompt-card">
                         <div class="prompt-card-header">
-                            <span class="prompt-card-icon">📜</span>
+                            <span class="prompt-card-icon"><span data-icon="scroll"></span></span>
                             <span class="prompt-card-label">Summary Generation</span>
                         </div>
                         <textarea id="prompt-summary" rows="5"></textarea>
@@ -800,7 +825,7 @@
 
                     <div class="prompt-card">
                         <div class="prompt-card-header">
-                            <span class="prompt-card-icon">🎯</span>
+                            <span class="prompt-card-icon"><span data-icon="target"></span></span>
                             <span class="prompt-card-label">Prompter Assistant</span>
                         </div>
                         <textarea id="prompt-prompter" rows="5"></textarea>
@@ -808,7 +833,7 @@
 
                     <div class="prompt-card">
                         <div class="prompt-card-header">
-                            <span class="prompt-card-icon">⚔️</span>
+                            <span class="prompt-card-icon"><span data-icon="sword"></span></span>
                             <span class="prompt-card-label">Game Master</span>
                         </div>
                         <textarea id="prompt-game" rows="5"></textarea>
@@ -876,6 +901,9 @@
             loadAppearanceSettings();
             loadMusicVolume();
             loadDesktopNotificationSetting();
+            loadStreamResponsesSetting();
+            loadUsageSettings();
+            if (window.OdysseyUsage) window.OdysseyUsage.onRecord(renderUsageTotals);
             loadDevToolsSettings();
             loadTtsSettings();
             loadSttSettings();
@@ -891,7 +919,8 @@
                 const backBtn = document.querySelector('.btn-top-right');
                 if (backBtn) {
                     backBtn.title = 'Back to Main Menu';
-                    backBtn.textContent = '🏠';
+                    backBtn.innerHTML = window.OdysseyIcons.html('home');
+                    backBtn.setAttribute('aria-label', 'Back to Main Menu');
                 }
             }
         });
@@ -1281,12 +1310,12 @@
             const statusEl = document.getElementById('test-connection-status');
             
             if (!apiKey && provider !== 'openai' && provider !== 'lmstudio') {
-                statusEl.innerHTML = "❌ Please enter an API key.";
+                window.OdysseyIcons.setStatus(statusEl, 'xCircle', "Please enter an API key.");
                 statusEl.style.color = "#dc3545";
                 return;
             }
 
-            statusEl.innerHTML = "⏳ Testing...";
+            window.OdysseyIcons.setStatus(statusEl, 'loader', "Testing...");
             statusEl.style.color = "var(--text-muted)";
 
             let testUrl = "";
@@ -1304,7 +1333,7 @@
                 testUrl = "https://generativelanguage.googleapis.com/v1beta/openai/models";
             } else if (provider === 'lmstudio' || provider === 'openai') {
                 if (!baseUrl) {
-                    statusEl.innerHTML = "❌ Please enter a Base URL.";
+                    window.OdysseyIcons.setStatus(statusEl, 'xCircle', "Please enter a Base URL.");
                     statusEl.style.color = "#dc3545";
                     return;
                 }
@@ -1358,11 +1387,11 @@
                     throw new Error(`HTTP ${response.status}` + (errorDetails ? ` - ${errorDetails}` : ''));
                 }
                 
-                statusEl.innerHTML = "✅ Connection successful!";
+                window.OdysseyIcons.setStatus(statusEl, 'checkCircle', "Connection successful!");
                 statusEl.style.color = "#28a745";
             } catch (error) {
                 console.error("Test connection error:", error);
-                statusEl.innerHTML = `❌ Connection failed: ${error.message}`;
+                window.OdysseyIcons.setStatus(statusEl, 'xCircle', `Connection failed: ${error.message}`);
                 statusEl.style.color = "#dc3545";
             }
         }
@@ -1472,12 +1501,12 @@
             const statusEl = document.getElementById('image-test-connection-status');
 
             if (!imgApiKey && imgProvider !== 'openai' && imgProvider !== 'lmstudio') {
-                statusEl.innerHTML = "❌ Please enter an Image API key.";
+                window.OdysseyIcons.setStatus(statusEl, 'xCircle', "Please enter an Image API key.");
                 statusEl.style.color = "#dc3545";
                 return;
             }
 
-            statusEl.innerHTML = "⏳ Testing...";
+            window.OdysseyIcons.setStatus(statusEl, 'loader', "Testing...");
             statusEl.style.color = "var(--text-muted)";
 
             let testUrl = "";
@@ -1495,7 +1524,7 @@
                 testUrl = "https://generativelanguage.googleapis.com/v1beta/openai/models";
             } else if (imgProvider === 'lmstudio' || imgProvider === 'openai') {
                 if (!imgBaseUrl) {
-                    statusEl.innerHTML = "❌ Please enter a Base URL.";
+                    window.OdysseyIcons.setStatus(statusEl, 'xCircle', "Please enter a Base URL.");
                     statusEl.style.color = "#dc3545";
                     return;
                 }
@@ -1509,10 +1538,10 @@
                     try { errorDetails = (await response.json()).error?.message || ''; } catch(e) {}
                     throw new Error(`HTTP ${response.status}` + (errorDetails ? ` - ${errorDetails}` : ''));
                 }
-                statusEl.innerHTML = "✅ Connection successful!";
+                window.OdysseyIcons.setStatus(statusEl, 'checkCircle', "Connection successful!");
                 statusEl.style.color = "#28a745";
             } catch (error) {
-                statusEl.innerHTML = `❌ Connection failed: ${error.message}`;
+                window.OdysseyIcons.setStatus(statusEl, 'xCircle', `Connection failed: ${error.message}`);
                 statusEl.style.color = "#dc3545";
             }
         }
@@ -2321,6 +2350,48 @@
             }
         }
 
+        function loadUsageSettings() {
+            const toggle = document.getElementById('show-usage-enabled');
+            if (toggle) toggle.checked = localStorage.getItem('jsonAdventure_showUsage') !== 'false';
+            renderUsageTotals();
+        }
+
+        function saveShowUsageSetting() {
+            const toggle = document.getElementById('show-usage-enabled');
+            if (toggle) localStorage.setItem('jsonAdventure_showUsage', toggle.checked ? 'true' : 'false');
+        }
+
+        function renderUsageTotals() {
+            const U = window.OdysseyUsage;
+            if (!U) return;
+            [['usage-lifetime', U.getLifetime()], ['usage-session-total', U.getSession()]].forEach(([id, totals]) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.textContent = `${U.formatCost(totals.cost)} · ${U.formatTokens(totals.promptTokens + totals.completionTokens)} tokens · ${totals.calls} calls`;
+                el.parentElement.title = U.describeTotals(totals);
+            });
+        }
+
+        async function resetUsageTotals() {
+            if (!window.OdysseyUsage) return;
+            const confirmed = window.Odyssey && typeof window.Odyssey.confirm === 'function'
+                ? await window.Odyssey.confirm('Reset the all-time and session OpenRouter spend totals? Per-save totals are kept.', { title: 'Reset Spend Totals', confirmText: 'Reset', danger: true })
+                : confirm('Reset the all-time and session OpenRouter spend totals?');
+            if (!confirmed) return;
+            window.OdysseyUsage.resetLifetime();
+            renderUsageTotals();
+        }
+
+        function loadStreamResponsesSetting() {
+            const el = document.getElementById('stream-responses-enabled');
+            if (el) el.checked = localStorage.getItem('jsonAdventure_streamResponses') !== 'false';
+        }
+
+        function saveStreamResponsesSetting() {
+            const el = document.getElementById('stream-responses-enabled');
+            if (el) localStorage.setItem('jsonAdventure_streamResponses', el.checked ? 'true' : 'false');
+        }
+
         function loadDesktopNotificationSetting() {
             const el = document.getElementById('desktop-notifications-enabled');
             if (!el) return;
@@ -2595,6 +2666,7 @@ Rely on the background JSON systems to handle stats, inventory, time, NPCs, and 
             const speed = localStorage.getItem('jsonAdventure_ttsSpeed') || '1.0';
             document.getElementById('tts-speed').value = speed;
             updateTtsSpeedLabel(speed);
+            document.getElementById('tts-auto-play').checked = localStorage.getItem('jsonAdventure_ttsAutoPlay') === 'true';
 
             try {
                 const saved = JSON.parse(localStorage.getItem('jsonAdventure_ttsVoiceMix') || '[]');
@@ -2620,6 +2692,7 @@ Rely on the background JSON systems to handle stats, inventory, time, NPCs, and 
             localStorage.setItem('jsonAdventure_ttsXaiVoice',    document.getElementById('tts-xai-voice').value);
             localStorage.setItem('jsonAdventure_ttsXaiLang',     document.getElementById('tts-xai-language').value);
             localStorage.setItem('jsonAdventure_ttsSpeed',       document.getElementById('tts-speed').value);
+            localStorage.setItem('jsonAdventure_ttsAutoPlay',    document.getElementById('tts-auto-play').checked ? 'true' : 'false');
             if (window.ttsVoiceMix) {
                 localStorage.setItem('jsonAdventure_ttsVoiceMix', JSON.stringify(window.ttsVoiceMix));
             }
@@ -2713,7 +2786,7 @@ Rely on the background JSON systems to handle stats, inventory, time, NPCs, and 
                 populateSttModelSelect(models, saved);
                 saveSttSettings();
                 if (statusEl) {
-                    statusEl.textContent = `✅ ${models.length} models loaded`;
+                    window.OdysseyIcons.setStatus(statusEl, 'checkCircle', `${models.length} models loaded`);
                     statusEl.style.color = '#28a745';
                 }
             } catch (err) {
@@ -2835,7 +2908,7 @@ Rely on the background JSON systems to handle stats, inventory, time, NPCs, and 
             const rawUrl = document.getElementById('tts-kokoro-url').value.trim() || 'http://127.0.0.1:8880';
             const base   = rawUrl.replace(/\/$/, '');
             const statusEl = document.getElementById('tts-voice-fetch-status');
-            statusEl.textContent = '⏳ Fetching...';
+            window.OdysseyIcons.setStatus(statusEl, 'loader', 'Fetching...');
             statusEl.style.color = 'var(--text-muted)';
             try {
                 const res = await fetch(`${base}/v1/audio/voices`);
@@ -2846,10 +2919,10 @@ Rely on the background JSON systems to handle stats, inventory, time, NPCs, and 
                 else if (Array.isArray(data.voices)) voices = data.voices;
                 ttsKokoroVoices = voices.map(v => (typeof v === 'string' ? v : (v.name || v.id || String(v)))).filter(Boolean);
                 if (ttsKokoroVoices.length === 0) throw new Error('Empty voice list');
-                statusEl.textContent = `✅ ${ttsKokoroVoices.length} voices loaded`;
+                window.OdysseyIcons.setStatus(statusEl, 'checkCircle', `${ttsKokoroVoices.length} voices loaded`);
                 statusEl.style.color = '#28a745';
             } catch(e) {
-                statusEl.textContent = '❌ Cannot reach server — using built-in list';
+                window.OdysseyIcons.setStatus(statusEl, 'xCircle', 'Cannot reach server — using built-in list');
                 statusEl.style.color = '#dc3545';
             }
         }
@@ -2973,15 +3046,15 @@ Rely on the background JSON systems to handle stats, inventory, time, NPCs, and 
 
         async function testTts() {
             const statusEl = document.getElementById('tts-test-status');
-            statusEl.textContent = '⏳ Generating...';
+            window.OdysseyIcons.setStatus(statusEl, 'loader', 'Generating...');
             statusEl.style.color = 'var(--text-muted)';
             saveTtsSettings();
             try {
                 await _ttsPlayText("Hello, this is a test of the text to speech system.");
-                statusEl.textContent = '✅ Playing!';
+                window.OdysseyIcons.setStatus(statusEl, 'checkCircle', 'Playing!');
                 statusEl.style.color = '#28a745';
             } catch(e) {
-                statusEl.textContent = '❌ ' + e.message;
+                window.OdysseyIcons.setStatus(statusEl, 'xCircle', e.message);
                 statusEl.style.color = '#dc3545';
             }
         }

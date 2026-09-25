@@ -90,3 +90,6 @@ src-tauri/icons/android/
 src-tauri/icons/ios/
 src-tauri/icons/64x64.png
 
+# VS Code local launch configs
+.vscode/launch.json
+

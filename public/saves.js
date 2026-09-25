@@ -22,6 +22,8 @@ async function saveCurrentGame() {
     } catch (e) { console.error("Auto-save failed:", e); }
 }
 
+let summarizationInFlight = false;
+
 async function summarizeOldMessages() {
     // We expect the system prompt at index 0 and then pairs of user/assistant messages.
     // Let's summarize when history exceeds 15 messages (1 system + 14 conversation messages).
@@ -29,10 +31,12 @@ async function summarizeOldMessages() {
     const threshold = 15;
     const numToSummarize = 6;
 
-    if (!window.chatHistory || window.chatHistory.length <= threshold) return;
+    if (summarizationInFlight || !window.chatHistory || window.chatHistory.length <= threshold) return;
 
     // Extract the messages to summarize (indices 1 to numToSummarize)
-    const messagesToSummarize = window.chatHistory.slice(1, numToSummarize + 1);
+    const historyAtStart = window.chatHistory;
+    const messagesToSummarize = historyAtStart.slice(1, numToSummarize + 1);
+    summarizationInFlight = true;
 
     // Format them for the AI
     const historyText = messagesToSummarize.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n\n');
@@ -87,6 +91,12 @@ Output ONLY the new merged narrative summary. Do not include introductory text l
             ).trim();
             if (!newSummary) throw new Error('The AI returned an empty summary.');
 
+            // A rewind, regenerate, or edit while this ran replaced or reshaped the history;
+            // splicing now would drop the wrong messages.
+            const unchanged = window.chatHistory === historyAtStart
+                && messagesToSummarize.every((message, i) => historyAtStart[i + 1] === message);
+            if (!unchanged) return;
+
             // Update the running game summary
             window.gameSummaryText = newSummary;
 
@@ -99,5 +109,7 @@ Output ONLY the new merged narrative summary. Do not include introductory text l
         }
     } catch (err) {
         console.error("Background summarization error:", err);
+    } finally {
+        summarizationInFlight = false;
     }
 }

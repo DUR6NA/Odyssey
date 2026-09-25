@@ -44,6 +44,7 @@ function errMsg(e) {
   }
 
   let baseDir = null;
+  let usageWriteQueue = Promise.resolve();
 
   async function getBaseDir() {
     if (!baseDir) {
@@ -533,6 +534,102 @@ function errMsg(e) {
       }
     },
 
+    // usage.json holds a save's cumulative API spend. It is never rewound (the money is spent),
+    // and it is re-read before each write so spend recorded by the CLI/Telegram is kept.
+    async addUsage(id, delta) {
+      const run = async () => {
+        const base = await getBaseDir();
+        const gameDir = await path.join(base, 'games', String(id));
+        if (!(await fs.exists(gameDir))) return { success: false, error: 'Game save not found' };
+        const filePath = await path.join(gameDir, 'usage.json');
+        let usage = { version: 1, totals: {} };
+        if (await fs.exists(filePath)) {
+          try { usage = JSON.parse(await fs.readTextFile(filePath)); } catch (e) {}
+        }
+        const totals = usage.totals || {};
+        for (const [field, value] of Object.entries(delta || {})) {
+          totals[field] = (Number(totals[field]) || 0) + (Number(value) || 0);
+        }
+        const next = { version: 1, totals, updatedAt: new Date().toISOString() };
+        await fs.writeTextFile(filePath, JSON.stringify(next, null, 2));
+        return { success: true, usage: next };
+      };
+      usageWriteQueue = usageWriteQueue.then(run, run);
+      try {
+        return await usageWriteQueue;
+      } catch (e) {
+        console.error('addUsage error:', e);
+        return { success: false, error: errMsg(e) };
+      }
+    },
+
+    // Same turn_snapshots.json format as tools/odyssey-core.mjs (CLI/Telegram).
+    async loadTurnSnapshots(id) {
+      try {
+        const base = await getBaseDir();
+        const filePath = await path.join(base, 'games', String(id), 'turn_snapshots.json');
+        if (!(await fs.exists(filePath))) return [];
+        const data = JSON.parse(await fs.readTextFile(filePath));
+        return Array.isArray(data?.snapshots) ? data.snapshots : [];
+      } catch (e) {
+        console.error('loadTurnSnapshots error:', e);
+        return [];
+      }
+    },
+
+    async saveTurnSnapshots(id, snapshots) {
+      try {
+        const base = await getBaseDir();
+        const gameDir = await path.join(base, 'games', String(id));
+        await ensureDir(gameDir);
+        await fs.writeTextFile(await path.join(gameDir, 'turn_snapshots.json'), JSON.stringify({ version: 1, snapshots: snapshots || [] }));
+        return { success: true };
+      } catch (e) {
+        console.error('saveTurnSnapshots error:', e);
+        return { success: false, error: errMsg(e) };
+      }
+    },
+
+    // Copies a save into a new folder and replaces its story state with `state`
+    // ({ gameState, playerInfo, summary, chatHistory }). The vector store is left out so the
+    // branch rebuilds its memory from its own state instead of inheriting the source's future,
+    // and usage.json is left out so the branch counts its own spend.
+    async createBranchGame(sourceId, state, snapshots) {
+      try {
+        const source = await this.loadGame(sourceId);
+        if (!source || Object.keys(source).length === 0) return { success: false, error: 'Source save not found' };
+
+        const base = await getBaseDir();
+        const gamesDir = await path.join(base, 'games');
+        const sourceName = source['scenario.json']?.saveName || String(sourceId);
+        const folderName = await getUniqueGameFolderName(gamesDir, `${sourceName.slice(0, 40)} branch`);
+        const newGameDir = await path.join(gamesDir, folderName);
+        await fs.mkdir(newGameDir);
+
+        const gameState = state?.gameState || {};
+        const files = {
+          ...source,
+          'gamestate.json': gameState,
+          'player.json': state?.playerInfo || source['player.json'] || { player: {} },
+          'chat_history.json': state?.chatHistory || [],
+          'npc-ledger.json': { npcs: gameState.npcs || [] },
+          'locationsledger.json': { locations: gameState.locations || [] },
+          'scenario.json': { ...(source['scenario.json'] || {}), summary: state?.summary || '', saveName: folderName },
+          'turn_snapshots.json': { version: 1, snapshots: snapshots || [] }
+        };
+        delete files['vector_store.json'];
+        delete files['usage.json'];
+
+        for (const [filename, fileData] of Object.entries(files)) {
+          await fs.writeTextFile(await path.join(newGameDir, filename), JSON.stringify(fileData, null, 2));
+        }
+        return { success: true, folder: folderName };
+      } catch (e) {
+        console.error('createBranchGame error:', e);
+        return { success: false, error: errMsg(e) };
+      }
+    },
+
     async downloadImage(id, url) {
       try {
         const base = await getBaseDir();
@@ -671,7 +768,7 @@ function errMsg(e) {
 
   // Synchronous init — resolve immediately.
   window.tauriBridgeReady = Promise.resolve(window.tauriBridge);
-  console.log('✅ Tauri Bridge ready - window.tauriBridge available');
+  console.log('Tauri Bridge ready - window.tauriBridge available');
 }());
 
 /**

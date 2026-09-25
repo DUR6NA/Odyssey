@@ -6,11 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Odyssey - Main Menu</title>
     <meta name="application-name" content="Odyssey">
-    <meta name="description" content="Odyssey v0.7.0 - AI-driven text adventure desktop game with retrieval-enhanced lore and memory.">
+    <meta name="description" content="Odyssey v0.8.0 - AI-driven text adventure desktop game with retrieval-enhanced lore and memory.">
     <meta name="theme-color" content="#121212">
-    <meta name="odyssey-version" content="0.7.0">
-    <meta name="odyssey-bundle-version" content="0.7.0">
-    <meta property="og:title" content="Odyssey v0.7.0">
+    <meta name="odyssey-version" content="0.8.0">
+    <meta name="odyssey-bundle-version" content="0.8.0">
+    <meta property="og:title" content="Odyssey v0.8.0">
     <meta property="og:description" content="AI-driven text adventure desktop game with retrieval-enhanced lore and memory.">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary">
@@ -20,7 +20,7 @@
     <script src="tauri-bridge.js"></script>
     <script src="titlebar.js"></script>
     <script src="ui-components.js"></script>
-    <script src="theme-icons.js"></script>
+    <script src="theme-icons.js?v=2"></script>
     <script src="menu-music.js"></script>
     <script>
         function startNewGame() {
@@ -76,7 +76,8 @@
                     const dlBtn = document.createElement('button');
                     dlBtn.className = 'menu-btn save-btn';
                     dlBtn.style.fontSize = '1.2rem';
-                    dlBtn.textContent = '📥';
+                    dlBtn.innerHTML = window.OdysseyIcons.html('download');
+                    dlBtn.setAttribute('aria-label', 'Export Save');
                     dlBtn.title = 'Export Save';
                     dlBtn.onclick = async (e) => {
                         e.stopPropagation();
@@ -95,7 +96,8 @@
                     delBtn.className = 'menu-btn save-btn';
                     delBtn.style.fontSize = '1.2rem';
                     delBtn.style.color = 'var(--color-danger, #ef4444)';
-                    delBtn.textContent = '🗑️';
+                    delBtn.innerHTML = window.OdysseyIcons.html('trash');
+                    delBtn.setAttribute('aria-label', 'Delete Save');
                     delBtn.title = 'Delete Save';
                     delBtn.onclick = async (e) => {
                         e.stopPropagation();
@@ -579,7 +581,7 @@
             <div id="save-list" class="save-list"></div>
             <div style="width: 100%; border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.1)); padding-top: var(--space-md, 15px); margin-top: var(--space-sm, 10px); display: flex; justify-content: space-between; align-items: center;">
                 <div style="display: flex; gap: 14px; align-items: center; flex-wrap: wrap;">
-                    <button class="menu-btn back-btn" onclick="triggerImport()" style="opacity: 0.8; font-size: 1rem;">📥 Import Save</button>
+                    <button class="menu-btn back-btn" onclick="triggerImport()" style="opacity: 0.8; font-size: 1rem;"><span data-icon="upload"></span><span class="icon-label">Import Save</span></button>
                     <button class="menu-btn back-btn" onclick="browseLocalSaveFolder()" style="opacity: 0.8; font-size: 0.9rem;">Browse Local Folder</button>
                 </div>
                 <button class="menu-btn back-btn" onclick="hideLoadMenu()">Back</button>

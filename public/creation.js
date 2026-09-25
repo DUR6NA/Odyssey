@@ -185,6 +185,8 @@ function getActivePlayerFields() {
 // ENTRY POINT
 // ============================================================
 async function initSetupMode() {
+    // Collects the wizard's API spend until the save exists (see attachSetupUsageToSave).
+    window.setupUsageScope = window.OdysseyUsage ? window.OdysseyUsage.beginScope('setup') : null;
     const welcomeScreen = document.getElementById('welcome-screen');
     if (welcomeScreen) welcomeScreen.classList.add('hidden');
 
@@ -237,7 +239,7 @@ function renderWorldTypeChoice() {
     const realCard = document.createElement('div');
     realCard.className = 'world-choice-card';
     realCard.innerHTML = `
-        <div class="world-choice-icon">🌍</div>
+        <div class="world-choice-icon">${window.OdysseyIcons.html('globe')}</div>
         <h3>Real Universe</h3>
         <p>Set your adventure in the real world. Choose a start date and define the tone of your story.</p>
     `;
@@ -248,7 +250,7 @@ function renderWorldTypeChoice() {
     const customCard = document.createElement('div');
     customCard.className = 'world-choice-card';
     customCard.innerHTML = `
-        <div class="world-choice-icon">✨</div>
+        <div class="world-choice-icon">${window.OdysseyIcons.html('ai')}</div>
         <h3>Custom Universe</h3>
         <p>Build your own world from scratch with custom settings, magic systems, factions, and more.</p>
     `;
@@ -344,7 +346,7 @@ function renderFieldStep(fields, step, phase, phaseLabel) {
     const createDiceBtn = () => {
         const diceBtn = document.createElement('button');
         diceBtn.className = 'btn-dice';
-        diceBtn.innerHTML = '🎲';
+        diceBtn.innerHTML = window.OdysseyIcons.html('dice');
         diceBtn.title = 'Auto-generate with AI';
         diceBtn.onclick = () => autoGenerateForField(field, phase);
         return diceBtn;
@@ -504,7 +506,7 @@ function renderFieldStep(fields, step, phase, phaseLabel) {
         // "Define it myself" toggle
         const defineToggle = document.createElement('button');
         defineToggle.className = 'btn btn-secondary attribute-define-toggle';
-        defineToggle.textContent = '✍️ Define it myself';
+        window.OdysseyIcons.setButton(defineToggle, 'pen', 'Define it myself');
 
         const customWrap = document.createElement('div');
         customWrap.className = 'attribute-custom-wrap hidden';
@@ -521,19 +523,19 @@ function renderFieldStep(fields, step, phase, phaseLabel) {
         if (isCustomMode) {
             container.classList.add('hidden');
             customWrap.classList.remove('hidden');
-            defineToggle.textContent = '📊 Use the slider instead';
+            window.OdysseyIcons.setButton(defineToggle, 'sliders', 'Use the slider instead');
         }
         defineToggle.onclick = () => {
             isCustomMode = !isCustomMode;
             if (isCustomMode) {
                 container.classList.add('hidden');
                 customWrap.classList.remove('hidden');
-                defineToggle.textContent = '📊 Use the slider instead';
+                window.OdysseyIcons.setButton(defineToggle, 'sliders', 'Use the slider instead');
                 customTextarea.focus();
             } else {
                 container.classList.remove('hidden');
                 customWrap.classList.add('hidden');
-                defineToggle.textContent = '✍️ Define it myself';
+                window.OdysseyIcons.setButton(defineToggle, 'pen', 'Define it myself');
             }
         };
 
@@ -753,7 +755,7 @@ function renderFieldStep(fields, step, phase, phaseLabel) {
         const btnGen = document.createElement('button');
         btnGen.className = 'btn btn-ai';
         btnGen.id = 'btn-generate-ai';
-        btnGen.textContent = '✨ Refine with AI';
+        window.OdysseyIcons.setButton(btnGen, 'ai', 'Refine with AI');
         btnGen.onclick = () => processWithAI(textarea.value, field, phase);
         
         const btnNext = document.createElement('button');
@@ -779,7 +781,7 @@ function renderFieldStep(fields, step, phase, phaseLabel) {
 
     const resultTextLabel = document.createElement('p');
     resultTextLabel.id = 'ai-result-label';
-    resultTextLabel.innerHTML = '<strong>✨ AI Result:</strong>';
+    resultTextLabel.innerHTML = `<strong>${window.OdysseyIcons.html('ai')} AI Result:</strong>`;
     resultContainer.appendChild(resultTextLabel);
 
     const resultDisplay = document.createElement('div');
@@ -792,12 +794,12 @@ function renderFieldStep(fields, step, phase, phaseLabel) {
 
     const btnApprove = document.createElement('button');
     btnApprove.className = 'btn btn-success';
-    btnApprove.textContent = '✓ Approve & Continue';
+    window.OdysseyIcons.setButton(btnApprove, 'check', 'Approve & Continue');
     btnApprove.onclick = () => saveFieldAndNext(aiProcessedResult, phase);
 
     const btnRegenerate = document.createElement('button');
     btnRegenerate.className = 'btn btn-warning';
-    btnRegenerate.textContent = '🔄 Regenerate';
+    window.OdysseyIcons.setButton(btnRegenerate, 'refresh', 'Regenerate');
     btnRegenerate.onclick = () => {
         const inp = document.getElementById('setup-field-input');
         if (inp && inp.value && field.type === 'ai') {
@@ -809,7 +811,7 @@ function renderFieldStep(fields, step, phase, phaseLabel) {
 
     const btnEdit = document.createElement('button');
     btnEdit.className = 'btn btn-secondary';
-    btnEdit.textContent = '✏️ Edit / Retry';
+    window.OdysseyIcons.setButton(btnEdit, 'edit', 'Edit / Retry');
     btnEdit.onclick = () => {
         resultContainer.classList.add('hidden');
         const inp = document.getElementById('setup-field-input');
@@ -829,7 +831,7 @@ function renderFieldStep(fields, step, phase, phaseLabel) {
     if (step > 0 || phase !== 'world') {
         const backBtn = document.createElement('button');
         backBtn.className = 'btn btn-secondary setup-back-btn';
-        backBtn.textContent = '← Back';
+        window.OdysseyIcons.setButton(backBtn, 'arrowLeft', 'Back');
         backBtn.onclick = () => goBack(phase);
         inputWrap.appendChild(backBtn);
     }
@@ -909,8 +911,8 @@ The value of "result" must be ${expectedFormatStr}.`;
         const resultContainer = document.getElementById('ai-result-block');
         const resultDisplay = document.getElementById('ai-result-display');
         const resultLabel = document.getElementById('ai-result-label');
-        if (resultLabel) resultLabel.innerHTML = '<strong>🎲 Generating...</strong>';
-        if (resultDisplay) resultDisplay.textContent = '⏳ Thinking...';
+        if (resultLabel) resultLabel.innerHTML = `<strong>${window.OdysseyIcons.html('loader')} Generating...</strong>`;
+        if (resultDisplay) resultDisplay.textContent = 'Thinking...';
         if (resultContainer) resultContainer.classList.remove('hidden');
 
         let fetchUrl = "https://openrouter.ai/api/v1/chat/completions";
@@ -963,7 +965,7 @@ The value of "result" must be ${expectedFormatStr}.`;
         }
 
         // Display
-        if (resultLabel) resultLabel.innerHTML = '<strong>🎲 Auto-Generated:</strong>';
+        if (resultLabel) resultLabel.innerHTML = `<strong>${window.OdysseyIcons.html('dice')} Auto-Generated:</strong>`;
         resultDisplay.innerHTML = '';
         if (Array.isArray(aiProcessedResult)) {
             const ul = document.createElement('ul'); ul.style.textAlign = 'left';
@@ -979,7 +981,7 @@ The value of "result" must be ${expectedFormatStr}.`;
         console.error('Auto-generate error:', err);
         const resultDisplay = document.getElementById('ai-result-display');
         const resultLabel = document.getElementById('ai-result-label');
-        if (resultLabel) resultLabel.innerHTML = '<strong>❌ Error</strong>';
+        if (resultLabel) resultLabel.innerHTML = `<strong class="status-error">${window.OdysseyIcons.html('xCircle')} Error</strong>`;
         if (resultDisplay) resultDisplay.textContent = err.message;
     }
 }
@@ -1126,7 +1128,8 @@ function createPhaseIndicator(activePhaseStr) {
 
         const circle = document.createElement('div');
         circle.className = 'phase-circle';
-        circle.textContent = isCompleted ? '✓' : stepNum;
+        if (isCompleted) circle.innerHTML = window.OdysseyIcons.html('check');
+        else circle.textContent = stepNum;
 
         const text = document.createElement('span');
         text.className = 'phase-label';
@@ -1172,7 +1175,7 @@ async function processWithAI(userInputValue, fieldInfo, phase) {
     }
 
     const btn = document.getElementById('btn-generate-ai');
-    btn.textContent = '⏳ Processing...';
+    window.OdysseyIcons.setButton(btn, 'loader', 'Processing...');
     btn.disabled = true;
 
     // Build context from all previously filled fields
@@ -1279,7 +1282,7 @@ The JSON object must have exactly one key named "result", and its value must be 
         console.error('AI Generation error:', err);
         alert('Failed to process with AI: ' + err.message);
     } finally {
-        btn.textContent = '✨ Refine with AI';
+        window.OdysseyIcons.setButton(btn, 'ai', 'Refine with AI');
         btn.disabled = false;
     }
 }
@@ -1324,7 +1327,7 @@ function renderScenarioStep() {
 
     const submitBtn = document.createElement('button');
     submitBtn.className = 'btn btn-success';
-    submitBtn.textContent = '🚀 Next Step';
+    window.OdysseyIcons.setButton(submitBtn, 'arrowRight', 'Next Step', { trailing: true });
     submitBtn.onclick = () => {
         const val = textarea.value.trim();
         if (!val) {
@@ -1343,7 +1346,7 @@ function renderScenarioStep() {
 
     const backBtn = document.createElement('button');
     backBtn.className = 'btn btn-secondary';
-    backBtn.textContent = '← Back';
+    window.OdysseyIcons.setButton(backBtn, 'arrowLeft', 'Back');
     backBtn.onclick = () => {
         currentPhase = 'player';
         currentStep = playerSetupFields.length - 1;
@@ -1440,7 +1443,7 @@ function showPlayerImageConfirmation(imgUrl, textPrompt) {
 
     const confirmBtn = document.createElement('button');
     confirmBtn.className = 'btn btn-success';
-    confirmBtn.textContent = '✓ Confirm & Continue';
+    window.OdysseyIcons.setButton(confirmBtn, 'check', 'Confirm & Continue');
     confirmBtn.onclick = () => {
         playerImageBaseURL = imgUrl;
         generateSummary();
@@ -1448,7 +1451,7 @@ function showPlayerImageConfirmation(imgUrl, textPrompt) {
 
     const regenBtn = document.createElement('button');
     regenBtn.className = 'btn btn-warning';
-    regenBtn.textContent = '🔄 Regenerate (Edit Prompt)';
+    window.OdysseyIcons.setButton(regenBtn, 'refresh', 'Regenerate (Edit Prompt)');
     regenBtn.onclick = async () => {
         setupContent.innerHTML = '<div class="loading-spinner"></div><p style="text-align:center;">Regenerating...</p>';
         try {
@@ -1462,7 +1465,7 @@ function showPlayerImageConfirmation(imgUrl, textPrompt) {
 
     const backBtn = document.createElement('button');
     backBtn.className = 'btn btn-secondary';
-    backBtn.textContent = '← Back';
+    window.OdysseyIcons.setButton(backBtn, 'arrowLeft', 'Back');
     backBtn.onclick = () => {
         currentPhase = 'scenario';
         renderScenarioStep();
@@ -1617,12 +1620,12 @@ function displaySummary(summaryText) {
 
     const confirmBtn = document.createElement('button');
     confirmBtn.className = 'btn btn-success btn-large';
-    confirmBtn.textContent = '⚔️ Begin Adventure';
+    window.OdysseyIcons.setButton(confirmBtn, 'sword', 'Begin Adventure');
     confirmBtn.onclick = () => finishSetup(summaryText);
 
     const redoBtn = document.createElement('button');
     redoBtn.className = 'btn btn-warning';
-    redoBtn.textContent = '🔄 Redo Starting Scenario';
+    window.OdysseyIcons.setButton(redoBtn, 'refresh', 'Redo Starting Scenario');
     redoBtn.onclick = () => {
         currentPhase = 'scenario';
         renderScenarioStep();
@@ -1883,6 +1886,7 @@ async function finishSetup(summaryText) {
             currentGameFolder = saveResult.folder;
         }
         payload.saveName = currentGameFolder || generatedSaveName;
+        await attachSetupUsageToSave(currentGameFolder);
 
         // Download and save the base player image locally (xAI URLs expire)
         if (playerImageBaseURL && window.tauriBridge) {
@@ -1969,6 +1973,7 @@ async function launchGame(summaryText, allData) {
     window.chatHistory = [
         { role: 'system', content: gamePrompt }
     ];
+    const openingSnapshot = createDesktopTurnSnapshot('Opening scene', 'opening');
     const baseUrl = localStorage.getItem('jsonAdventure_apiBaseUrl') || '';
     const apiKey = localStorage.getItem('jsonAdventure_openRouterApiKey');
     const model = localStorage.getItem('jsonAdventure_openRouterModel') || 'openai/gpt-3.5-turbo';
@@ -1980,7 +1985,7 @@ async function launchGame(summaryText, allData) {
     const freqPen = parseFloat(localStorage.getItem('jsonAdventure_apiFrequencyPenalty')) || 0.0;
 
     // Show a loading message
-    const loadingMsg = createChatMessage('ai', '⏳ The adventure is loading...');
+    const loadingMsg = createGenerationLoader('Setting the stage...');
     chatMessages.appendChild(loadingMsg);
 
     try {
@@ -2016,19 +2021,23 @@ async function launchGame(summaryText, allData) {
         const aiText = JSON.stringify(aiJson);
 
         // Store in chat history
-        window.chatHistory.push({ role: 'user', content: `Begin the adventure. Here is the opening scenario:\n\n${startingScenario}` });
+        window.chatHistory.push({ role: 'user', content: `Begin the adventure. Here is the opening scenario:\n\n${startingScenario}`, turnId: openingSnapshot.id });
         window.chatHistory.push({ role: 'assistant', content: aiText });
 
         // Display the AI's opening
+        removeGenerationLoader(loadingMsg);
         chatMessages.innerHTML = '';
         const displayText = processGameTurnJson(aiText);
         const aiMsg = createChatMessage('ai', displayText);
         chatMessages.appendChild(aiMsg);
+        refreshChatMessageControls();
+        await appendDesktopTurnSnapshot(openingSnapshot);
 
     } catch (err) {
         console.error('Game launch error:', err);
+        removeGenerationLoader(loadingMsg);
         chatMessages.innerHTML = '';
-        const errorMsg = createChatMessage('ai', `⚠️ Failed to start the adventure: ${err.message}\n\nPlease check your API key in Settings and try again.`);
+        const errorMsg = createChatMessage('ai', `${window.OdysseyIcons.html('warning')} Failed to start the adventure: ${err.message}\n\nPlease check your API key in Settings and try again.`, { isError: true });
         chatMessages.appendChild(errorMsg);
     }
 
